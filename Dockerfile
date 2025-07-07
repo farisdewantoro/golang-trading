@@ -23,5 +23,8 @@ WORKDIR /app
 
 COPY --from=builder /app/app .
 
+# Copy configuration files (optional, can be mounted via volume)
+COPY config.example.yaml /app/config.yaml
+
 ENTRYPOINT ["/app/app"]
 CMD ["start"]
