@@ -1,0 +1,46 @@
+logger:
+  level: "debug"
+  encoding: "json"
+
+database:
+  host: "localhost"
+  port: 5434
+  user: "postgres"
+  password: "password"
+  name: "golang-trading"
+  ssl_mode: "disable"
+  time_zone: "Asia/Jakarta"
+  max_idle_conns: 10
+  max_open_conns: 100
+  conn_max_lifetime: "1h"
+  log_level: "info"
+
+api:
+  port: 8080
+
+scheduler:
+  max_concurrency: 10
+
+tradingview:
+  base_url_scanner: "https://scanner.tradingview.com"
+  base_timeout: "30s"
+  max_request_per_min: 60
+
+cache:
+  default_expiration: "5m"
+  cleanup_interval: "10m"
+
+telegram:
+  bot_token: "token"
+  chat_id: "id"
+  webhook_url: "url"
+  timeout_duration: "20s"
+  timeout_buy_list_duration: "10m"
+  max_global_request_per_second: 30
+  max_user_request_per_second: 1
+  max_edit_message_per_second: 1
+  ratelimit_expire_duration: "5m"
+  rate_limit_cleanup_duration: "10s"
+  feature_news_max_age_in_days: 3
+  feature_news_limit_stock_news: 5
+  max_show_history_analysis: 5
