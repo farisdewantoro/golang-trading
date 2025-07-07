@@ -83,6 +83,13 @@ func Load() (*Config, error) {
 		fmt.Println("No config file loaded:", err)
 	}
 
+	fmt.Println("Viper settings for environment variables:")
+	for _, key := range viper.AllKeys() {
+		if viper.IsSet(key) {
+			fmt.Printf("  Key: %s, Value: %v\n", key, viper.Get(key))
+		}
+	}
+
 	var cfg Config
 	if err := viper.Unmarshal(&cfg); err != nil {
 		return nil, err
