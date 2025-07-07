@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"os"
 	"strings"
 	"time"
 
@@ -84,6 +85,22 @@ func Load() (*Config, error) {
 	}
 
 	fmt.Println("Viper settings for environment variables:")
+
+	envVarsToCheck := []string{
+		"LOGGER_LEVEL",
+		"DATABASE_HOST",
+		"DATABASE_PORT",
+		"TELEGRAM_BOT_TOKEN", // Check a sensitive one too
+	}
+	for _, ev := range envVarsToCheck {
+		val, exists := os.LookupEnv(ev)
+		if exists {
+			fmt.Printf("  os.LookupEnv - %s: %s\n", ev, val)
+		} else {
+			fmt.Printf("  os.LookupEnv - %s: NOT FOUND\n", ev)
+		}
+	}
+
 	for _, key := range viper.AllKeys() {
 		if viper.IsSet(key) {
 			fmt.Printf("  Key: %s, Value: %v\n", key, viper.Get(key))
