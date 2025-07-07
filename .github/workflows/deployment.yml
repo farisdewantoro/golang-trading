@@ -3,14 +3,12 @@ name: Build & Deploy
 on:
   push:
     tags:
-      - 'release-v*'
+      - 'release-v*' # Memicu saat ada tag seperti 'release-v1.0.0'
 
 jobs:
   build-and-push:
     name: Build and Push Docker Image
     runs-on: ubuntu-latest
-    outputs:
-      image-tag: ${{ steps.meta.outputs.tags }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -24,7 +22,8 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Extract metadata
+      # Step ini membuat 2 tag: satu sesuai versi rilis (cth: release-v1.0.0) dan satu lagi 'latest'
+      - name: Extract metadata for Docker
         id: meta
         uses: docker/metadata-action@v5
         with:
@@ -33,6 +32,7 @@ jobs:
             type=raw,value=${{ github.ref_name }}
             type=raw,value=latest
 
+      # Push image dengan kedua tag (versi spesifik dan latest)
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
         with:
@@ -45,19 +45,30 @@ jobs:
   deploy:
     name: Deploy to Google Cloud Run
     runs-on: ubuntu-latest
-    needs: build-and-push
-    steps:
-      - name: Set up Google Cloud SDK
-        uses: google-github-actions/setup-gcloud@v2
-        with:
-          project_id: ${{ secrets.GCLOUD_PROJECT }}
-          service_account_key: ${{ secrets.GCLOUD_SA_KEY }}
-          export_default_credentials: true
+    needs: build-and-push # Bergantung pada job build-and-push selesai
+    
+    # Izin yang diperlukan untuk otentikasi aman ke GCP
+    permissions:
+      contents: 'read'
+      id-token: 'write'
 
+    steps:
+      # Otentikasi aman menggunakan Workload Identity Federation
+      - name: Authenticate to Google Cloud
+        uses: 'google-github-actions/auth@v2'
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+      
+      # Setup gcloud CLI setelah otentikasi berhasil
+      - name: Set up Google Cloud SDK
+        uses: 'google-github-actions/setup-gcloud@v2'
+
+      # Deploy menggunakan tag versi spesifik dari rilis, bukan 'latest'
       - name: Deploy to Cloud Run
         run: |
           gcloud run deploy ${{ secrets.CLOUD_RUN_SERVICE }} \
-            --image=docker.io/${{ secrets.DOCKER_USERNAME }}/golang-trading:latest \
+            --image=docker.io/${{ secrets.DOCKERHUB_USERNAME }}/golang-trading:${{ github.ref_name }} \
             --platform=managed \
             --region=${{ secrets.CLOUD_RUN_REGION }} \
             --allow-unauthenticated
