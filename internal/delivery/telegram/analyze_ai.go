@@ -85,7 +85,7 @@ func (t *TelegramBotHandler) showAnalysisAI(ctx context.Context, c telebot.Conte
 	sb.WriteString(fmt.Sprintf("<i>⏰ %s</i>\n", utils.PrettyDate(analysis.Timestamp)))
 	sb.WriteString("\n")
 
-	sb.WriteString(fmt.Sprintf("<b>💰 Harga: %d</b>", int(marketPrice)))
+	sb.WriteString(fmt.Sprintf("<b>💰 Harga: %d</b>\n", int(marketPrice)))
 	sb.WriteString(fmt.Sprintf("<b>🎯 TP:</b> %d (%s)\n", int(analysis.TargetPrice), utils.FormatChange(float64(marketPrice), float64(analysis.TargetPrice))))
 	sb.WriteString(fmt.Sprintf("<b>🛡 SL:</b> %d (%s)\n", int(analysis.StopLoss), utils.FormatChange(float64(marketPrice), float64(analysis.StopLoss))))
 	sb.WriteString(fmt.Sprintf("<b>📊 Score:</b> %d | <b>🤖 Confidence:</b> %d\n", int(analysis.TechnicalScore), int(analysis.Confidence)))
