@@ -55,7 +55,8 @@ func (t *taskExecutor) Execute(ctx context.Context, taskHistory *model.TaskExecu
 		} else {
 			taskHistory.Status = model.StatusCompleted
 		}
-		taskHistory.Output = sql.NullString{String: result, Valid: true}
+		taskHistory.ExitCode = sql.NullInt32{Int32: result.ExitCode, Valid: true}
+		taskHistory.Output = sql.NullString{String: result.Output, Valid: true}
 	}
 
 	taskHistory.CompletedAt = sql.NullTime{Time: utils.TimeNowWIB(), Valid: true}

@@ -32,7 +32,7 @@ func GetNowWithOnlyHour() time.Time {
 }
 
 func PrettyDate(date time.Time) string {
-	return fmt.Sprintf("🗓️ %02d %s %d - %02d:%02d WIB",
+	return fmt.Sprintf("%02d %s %d - %02d:%02d WIB",
 		date.Day(),
 		GetIndonesianMonth(date.Month()),
 		date.Year(),

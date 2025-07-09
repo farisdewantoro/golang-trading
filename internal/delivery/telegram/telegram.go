@@ -4,9 +4,11 @@ import (
 	"context"
 	"golang-trading/config"
 	"golang-trading/internal/service"
+	"golang-trading/pkg/cache"
 	"golang-trading/pkg/httpclient"
 	"golang-trading/pkg/logger"
 	"golang-trading/pkg/telegram"
+	"sync"
 	"time"
 
 	goValidator "github.com/go-playground/validator/v10"
@@ -15,15 +17,17 @@ import (
 )
 
 type TelegramBotHandler struct {
-	ctx        context.Context
-	cfg        *config.Config
-	bot        *telebot.Bot
-	log        *logger.Logger
-	telegram   *telegram.TelegramRateLimiter
-	echo       *echo.Echo
-	validator  *goValidator.Validate
-	service    *service.Service
-	httpClient httpclient.HTTPClient
+	mu            sync.Mutex
+	ctx           context.Context
+	cfg           *config.Config
+	bot           *telebot.Bot
+	log           *logger.Logger
+	telegram      *telegram.TelegramRateLimiter
+	echo          *echo.Echo
+	validator     *goValidator.Validate
+	service       *service.Service
+	httpClient    httpclient.HTTPClient
+	inmemoryCache cache.Cache
 }
 
 func NewTelegramBotHandler(
@@ -34,17 +38,20 @@ func NewTelegramBotHandler(
 	telegram *telegram.TelegramRateLimiter,
 	echo *echo.Echo,
 	validator *goValidator.Validate,
-	service *service.Service) *TelegramBotHandler {
+	service *service.Service,
+	inmemoryCache cache.Cache) *TelegramBotHandler {
 	return &TelegramBotHandler{
-		ctx:        ctx,
-		cfg:        cfg,
-		log:        log,
-		bot:        bot,
-		telegram:   telegram,
-		echo:       echo,
-		validator:  validator,
-		service:    service,
-		httpClient: httpclient.New(cfg.Telegram.WebhookURL, cfg.Telegram.TimeoutDuration, ""),
+		ctx:           ctx,
+		mu:            sync.Mutex{},
+		cfg:           cfg,
+		log:           log,
+		bot:           bot,
+		telegram:      telegram,
+		echo:          echo,
+		validator:     validator,
+		service:       service,
+		httpClient:    httpclient.New(log, cfg.Telegram.WebhookURL, cfg.Telegram.TimeoutDuration, ""),
+		inmemoryCache: inmemoryCache,
 	}
 }
 

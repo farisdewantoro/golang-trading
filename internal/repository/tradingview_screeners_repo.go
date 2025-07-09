@@ -5,47 +5,37 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"time"
 
 	"golang-trading/config"
 	"golang-trading/internal/dto"
 	"golang-trading/pkg/httpclient"
 	"golang-trading/pkg/logger"
+
+	"golang.org/x/time/rate"
 )
 
-const (
-	Interval1Min   string = "1"   // 1 minute
-	Interval5Min   string = "5"   // 5 minutes
-	Interval15Min  string = "15"  // 15 minutes
-	Interval30Min  string = "30"  // 30 minutes
-	Interval1Hour  string = "60"  // 1 hour
-	Interval2Hour  string = "120" // 2 hours
-	Interval4Hour  string = "240" // 4 hours
-	Interval1Day   string = "1D"  // 1 day
-	Interval1Week  string = "1W"  // 1 week
-	Interval1Month string = "1M"  // 1 month
-
-	SignalStrongBuy  int = 2  // STRONG_BUY
-	SignalBuy        int = 1  // BUY
-	SignalNeutral    int = 0  // NEUTRAL
-	SignalSell       int = -1 // SELL
-	SignalStrongSell int = -2 // STRONG_SELL
-)
-
-type TradingViewScannerRepository interface {
+type TradingViewScreenersRepository interface {
 	Get(ctx context.Context, symbol string, interval string) (*dto.TradingViewScanner, error)
+	GetBuyList(ctx context.Context, payload map[string]interface{}) ([]dto.StockInfo, error)
 }
 
-type tradingViewScannerRepository struct {
-	cfg        *config.Config
-	log        *logger.Logger
-	httpClient httpclient.HTTPClient
+type tradingViewScreenersRepository struct {
+	cfg            *config.Config
+	log            *logger.Logger
+	httpClient     httpclient.HTTPClient
+	requestLimiter *rate.Limiter
 }
 
-func NewTradingViewScannerRepository(cfg *config.Config, log *logger.Logger) *tradingViewScannerRepository {
-	return &tradingViewScannerRepository{
-		cfg:        cfg,
-		httpClient: httpclient.New(cfg.TradingView.BaseURLScanner, cfg.TradingView.BaseTimeout, ""),
-		log:        log,
+func NewTradingViewScreenersRepository(cfg *config.Config, log *logger.Logger) *tradingViewScreenersRepository {
+	secondsPerRequest := time.Minute / time.Duration(cfg.TradingView.MaxRequestPerMin)
+	requestLimiter := rate.NewLimiter(rate.Every(secondsPerRequest), 1)
+
+	return &tradingViewScreenersRepository{
+		cfg:            cfg,
+		httpClient:     httpclient.New(log, cfg.TradingView.BaseURLScanner, cfg.TradingView.BaseTimeout, ""),
+		log:            log,
+		requestLimiter: requestLimiter,
 	}
 }
 
@@ -63,7 +53,11 @@ func NewTradingViewScannerRepository(cfg *config.Config, log *logger.Logger) *tr
 // Returns:
 //
 //	error - returns an error if the request fails or the symbol/interval is invalid.
-func (t *tradingViewScannerRepository) Get(ctx context.Context, symbol string, interval string) (*dto.TradingViewScanner, error) {
+func (t *tradingViewScreenersRepository) Get(ctx context.Context, symbol string, interval string) (*dto.TradingViewScanner, error) {
+	if err := t.requestLimiter.Wait(ctx); err != nil {
+		return nil, err
+	}
+
 	// Validate symbol parameter to ensure it has the correct format EXCHANGE:SYMBOL
 	if strings.Count(symbol, ":") != 1 {
 		return nil, fmt.Errorf("symbol parameter is not valid")
@@ -72,25 +66,25 @@ func (t *tradingViewScannerRepository) Get(ctx context.Context, symbol string, i
 	// Map interval input to appropriate TradingView format
 	var dataInterval string
 	switch interval {
-	case Interval1Min: // 1 minute
+	case dto.TradingViewInterval1Min: // 1 minute
 		dataInterval = "|1"
-	case Interval5Min: // 5 minutes
+	case dto.TradingViewInterval5Min: // 5 minutes
 		dataInterval = "|5"
-	case Interval15Min: // 15 minutes
+	case dto.TradingViewInterval15Min: // 15 minutes
 		dataInterval = "|15"
-	case Interval30Min: // 30 minutes
+	case dto.TradingViewInterval30Min: // 30 minutes
 		dataInterval = "|30"
-	case Interval1Hour: // 1 hour
+	case dto.TradingViewInterval1Hour: // 1 hour
 		dataInterval = "|60"
-	case Interval2Hour: // 2 hours
+	case dto.TradingViewInterval2Hour: // 2 hours
 		dataInterval = "|120"
-	case Interval4Hour: // 4 hours
+	case dto.TradingViewInterval4Hour: // 4 hours
 		dataInterval = "|240"
-	case Interval1Day: // 1 day
+	case dto.TradingViewInterval1Day: // 1 day
 		dataInterval = ""
-	case Interval1Week: // 1 week
+	case dto.TradingViewInterval1Week: // 1 week
 		dataInterval = "|1W"
-	case Interval1Month: // 1 month
+	case dto.TradingViewInterval1Month: // 1 month
 		dataInterval = "|1M"
 	default: // 1 day
 		dataInterval = ""
@@ -378,17 +372,17 @@ func key(indicator, dataInterval string) string {
 func tvComputeRecommend(v float64) int {
 	switch {
 	case v > 0.1 && v <= 0.5:
-		return SignalBuy // BUY
+		return dto.TradingViewSignalBuy // BUY
 	case v > 0.5 && v <= 1:
-		return SignalStrongBuy // STRONG_BUY
+		return dto.TradingViewSignalStrongBuy // STRONG_BUY
 	case v >= -0.1 && v <= 0.1:
-		return SignalNeutral // NEUTRAL
+		return dto.TradingViewSignalNeutral // NEUTRAL
 	case v >= -1 && v < -0.5:
-		return SignalStrongSell // STRONG_SELL
+		return dto.TradingViewSignalStrongSell // STRONG_SELL
 	case v >= -0.5 && v < -0.1:
-		return SignalSell // SELL
+		return dto.TradingViewSignalSell // SELL
 	default:
-		return SignalNeutral // NEUTRAL
+		return dto.TradingViewSignalNeutral // NEUTRAL
 	}
 }
 
@@ -396,11 +390,11 @@ func tvComputeRecommend(v float64) int {
 func tvRsi(rsi, rsi1 float64) int {
 	switch {
 	case rsi < 30 && rsi1 < rsi:
-		return SignalBuy // BUY
+		return dto.TradingViewSignalBuy // BUY
 	case rsi > 70 && rsi1 > rsi:
-		return SignalSell // SELL
+		return dto.TradingViewSignalSell // SELL
 	default:
-		return SignalNeutral // NEUTRAL
+		return dto.TradingViewSignalNeutral // NEUTRAL
 	}
 }
 
@@ -408,11 +402,11 @@ func tvRsi(rsi, rsi1 float64) int {
 func tvStoch(k, d, k1, d1 float64) int {
 	switch {
 	case k < 20 && d < 20 && k > d && k1 < d1:
-		return SignalBuy // BUY
+		return dto.TradingViewSignalBuy // BUY
 	case k > 80 && d > 80 && k < d && k1 > d1:
-		return SignalSell // SELL
+		return dto.TradingViewSignalSell // SELL
 	default:
-		return SignalNeutral // NEUTRAL
+		return dto.TradingViewSignalNeutral // NEUTRAL
 	}
 }
 
@@ -420,11 +414,11 @@ func tvStoch(k, d, k1, d1 float64) int {
 func tvCci20(cci20, cci201 float64) int {
 	switch {
 	case cci20 < -100 && cci20 > cci201:
-		return SignalBuy // BUY
+		return dto.TradingViewSignalBuy // BUY
 	case cci20 > 100 && cci20 < cci201:
-		return SignalSell // SELL
+		return dto.TradingViewSignalSell // SELL
 	default:
-		return SignalNeutral // NEUTRAL
+		return dto.TradingViewSignalNeutral // NEUTRAL
 	}
 }
 
@@ -432,11 +426,11 @@ func tvCci20(cci20, cci201 float64) int {
 func tvAdx(adx, adxpdi, adxndi, adxpdi1, adxndi1 float64) int {
 	switch {
 	case adx > 20 && adxpdi1 < adxndi1 && adxpdi > adxndi:
-		return SignalBuy // BUY
+		return dto.TradingViewSignalBuy // BUY
 	case adx > 20 && adxpdi1 > adxndi1 && adxpdi < adxndi:
-		return SignalSell // SELL
+		return dto.TradingViewSignalSell // SELL
 	default:
-		return SignalNeutral // NEUTRAL
+		return dto.TradingViewSignalNeutral // NEUTRAL
 	}
 }
 
@@ -444,11 +438,11 @@ func tvAdx(adx, adxpdi, adxndi, adxpdi1, adxndi1 float64) int {
 func tvAo(ao, ao1, ao2 float64) int {
 	switch {
 	case (ao > 0 && ao1 < 0) || (ao > 0 && ao1 > 0 && ao > ao1 && ao2 > ao1):
-		return SignalBuy // BUY
+		return dto.TradingViewSignalBuy // BUY
 	case (ao < 0 && ao1 > 0) || (ao < 0 && ao1 < 0 && ao < ao1 && ao2 < ao1):
-		return SignalSell // SELL
+		return dto.TradingViewSignalSell // SELL
 	default:
-		return SignalNeutral // NEUTRAL
+		return dto.TradingViewSignalNeutral // NEUTRAL
 	}
 }
 
@@ -456,11 +450,11 @@ func tvAo(ao, ao1, ao2 float64) int {
 func tvMom(mom, mom1 float64) int {
 	switch {
 	case mom > mom1:
-		return SignalBuy // BUY
+		return dto.TradingViewSignalBuy // BUY
 	case mom < mom1:
-		return SignalSell // SELL
+		return dto.TradingViewSignalSell // SELL
 	default:
-		return SignalNeutral // NEUTRAL
+		return dto.TradingViewSignalNeutral // NEUTRAL
 	}
 }
 
@@ -468,11 +462,11 @@ func tvMom(mom, mom1 float64) int {
 func tvMacd(macd, s float64) int {
 	switch {
 	case macd > s:
-		return SignalBuy // BUY
+		return dto.TradingViewSignalBuy // BUY
 	case macd < s:
-		return SignalSell // SELL
+		return dto.TradingViewSignalSell // SELL
 	default:
-		return SignalNeutral // NEUTRAL
+		return dto.TradingViewSignalNeutral // NEUTRAL
 	}
 }
 
@@ -480,11 +474,11 @@ func tvMacd(macd, s float64) int {
 func tvSimple(v float64) int {
 	switch {
 	case v == 1:
-		return SignalBuy // BUY
+		return dto.TradingViewSignalBuy // BUY
 	case v == -1:
-		return SignalSell // SELL
+		return dto.TradingViewSignalSell // SELL
 	default:
-		return SignalNeutral // NEUTRAL
+		return dto.TradingViewSignalNeutral // NEUTRAL
 	}
 }
 
@@ -492,10 +486,57 @@ func tvSimple(v float64) int {
 func tvMa(ma, close float64) int {
 	switch {
 	case ma < close:
-		return SignalBuy // BUY
+		return dto.TradingViewSignalBuy // BUY
 	case ma > close:
-		return SignalSell // SELL
+		return dto.TradingViewSignalSell // SELL
 	default:
-		return SignalNeutral // NEUTRAL
+		return dto.TradingViewSignalNeutral // NEUTRAL
 	}
+}
+
+func (t *tradingViewScreenersRepository) GetBuyList(ctx context.Context, payload map[string]interface{}) ([]dto.StockInfo, error) {
+	if payload["markets"] == nil {
+		return nil, fmt.Errorf("markets is required")
+	}
+
+	markets := payload["markets"].([]interface{})
+	if len(markets) == 0 {
+		return nil, fmt.Errorf("markets is required")
+	}
+
+	url := fmt.Sprintf("/%s/scan?label-product=screener-stock", markets[0])
+	var response dto.TradingViewBuyListResponse
+	resp, err := t.httpClient.Post(ctx, url, payload, nil, &response)
+	if err != nil {
+		return nil, err
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("failed to get data: %v", resp.Body)
+	}
+
+	var result []dto.StockInfo
+	for _, data := range response.Data {
+		if len(result) >= t.cfg.TradingView.BuyListMaxStockAnalyze {
+			break
+		}
+
+		if data.StockCode == "" {
+			continue
+		}
+
+		if len(data.TechnicalRating) == 0 {
+			continue
+		}
+
+		valueParse := strings.Split(data.StockCode, ":")
+		if len(valueParse) < 2 {
+			continue
+		}
+		result = append(result, dto.StockInfo{
+			StockCode: valueParse[1],
+			Exchange:  valueParse[0],
+		})
+	}
+	return result, nil
 }

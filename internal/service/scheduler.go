@@ -82,7 +82,7 @@ func (s *schedulerService) Execute(ctx context.Context) error {
 					logger.IntField("schedule_id", int(job.ID)),
 				)
 			}
-		})
+		}).Run()
 	}
 
 	return nil

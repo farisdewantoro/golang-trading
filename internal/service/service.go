@@ -10,8 +10,9 @@ import (
 )
 
 type Service struct {
-	SchedulerService SchedulerService
-	TaskExecutor     TaskExecutor
+	SchedulerService   SchedulerService
+	TaskExecutor       TaskExecutor
+	TelegramBotService TelegramBotService
 }
 
 func NewService(
@@ -21,13 +22,17 @@ func NewService(
 	inmemoryCache cache.Cache,
 	telegram *telegram.TelegramRateLimiter,
 ) *Service {
+	analyzerStrategy := strategy.NewStockAnalyzerStrategy(cfg, log, inmemoryCache, repo.StockPositionsRepo, repo.TradingViewScreenersRepo, repo.YahooFinanceRepo, repo.StockAnalysisRepo, repo.SystemParamRepo)
 	executorStrategies := make(map[strategy.JobType]strategy.JobExecutionStrategy)
-	executorStrategies[strategy.JobTypeStockPriceAlert] = strategy.NewStockPriceAlertStrategy(log, inmemoryCache, repo.TradingViewScannerRepo, telegram, repo.StockPositionsRepo)
+	executorStrategies[strategy.JobTypeStockPriceAlert] = strategy.NewStockPriceAlertStrategy(log, inmemoryCache, repo.TradingViewScreenersRepo, telegram, repo.StockPositionsRepo)
+	executorStrategies[strategy.JobTypeStockAnalyzer] = analyzerStrategy
 	taskExecutor := NewTaskExecutor(cfg, log, repo.JobRepo, executorStrategies)
 
 	schedulerService := NewSchedulerService(cfg, log, repo.JobRepo, taskExecutor)
+	telegramBotService := NewTelegramBotService(log, cfg, telegram, inmemoryCache, repo.StockAnalysisRepo, repo.SystemParamRepo, analyzerStrategy, repo.GeminiAIRepo)
 	return &Service{
-		SchedulerService: schedulerService,
-		TaskExecutor:     taskExecutor,
+		SchedulerService:   schedulerService,
+		TaskExecutor:       taskExecutor,
+		TelegramBotService: telegramBotService,
 	}
 }

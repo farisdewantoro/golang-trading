@@ -2,23 +2,36 @@ package httpclient
 
 import (
 	"context"
+	"golang-trading/pkg/logger"
 	"time"
 
 	"github.com/go-resty/resty/v2"
 )
 
 type RestyClient struct {
+	log    *logger.Logger
 	client *resty.Client
 }
 
-func New(baseURL string, timeout time.Duration, bearerToken string) HTTPClient {
+func New(log *logger.Logger, baseURL string, timeout time.Duration, bearerToken string) HTTPClient {
 	client := resty.New().
 		SetBaseURL(baseURL).
 		SetTimeout(timeout).
 		SetHeader("Accept", "application/json").
-		SetAuthToken(bearerToken)
+		SetAuthToken(bearerToken).OnBeforeRequest(func(c *resty.Client, r *resty.Request) error {
+		log.Debug("HTTP Client Request",
+			logger.StringField("url", baseURL+r.URL),
+			logger.StringField("method", r.Method))
+		return nil
+	}).OnAfterResponse(func(c *resty.Client, r *resty.Response) error {
+		log.Debug("HTTP Client Response",
+			logger.StringField("url", r.Request.URL),
+			logger.StringField("method", r.Request.Method),
+			logger.IntField("status_code", r.StatusCode()))
+		return nil
+	})
 
-	return &RestyClient{client: client}
+	return &RestyClient{log: log, client: client}
 }
 
 // GET request with optional query params

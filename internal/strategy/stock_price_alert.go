@@ -18,11 +18,11 @@ import (
 
 // StockPriceAlertStrategy defines the strategy for scraping stock news.
 type StockPriceAlertStrategy struct {
-	logger                       *logger.Logger
-	inmemoryCache                cache.Cache
-	tradingViewScannerRepository repository.TradingViewScannerRepository
-	telegram                     *telegram.TelegramRateLimiter
-	stockPositionsRepository     repository.StockPositionsRepository
+	logger                         *logger.Logger
+	inmemoryCache                  cache.Cache
+	tradingViewScreenersRepository repository.TradingViewScreenersRepository
+	telegram                       *telegram.TelegramRateLimiter
+	stockPositionsRepository       repository.StockPositionsRepository
 }
 
 // StockPriceAlertPayload defines the payload for stock price alert.
@@ -36,18 +36,17 @@ type StockPriceAlertPayload struct {
 // StockPriceAlertResult defines the result for stock price alert.
 type StockPriceAlertResult struct {
 	StockCode string `json:"stock_code"`
-	Status    string `json:"status"`
 	Errors    string `json:"errors"`
 }
 
 // NewStockPriceAlertStrategy creates a new instance of StockPriceAlertStrategy.
-func NewStockPriceAlertStrategy(logger *logger.Logger, inmemoryCache cache.Cache, tradingViewScannerRepository repository.TradingViewScannerRepository, telegram *telegram.TelegramRateLimiter, stockPositionsRepository repository.StockPositionsRepository) JobExecutionStrategy {
+func NewStockPriceAlertStrategy(logger *logger.Logger, inmemoryCache cache.Cache, tradingViewScreenersRepository repository.TradingViewScreenersRepository, telegram *telegram.TelegramRateLimiter, stockPositionsRepository repository.StockPositionsRepository) JobExecutionStrategy {
 	return &StockPriceAlertStrategy{
-		logger:                       logger,
-		inmemoryCache:                inmemoryCache,
-		tradingViewScannerRepository: tradingViewScannerRepository,
-		telegram:                     telegram,
-		stockPositionsRepository:     stockPositionsRepository,
+		logger:                         logger,
+		inmemoryCache:                  inmemoryCache,
+		tradingViewScreenersRepository: tradingViewScreenersRepository,
+		telegram:                       telegram,
+		stockPositionsRepository:       stockPositionsRepository,
 	}
 }
 
@@ -57,7 +56,7 @@ func (s *StockPriceAlertStrategy) GetType() JobType {
 }
 
 // Execute runs the stock alert job.
-func (s *StockPriceAlertStrategy) Execute(ctx context.Context, job *model.Job) (string, error) {
+func (s *StockPriceAlertStrategy) Execute(ctx context.Context, job *model.Job) (JobResult, error) {
 	s.logger.DebugContext(ctx, "Executing stock alert job", logger.IntField("job_id", int(job.ID)))
 
 	var (
@@ -66,13 +65,13 @@ func (s *StockPriceAlertStrategy) Execute(ctx context.Context, job *model.Job) (
 	)
 	if err := json.Unmarshal(job.Payload, &payload); err != nil {
 		s.logger.Error("Failed to unmarshal job payload", logger.ErrorField(err), logger.IntField("job_id", int(job.ID)))
-		return JOB_STATUS_FAILED, fmt.Errorf("failed to unmarshal job payload: %w", err)
+		return JobResult{ExitCode: JOB_EXIT_CODE_FAILED, Output: fmt.Sprintf("failed to unmarshal job payload: %v", err)}, fmt.Errorf("failed to unmarshal job payload: %w", err)
 	}
 
 	alertCacheDuration, err := time.ParseDuration(payload.AlertCacheDuration)
 	if err != nil {
 		s.logger.Error("Failed to parse alert_cache_duration", logger.ErrorField(err), logger.StringField("alert_cache_duration", payload.AlertCacheDuration), logger.IntField("job_id", int(job.ID)))
-		return JOB_STATUS_FAILED, fmt.Errorf("failed to parse alert_cache_duration: %w", err)
+		return JobResult{ExitCode: JOB_EXIT_CODE_FAILED, Output: fmt.Sprintf("failed to parse alert_cache_duration: %v", err)}, fmt.Errorf("failed to parse alert_cache_duration: %w", err)
 	}
 
 	stockPositions, err := s.stockPositionsRepository.Get(ctx, dto.GetStockPositionsParam{
@@ -80,7 +79,7 @@ func (s *StockPriceAlertStrategy) Execute(ctx context.Context, job *model.Job) (
 		IsActive:   utils.ToPointer(true),
 	})
 	if err != nil {
-		return JOB_STATUS_FAILED, err
+		return JobResult{ExitCode: JOB_EXIT_CODE_FAILED, Output: fmt.Sprintf("failed to get stocks positions: %v", err)}, err
 	}
 
 	for _, stockPosition := range stockPositions {
@@ -90,10 +89,9 @@ func (s *StockPriceAlertStrategy) Execute(ctx context.Context, job *model.Job) (
 		}
 
 		s.logger.DebugContext(ctx, "Processing stock alert", logger.StringField("stock_code", stockPosition.StockCode))
-		stockData, err := s.tradingViewScannerRepository.Get(ctx, stockPosition.StockCode, payload.DataInterval)
+		stockData, err := s.tradingViewScreenersRepository.Get(ctx, stockPosition.StockCode, payload.DataInterval)
 		if err != nil {
 			s.logger.Error("Failed to get stock data", logger.ErrorField(err), logger.StringField("stock_code", stockPosition.StockCode))
-			resultData.Status = JOB_STATUS_FAILED
 			resultData.Errors = err.Error()
 			results = append(results, resultData)
 			continue
@@ -137,7 +135,6 @@ func (s *StockPriceAlertStrategy) Execute(ctx context.Context, job *model.Job) (
 			errSql := s.stockPositionsRepository.Update(ctx, stockPosition)
 			if errSql != nil {
 				s.logger.Error("Failed to update stock position", logger.ErrorField(errSql), logger.StringField("stock_code", stockPosition.StockCode))
-				resultData.Status = JOB_STATUS_FAILED
 				resultData.Errors = errSql.Error()
 				results = append(results, resultData)
 			}
@@ -146,24 +143,21 @@ func (s *StockPriceAlertStrategy) Execute(ctx context.Context, job *model.Job) (
 		// set result
 		if err != nil {
 			s.logger.Error("Failed to send stock alert", logger.ErrorField(err), logger.StringField("stock_code", stockPosition.StockCode))
-			resultData.Status = JOB_STATUS_FAILED
 			resultData.Errors = err.Error()
 			results = append(results, resultData)
 		} else if isSendAlert {
-			resultData.Status = JOB_STATUS_SUCCESS
 			results = append(results, resultData)
 		} else {
-			resultData.Status = JOB_STATUS_SKIPPED
 			results = append(results, resultData)
 		}
 	}
 
 	resultJSON, err := json.Marshal(results)
 	if err != nil {
-		return "", fmt.Errorf("failed to marshal results: %w", err)
+		return JobResult{ExitCode: JOB_EXIT_CODE_FAILED, Output: fmt.Sprintf("failed to marshal results: %v", err)}, fmt.Errorf("failed to marshal results: %w", err)
 	}
 
-	return string(resultJSON), nil
+	return JobResult{ExitCode: JOB_EXIT_CODE_SUCCESS, Output: string(resultJSON)}, nil
 }
 
 func (s *StockPriceAlertStrategy) sendTelegramMessageAlert(ctx context.Context,

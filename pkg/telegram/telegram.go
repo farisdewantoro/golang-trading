@@ -30,6 +30,7 @@ type TelegramRateLimiter struct {
 	messageLimiters map[int64]*messageLimiterEntry
 	bot             *telebot.Bot
 	mu              sync.Mutex
+	editMu          sync.Mutex
 	wg              sync.WaitGroup
 }
 
@@ -43,6 +44,7 @@ func NewTelegramRateLimiter(cfg *config.TelegramConfig, log *logger.Logger, bot 
 		userLimiters:    make(map[int64]*userLimiterEntry),
 		messageLimiters: make(map[int64]*messageLimiterEntry),
 		mu:              sync.Mutex{},
+		editMu:          sync.Mutex{},
 		wg:              sync.WaitGroup{},
 	}
 }
@@ -84,15 +86,29 @@ func (t *TelegramRateLimiter) Edit(ctx context.Context, c telebot.Context, msg *
 		return nil, err
 	}
 
+	t.editMu.Lock()
+	defer t.editMu.Unlock()
 	return t.bot.Edit(msg, what, opts...)
 }
 
 func (t *TelegramRateLimiter) EditWithoutLimit(ctx context.Context, c telebot.Context, msg *telebot.Message, what interface{}, opts ...interface{}) (*telebot.Message, error) {
-
+	t.editMu.Lock()
+	defer t.editMu.Unlock()
 	return t.bot.Edit(msg, what, opts...)
 }
 
 func (t *TelegramRateLimiter) DeleteWithoutLimit(ctx context.Context, c telebot.Context, msg *telebot.Message) error {
+	t.editMu.Lock()
+	defer t.editMu.Unlock()
+	return t.bot.Delete(msg)
+}
+
+func (t *TelegramRateLimiter) Delete(ctx context.Context, c telebot.Context, msg *telebot.Message) error {
+	if err := t.checkRateLimit(ctx, c.Sender().ID, c.Chat().ID); err != nil {
+		return err
+	}
+	t.editMu.Lock()
+	defer t.editMu.Unlock()
 	return t.bot.Delete(msg)
 }
 
@@ -100,6 +116,8 @@ func (t *TelegramRateLimiter) EditWithoutMsg(ctx context.Context, c telebot.Cont
 	if err := t.checkRateLimit(ctx, c.Sender().ID, c.Chat().ID); err != nil {
 		return err
 	}
+	t.editMu.Lock()
+	defer t.editMu.Unlock()
 	_, err := t.Edit(ctx, c, c.Message(), what, opts...)
 	if err != nil {
 		t.log.ErrorContext(ctx, "Failed to edit message", logger.ErrorField(err))
@@ -192,7 +210,7 @@ func (r *TelegramRateLimiter) StartCleanupExpired(ctx context.Context) {
 				r.mu.Unlock()
 			}
 		}
-	})
+	}).Run()
 }
 
 func (r *TelegramRateLimiter) StopCleanupExpired() {

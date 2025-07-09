@@ -10,13 +10,15 @@ import (
 )
 
 type Config struct {
-	Log         Logger
-	DB          Database
-	API         API
-	Scheduler   Scheduler
-	TradingView TradingView
-	Cache       Cache
-	Telegram    TelegramConfig
+	Log          Logger
+	DB           Database
+	API          API
+	Scheduler    Scheduler
+	TradingView  TradingView
+	Cache        Cache
+	Telegram     TelegramConfig
+	YahooFinance YahooFinance
+	Gemini       Gemini
 }
 
 type Logger struct {
@@ -48,9 +50,10 @@ type API struct {
 }
 
 type TradingView struct {
-	BaseURLScanner   string
-	BaseTimeout      time.Duration
-	MaxRequestPerMin int
+	BaseURLScanner         string
+	BaseTimeout            time.Duration
+	MaxRequestPerMin       int
+	BuyListMaxStockAnalyze int
 }
 
 type Cache struct {
@@ -63,15 +66,34 @@ type TelegramConfig struct {
 	ChatID                    string
 	WebhookURL                string
 	TimeoutDuration           time.Duration
-	TimeoutBuyListDuration    time.Duration
+	TimeoutAsyncDuration      time.Duration
 	MaxGlobalRequestPerSecond int
 	MaxUserRequestPerSecond   int
 	MaxEditMessagePerSecond   int
 	RatelimitExpireDuration   time.Duration
 	RateLimitCleanupDuration  time.Duration
-	FeatureNewsMaxAgeInDays   int
-	FeatureNewsLimitStockNews int
-	MaxShowHistoryAnalysis    int
+
+	FeatureStockAnalyze TelegramFeatureStockAnalyze
+}
+
+type YahooFinance struct {
+	BaseURL             string
+	Timeout             time.Duration
+	MaxRequestPerMinute int
+}
+
+type TelegramFeatureStockAnalyze struct {
+	AfterTimestampDuration time.Duration
+	ExpectedTFCount        int
+}
+
+type Gemini struct {
+	APIKey              string
+	BaseModel           string
+	MaxRequestPerMinute int
+	MaxTokenPerMinute   int
+	BaseURL             string
+	Timeout             time.Duration
 }
 
 func Load() (*Config, error) {
@@ -111,9 +133,10 @@ func Load() (*Config, error) {
 			TimeoutDuration: viper.GetDuration("SCHEDULER_TIMEOUT_DURATION"),
 		},
 		TradingView: TradingView{
-			BaseURLScanner:   viper.GetString("TRADINGVIEW_BASE_URL_SCANNER"),
-			BaseTimeout:      viper.GetDuration("TRADINGVIEW_BASE_TIMEOUT"),
-			MaxRequestPerMin: viper.GetInt("TRADINGVIEW_MAX_REQUEST_PER_MIN"),
+			BaseURLScanner:         viper.GetString("TRADINGVIEW_BASE_URL_SCANNER"),
+			BaseTimeout:            viper.GetDuration("TRADINGVIEW_BASE_TIMEOUT"),
+			MaxRequestPerMin:       viper.GetInt("TRADINGVIEW_MAX_REQUEST_PER_MIN"),
+			BuyListMaxStockAnalyze: viper.GetInt("TRADINGVIEW_BUY_LIST_MAX_STOCK_ANALYZE"),
 		},
 		Cache: Cache{
 			DefaultExpiration: viper.GetDuration("CACHE_DEFAULT_EXPIRATION"),
@@ -124,15 +147,29 @@ func Load() (*Config, error) {
 			ChatID:                    viper.GetString("TELEGRAM_CHAT_ID"),
 			WebhookURL:                viper.GetString("TELEGRAM_WEBHOOK_URL"),
 			TimeoutDuration:           viper.GetDuration("TELEGRAM_TIMEOUT_DURATION"),
-			TimeoutBuyListDuration:    viper.GetDuration("TELEGRAM_TIMEOUT_BUY_LIST_DURATION"),
 			MaxGlobalRequestPerSecond: viper.GetInt("TELEGRAM_MAX_GLOBAL_REQUEST_PER_SECOND"),
 			MaxUserRequestPerSecond:   viper.GetInt("TELEGRAM_MAX_USER_REQUEST_PER_SECOND"),
 			MaxEditMessagePerSecond:   viper.GetInt("TELEGRAM_MAX_EDIT_MESSAGE_PER_SECOND"),
 			RatelimitExpireDuration:   viper.GetDuration("TELEGRAM_RATELIMIT_EXPIRE_DURATION"),
 			RateLimitCleanupDuration:  viper.GetDuration("TELEGRAM_RATELIMIT_CLEANUP_DURATION"),
-			FeatureNewsMaxAgeInDays:   viper.GetInt("TELEGRAM_FEATURE_NEWS_MAX_AGE_IN_DAYS"),
-			FeatureNewsLimitStockNews: viper.GetInt("TELEGRAM_FEATURE_NEWS_LIMIT_STOCK_NEWS"),
-			MaxShowHistoryAnalysis:    viper.GetInt("TELEGRAM_MAX_SHOW_HISTORY_ANALYSIS"),
+			FeatureStockAnalyze: TelegramFeatureStockAnalyze{
+				AfterTimestampDuration: viper.GetDuration("TELEGRAM_FEATURE_STOCK_ANALYZE_AFTER_TIMESTAMP_DURATION"),
+				ExpectedTFCount:        viper.GetInt("TELEGRAM_FEATURE_STOCK_ANALYZE_EXPECTED_TF_COUNT"),
+			},
+			TimeoutAsyncDuration: viper.GetDuration("TELEGRAM_TIMEOUT_ASYNC_DURATION"),
+		},
+		YahooFinance: YahooFinance{
+			BaseURL:             viper.GetString("YAHOO_FINANCE_BASE_URL"),
+			Timeout:             viper.GetDuration("YAHOO_FINANCE_TIMEOUT"),
+			MaxRequestPerMinute: viper.GetInt("YAHOO_FINANCE_MAX_REQUEST_PER_MINUTE"),
+		},
+		Gemini: Gemini{
+			APIKey:              viper.GetString("GEMINI_API_KEY"),
+			BaseModel:           viper.GetString("GEMINI_BASE_MODEL"),
+			MaxRequestPerMinute: viper.GetInt("GEMINI_MAX_REQUEST_PER_MINUTE"),
+			MaxTokenPerMinute:   viper.GetInt("GEMINI_MAX_TOKEN_PER_MINUTE"),
+			BaseURL:             viper.GetString("GEMINI_BASE_URL"),
+			Timeout:             viper.GetDuration("GEMINI_TIMEOUT"),
 		},
 	}
 

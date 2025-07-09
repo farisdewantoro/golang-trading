@@ -32,7 +32,10 @@ func Start(cmd *cobra.Command, args []string) {
 		log.Fatalf("Failed to create app dependency: %v", err)
 	}
 
-	repo := repository.NewRepository(appDep.cfg, appDep.db.DB, appDep.log)
+	repo, err := repository.NewRepository(appDep.cfg, appDep.db.DB, appDep.log)
+	if err != nil {
+		log.Fatalf("Failed to create repository: %v", err)
+	}
 
 	services := service.NewService(
 		appDep.cfg,
@@ -52,6 +55,7 @@ func Start(cmd *cobra.Command, args []string) {
 		appDep.echo,
 		appDep.validator,
 		services,
+		appDep.cache,
 	)
 
 	apiServer := NewHTTPServer(ctx, appDep, httpHandler)

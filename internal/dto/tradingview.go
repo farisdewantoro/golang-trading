@@ -138,3 +138,57 @@ type TradingViewScanner struct {
 		}
 	}
 }
+
+func (s *TradingViewScanner) GetTrendMACD() string {
+	if s.Recommend.Oscillators.MACD == TradingViewSignalBuy {
+		return TrendBullish
+	}
+	if s.Recommend.Oscillators.MACD == TradingViewSignalSell {
+		return TrendBearish
+	}
+	return TrendNeutral
+}
+
+func GetSignalText(signal int) string {
+	switch signal {
+	case TradingViewSignalStrongBuy:
+		return "Strong Buy"
+	case TradingViewSignalBuy:
+		return "Buy"
+	case TradingViewSignalSell:
+		return "Sell"
+	case TradingViewSignalStrongSell:
+		return "Strong Sell"
+	case TradingViewSignalNeutral:
+		return "Neutral"
+	default:
+		return "Unknown"
+	}
+}
+
+func GetRSIText(rsi int) string {
+	switch rsi {
+	case TradingViewSignalBuy, TradingViewSignalStrongBuy:
+		return "Oversold"
+	case TradingViewSignalSell, TradingViewSignalStrongSell:
+		return "Overbought"
+	case TradingViewSignalNeutral:
+		return "Normal"
+	default:
+		return "Unknown"
+	}
+}
+
+type TradingViewBuyListResponse struct {
+	TotalCount int                              `json:"totalCount"`
+	Data       []TradingViewBuyListDataResponse `json:"data"`
+}
+
+type TradingViewBuyListDataResponse struct {
+	// assume column only :
+	//   "columns": [
+	//       "Recommend.All"
+	//   ],
+	StockCode       string    `json:"s"`
+	TechnicalRating []float64 `json:"d"`
+}
