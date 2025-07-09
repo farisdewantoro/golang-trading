@@ -73,11 +73,11 @@ func (t *TelegramRateLimiter) SendWithoutMsg(ctx context.Context, c telebot.Cont
 	return nil
 }
 
-func (t *TelegramRateLimiter) SendMessageUser(ctx context.Context, message string, chatID int64) error {
+func (t *TelegramRateLimiter) SendMessageUser(ctx context.Context, message string, chatID int64, opts ...interface{}) error {
 	if err := t.checkRateLimit(ctx, chatID, chatID); err != nil {
 		return err
 	}
-	t.bot.Send(&telebot.User{ID: chatID}, message)
+	t.bot.Send(&telebot.User{ID: chatID}, message, opts...)
 	return nil
 }
 

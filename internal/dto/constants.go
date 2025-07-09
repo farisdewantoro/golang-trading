@@ -31,6 +31,12 @@ const (
 	SignalStrongSell = "STRONG_SELL"
 	SignalHold       = "HOLD"
 
+	EvalVeryStrong = "✅ Sangat Kuat & Potensi Naik"
+	EvalStrong     = "⚠️ Cukup Kuat tapi Perlu Waspada"
+	EvalNeutral    = "⚠️ Netral / Lemah"
+	EvalVeryWeak   = "❌ Sangat Lemah / Potensi Breakdown"
+	EvalWeak       = "❌ Lemah / Tidak Stabil"
+
 	ExchangeIDX string = "IDX"
 
 	TrendBullish string = "Bullish"

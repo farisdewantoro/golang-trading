@@ -9,15 +9,16 @@ import (
 )
 
 type Repository struct {
-	JobRepo                  JobRepository
-	StockPositionsRepo       StockPositionsRepository
-	TradingViewScreenersRepo TradingViewScreenersRepository
-	YahooFinanceRepo         YahooFinanceRepository
-	StockAnalysisRepo        StockAnalysisRepository
-	SystemParamRepo          SystemParamRepository
-	GeminiAIRepo             AIRepository
-	UnitOfWork               UnitOfWork
-	UserRepo                 UserRepository
+	JobRepo                     JobRepository
+	StockPositionsRepo          StockPositionsRepository
+	TradingViewScreenersRepo    TradingViewScreenersRepository
+	YahooFinanceRepo            YahooFinanceRepository
+	StockAnalysisRepo           StockAnalysisRepository
+	SystemParamRepo             SystemParamRepository
+	GeminiAIRepo                AIRepository
+	UnitOfWork                  UnitOfWork
+	UserRepo                    UserRepository
+	StockPositionMonitoringRepo StockPositionMonitoringRepository
 }
 
 func NewRepository(cfg *config.Config, inmemoryCache cache.Cache, db *gorm.DB, log *logger.Logger) (*Repository, error) {
@@ -27,16 +28,17 @@ func NewRepository(cfg *config.Config, inmemoryCache cache.Cache, db *gorm.DB, l
 		return nil, err
 	}
 	userRepo := NewUserRepository(db)
-
+	stockPositionMonitoringRepo := NewStockPositionMonitoringRepository(db)
 	return &Repository{
-		JobRepo:                  NewJobRepository(db),
-		StockPositionsRepo:       NewStockPositionsRepository(db),
-		TradingViewScreenersRepo: NewTradingViewScreenersRepository(cfg, log),
-		YahooFinanceRepo:         NewYahooFinanceRepository(cfg, log),
-		StockAnalysisRepo:        NewStockAnalysisRepository(db),
-		SystemParamRepo:          NewSystemParamRepository(cfg, inmemoryCache, db),
-		GeminiAIRepo:             geminiAIRepo,
-		UnitOfWork:               uow,
-		UserRepo:                 userRepo,
+		JobRepo:                     NewJobRepository(db),
+		StockPositionsRepo:          NewStockPositionsRepository(db),
+		TradingViewScreenersRepo:    NewTradingViewScreenersRepository(cfg, log),
+		YahooFinanceRepo:            NewYahooFinanceRepository(cfg, log),
+		StockAnalysisRepo:           NewStockAnalysisRepository(db),
+		SystemParamRepo:             NewSystemParamRepository(cfg, inmemoryCache, db),
+		GeminiAIRepo:                geminiAIRepo,
+		UnitOfWork:                  uow,
+		UserRepo:                    userRepo,
+		StockPositionMonitoringRepo: stockPositionMonitoringRepo,
 	}, nil
 }

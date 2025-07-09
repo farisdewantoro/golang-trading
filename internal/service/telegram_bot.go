@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"golang-trading/config"
 	"golang-trading/internal/dto"
+	"golang-trading/internal/helper"
 	"golang-trading/internal/model"
 	"golang-trading/internal/repository"
 	"golang-trading/internal/strategy"
@@ -23,6 +24,7 @@ type TelegramBotService interface {
 	AnalyzeStockAI(ctx context.Context, c telebot.Context) (*dto.AIAnalyzeStockResponse, error)
 	EvaluateSignal(ctx context.Context, latestAnalyses []model.StockAnalysis) (string, error)
 	SetStockPosition(ctx context.Context, data *dto.RequestSetPositionData) error
+	GetStockPositions(ctx context.Context, param dto.GetStockPositionsParam) ([]model.StockPosition, error)
 }
 
 type telegramBotService struct {
@@ -146,7 +148,6 @@ func (s *telegramBotService) AnalyzeStockAI(ctx context.Context, c telebot.Conte
 }
 
 func (s *telegramBotService) EvaluateSignal(ctx context.Context, latestAnalyses []model.StockAnalysis) (string, error) {
-	var totalScore int
 
 	// Ambil konfigurasi bobot timeframe
 	dtf, err := s.systemParamRepository.GetDefaultAnalysisTimeframes(ctx)
@@ -155,59 +156,12 @@ func (s *telegramBotService) EvaluateSignal(ctx context.Context, latestAnalyses 
 		return "", err
 	}
 
-	mapWeight := make(map[string]int)
-	mainTrend := ""
-	maxWeight := 0
-
-	for _, tf := range dtf {
-		mapWeight[tf.Interval] = tf.Weight
-		if tf.Weight > maxWeight {
-			maxWeight = tf.Weight
-			mainTrend = tf.Interval
-		}
-	}
-
-	mainTrendScore := -999 // Flag awal jika belum ditemukan
-
-	for _, analysis := range latestAnalyses {
-		weight, ok := mapWeight[analysis.Timeframe]
-		if !ok {
-			s.log.WarnContext(ctx, "Unknown timeframe in analysis", logger.StringField("timeframe", analysis.Timeframe))
-			continue
-		}
-
-		var technicalData dto.TradingViewScanner
-		if err := json.Unmarshal([]byte(analysis.TechnicalData), &technicalData); err != nil {
-			s.log.ErrorContext(ctx, "Failed to unmarshal technical data", logger.ErrorField(err))
-			continue
-		}
-
-		score := technicalData.Recommend.Global.Summary
-		totalScore += weight * score
-
-		if analysis.Timeframe == mainTrend {
-			mainTrendScore = score
-		}
-	}
-
-	// Pastikan main trend score ditemukan
-	if mainTrendScore == -999 {
-		err := fmt.Errorf("mainTrendScore for timeframe %s not found", mainTrend)
-		s.log.ErrorContext(ctx, "Main trend score not found", logger.ErrorField(err))
+	_, signal, err := helper.EvaluateSignal(ctx, s.log, dtf, latestAnalyses)
+	if err != nil {
+		s.log.ErrorContext(ctx, "Failed to evaluate signal", logger.ErrorField(err))
 		return "", err
 	}
-
-	// Evaluasi sinyal akhir
-	switch {
-	case totalScore >= 9 && mainTrendScore >= dto.TradingViewSignalBuy:
-		return dto.SignalStrongBuy, nil
-	case totalScore >= 6 && mainTrendScore >= dto.TradingViewSignalBuy:
-		return dto.SignalBuy, nil
-	case totalScore >= 3 && mainTrendScore >= dto.TradingViewSignalNeutral:
-		return dto.SignalNeutral, nil
-	default:
-		return dto.SignalSell, nil
-	}
+	return signal, nil
 }
 
 func (s *telegramBotService) SetStockPosition(ctx context.Context, data *dto.RequestSetPositionData) error {
@@ -259,4 +213,13 @@ func (s *telegramBotService) SetStockPosition(ctx context.Context, data *dto.Req
 	}
 
 	return nil
+}
+
+func (s *telegramBotService) GetStockPositions(ctx context.Context, param dto.GetStockPositionsParam) ([]model.StockPosition, error) {
+	positions, err := s.stockPositionRepository.Get(ctx, param)
+	if err != nil {
+		s.log.ErrorContext(ctx, "Failed to get stock positions", logger.ErrorField(err))
+		return nil, fmt.Errorf("failed to get stock positions: %w", err)
+	}
+	return positions, nil
 }

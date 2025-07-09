@@ -68,3 +68,8 @@ func (r *RequestUserTelegram) ToUserEntity() *model.User {
 		LastActiveAt: r.LastActiveAt,
 	}
 }
+
+type GetStockPositionsUserTelegramParam struct {
+	TelegramID *int64
+	IsActive   *bool
+}

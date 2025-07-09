@@ -23,9 +23,12 @@ func NewService(
 	telegram *telegram.TelegramRateLimiter,
 ) *Service {
 	analyzerStrategy := strategy.NewStockAnalyzerStrategy(cfg, log, inmemoryCache, repo.StockPositionsRepo, repo.TradingViewScreenersRepo, repo.YahooFinanceRepo, repo.StockAnalysisRepo, repo.SystemParamRepo)
+	stockPositionMonitoringStrategy := strategy.NewStockPositionMonitoringStrategy(log, inmemoryCache, repo.TradingViewScreenersRepo, telegram, repo.StockPositionsRepo, analyzerStrategy, repo.StockPositionMonitoringRepo, repo.SystemParamRepo)
 	executorStrategies := make(map[strategy.JobType]strategy.JobExecutionStrategy)
 	executorStrategies[strategy.JobTypeStockPriceAlert] = strategy.NewStockPriceAlertStrategy(log, inmemoryCache, repo.TradingViewScreenersRepo, telegram, repo.StockPositionsRepo)
 	executorStrategies[strategy.JobTypeStockAnalyzer] = analyzerStrategy
+	executorStrategies[strategy.JobTypeStockPositionMonitor] = stockPositionMonitoringStrategy
+
 	taskExecutor := NewTaskExecutor(cfg, log, repo.JobRepo, executorStrategies)
 
 	schedulerService := NewSchedulerService(cfg, log, repo.JobRepo, taskExecutor)

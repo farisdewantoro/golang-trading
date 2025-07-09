@@ -8,9 +8,21 @@ INSERT INTO system_parameters (
 VALUES (
     'DEFAULT_ANALYSIS_TIMEFRAMES',
     '[
-        {"interval": "1d", "range": "3m"},
-        {"interval": "4h", "range": "1m"},
-        {"interval": "1h", "range": "14d"}
+ {
+    "range": "3m",
+    "interval": "1d",
+    "weight":3
+  },
+  {
+    "range": "1m",
+    "interval": "4h",
+     "weight":2
+  },
+  {
+    "range": "14d",
+    "interval": "1h",
+     "weight":1
+  }
     ]'::jsonb,
     'Default data timeframe untuk analisis teknikal (interval dan range)',
     NOW(),

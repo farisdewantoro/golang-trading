@@ -98,7 +98,8 @@ func (s *StockPriceAlertStrategy) Execute(ctx context.Context, job *model.Job) (
 		}
 
 		// set last price in Redis
-		key := fmt.Sprintf(common.KEY_LAST_PRICE, stockPosition.StockCode)
+		stockCodeWithExchange := stockPosition.Exchange + ":" + stockPosition.StockCode
+		key := fmt.Sprintf(common.KEY_LAST_PRICE, stockCodeWithExchange)
 		s.inmemoryCache.Set(key, stockData.Value.Prices.Close, alertCacheDuration)
 
 		isSendAlert := false

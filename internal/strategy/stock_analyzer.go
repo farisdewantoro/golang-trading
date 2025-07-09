@@ -82,30 +82,6 @@ func (s *StockAnalyzerStrategy) Execute(ctx context.Context, job *model.Job) (Jo
 
 	mapStockCode := map[string]bool{}
 
-	stockPositions, err := s.stockPositionRepo.Get(ctx, dto.GetStockPositionsParam{
-		MonitorPosition: utils.ToPointer(true),
-		IsActive:        utils.ToPointer(true),
-	})
-	if err != nil {
-		s.logger.Error("Failed to get stocks positions", logger.ErrorField(err))
-		return JobResult{ExitCode: JOB_EXIT_CODE_FAILED, Output: fmt.Sprintf("failed to get stocks positions: %v", err)}, fmt.Errorf("failed to get stocks positions: %w", err)
-	}
-
-	for _, stockPosition := range stockPositions {
-
-		exchange := "IDX"
-
-		if _, ok := mapStockCode[stockPosition.StockCode+":"+exchange]; ok {
-			continue
-		}
-
-		mapStockCode[stockPosition.StockCode+":"+exchange] = true
-		stocks = append(stocks, dto.StockInfo{
-			StockCode: stockPosition.StockCode,
-			Exchange:  exchange,
-		})
-	}
-
 	for _, params := range payload.TradingViewBuyListParams {
 		buyList, err := s.tradingViewScreenersRepository.GetBuyList(ctx, params)
 		if err != nil {

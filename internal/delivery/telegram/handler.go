@@ -35,6 +35,7 @@ func (t *TelegramBotHandler) RegisterHandlers() {
 	t.bot.Handle("/help", t.WithContext(t.handleHelp))
 	t.bot.Handle("/analyze", t.WithContext(t.handleStartAnalyze))
 	t.bot.Handle("/setposition", t.WithContext(t.handleSetPosition), t.IsOnConversationMiddleware())
+	t.bot.Handle("/myposition", t.WithContext(t.handleMyPosition))
 
 	t.bot.Handle(telebot.OnText, t.WithContext(t.handleConversation))
 

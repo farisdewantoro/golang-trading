@@ -79,7 +79,7 @@ func (r *stockPositionsRepository) Get(ctx context.Context, param dto.GetStockPo
 		return nil, fmt.Errorf("no filter provided")
 	}
 
-	if err := db.Preload("User").Where(strings.Join(qFilter, " AND "), qFilterParam...).Find(&stockPositions).Error; err != nil {
+	if err := db.Preload("User").Debug().Where(strings.Join(qFilter, " AND "), qFilterParam...).Find(&stockPositions).Error; err != nil {
 		return nil, err
 	}
 
