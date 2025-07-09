@@ -57,8 +57,10 @@ type TradingView struct {
 }
 
 type Cache struct {
-	DefaultExpiration time.Duration
-	CleanupInterval   time.Duration
+	DefaultExpiration        time.Duration
+	CleanupInterval          time.Duration
+	SysParamExpDuration      time.Duration
+	TelegramStateExpDuration time.Duration
 }
 
 type TelegramConfig struct {
@@ -139,8 +141,10 @@ func Load() (*Config, error) {
 			BuyListMaxStockAnalyze: viper.GetInt("TRADINGVIEW_BUY_LIST_MAX_STOCK_ANALYZE"),
 		},
 		Cache: Cache{
-			DefaultExpiration: viper.GetDuration("CACHE_DEFAULT_EXPIRATION"),
-			CleanupInterval:   viper.GetDuration("CACHE_CLEANUP_INTERVAL"),
+			DefaultExpiration:        viper.GetDuration("CACHE_DEFAULT_EXPIRATION"),
+			CleanupInterval:          viper.GetDuration("CACHE_CLEANUP_INTERVAL"),
+			SysParamExpDuration:      viper.GetDuration("CACHE_SYS_PARAM_EXPIRATION_DURATION"),
+			TelegramStateExpDuration: viper.GetDuration("CACHE_TELEGRAM_STATE_EXPIRATION_DURATION"),
 		},
 		Telegram: TelegramConfig{
 			BotToken:                  viper.GetString("TELEGRAM_BOT_TOKEN"),

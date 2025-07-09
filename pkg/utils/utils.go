@@ -10,6 +10,7 @@ import (
 	"math"
 	"runtime"
 	"strings"
+	"time"
 	"unicode"
 	"unicode/utf8"
 )
@@ -77,6 +78,12 @@ func (g *goSafeChain) Run() {
 
 func ToPointer[T any](value T) *T {
 	return &value
+}
+
+func MustParseDate(strTime string) time.Time {
+	date, _ := time.Parse("2006-01-02", strTime)
+
+	return date
 }
 
 func ShouldContinue(ctx context.Context, log *logger.Logger) bool {

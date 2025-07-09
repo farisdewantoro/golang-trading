@@ -2,8 +2,11 @@ package telegram
 
 const (
 	UserStateKey = "user_state:%d"
+	UserDataKey  = "user_data:%d"
+)
 
-	StateIdle = iota // 0
+const (
+	StateIdle = 0 // 0
 
 	// /setposition states
 	StateWaitingSetPositionSymbol       = 1

@@ -14,6 +14,7 @@ import (
 type StockPositionsRepository interface {
 	Get(ctx context.Context, param dto.GetStockPositionsParam) ([]model.StockPosition, error)
 	Update(ctx context.Context, stockPosition model.StockPosition, opts ...utils.DBOption) error
+	Create(ctx context.Context, stockPosition *model.StockPosition, opts ...utils.DBOption) error
 }
 
 type stockPositionsRepository struct {
@@ -31,6 +32,13 @@ func (r *stockPositionsRepository) Get(ctx context.Context, param dto.GetStockPo
 
 	qFilter := []string{}
 	qFilterParam := []interface{}{}
+
+	db := r.db.WithContext(ctx)
+
+	if param.TelegramID != nil {
+		db = db.Joins("JOIN users ON stock_positions.user_id = users.id").
+			Where("users.telegram_id = ?", *param.TelegramID)
+	}
 
 	if len(param.IDs) > 0 {
 		qFilter = append(qFilter, "id IN (?)")
@@ -57,11 +65,21 @@ func (r *stockPositionsRepository) Get(ctx context.Context, param dto.GetStockPo
 		qFilterParam = append(qFilterParam, *param.IsActive)
 	}
 
+	if param.Exchange != nil {
+		qFilter = append(qFilter, "exchange = ?")
+		qFilterParam = append(qFilterParam, *param.Exchange)
+	}
+
+	if param.UserID != nil {
+		qFilter = append(qFilter, "user_id = ?")
+		qFilterParam = append(qFilterParam, *param.UserID)
+	}
+
 	if len(qFilter) == 0 {
 		return nil, fmt.Errorf("no filter provided")
 	}
 
-	if err := r.db.WithContext(ctx).Preload("User").Where(strings.Join(qFilter, " AND "), qFilterParam...).Find(&stockPositions).Error; err != nil {
+	if err := db.Preload("User").Where(strings.Join(qFilter, " AND "), qFilterParam...).Find(&stockPositions).Error; err != nil {
 		return nil, err
 	}
 
@@ -70,4 +88,8 @@ func (r *stockPositionsRepository) Get(ctx context.Context, param dto.GetStockPo
 
 func (r *stockPositionsRepository) Update(ctx context.Context, stockPosition model.StockPosition, opts ...utils.DBOption) error {
 	return utils.ApplyOptions(r.db.WithContext(ctx), opts...).Updates(&stockPosition).Error
+}
+
+func (r *stockPositionsRepository) Create(ctx context.Context, stockPosition *model.StockPosition, opts ...utils.DBOption) error {
+	return utils.ApplyOptions(r.db.WithContext(ctx), opts...).Create(&stockPosition).Error
 }

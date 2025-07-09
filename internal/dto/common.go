@@ -3,6 +3,7 @@ package dto
 type DataTimeframe struct {
 	Interval string `json:"interval"`
 	Range    string `json:"range"`
+	Weight   int    `json:"weight"`
 }
 
 func (d *DataTimeframe) ToTradingViewScreenersInterval() string {

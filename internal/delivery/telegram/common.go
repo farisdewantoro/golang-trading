@@ -9,78 +9,35 @@ import (
 	"gopkg.in/telebot.v3"
 )
 
-func (t *TelegramBotHandler) handleStart(ctx context.Context, c telebot.Context) error {
-	message := `👋 *Halo, selamat datang di Bot Swing Trading!* 🤖  
-Saya di sini untuk membantu kamu memantau saham dan mencari peluang terbaik dari pergerakan harga.
-
-🔧 Berikut beberapa perintah yang bisa kamu gunakan:
-
-📈 /analyze - Analisa saham pilihanmu berdasarkan strategi  
-📋 /buylist - Lihat daftar saham potensial untuk dibeli  
-📝 /setposition - Catat posisi saham yang sedang kamu pegang  
-📊 /myposition - Lihat semua posisi yang sedang dipantau  
-📰 /news - Lihat berita terkini, alert berita penting saham, ringkasan berita
-💰 /report Melihat ringkasan hasil trading kamu berdasarkan posisi yang sudah kamu entry dan exit.
-🔄 /scheduler	- Lihat status scheduler & jalankan job secara manual  
-
-
-💡 Info & Bantuan:
-🆘 /help - Lihat panduan penggunaan lengkap  
-🔁 /start - Tampilkan pesan ini lagi  
-❌ /cancel - Batalkan perintah yang sedang berjalan
-
-🚀 *Siap mulai?* Coba ketik /analyze untuk memulai analisa pertamamu!`
-	return c.Send(message, &telebot.SendOptions{ParseMode: telebot.ModeMarkdown})
-}
-
-func (t *TelegramBotHandler) handleHelp(ctx context.Context, c telebot.Context) error {
-	message := `❓ *Panduan Penggunaan Bot Swing Trading* ❓
-
-Bot ini membantu kamu memantau saham dan mencari peluang terbaik dengan analisa teknikal yang disesuaikan untuk swing trading.
-
-Berikut daftar perintah yang bisa kamu gunakan:
-
-🤖 *Perintah Utama:*
-/start - Menampilkan pesan sambutan  
-/help - Menampilkan panduan ini  
-/analyze - Mulai analisa interaktif untuk saham tertentu  
-/buylist - Lihat saham potensial yang sedang menarik untuk dibeli  
-/setposition - Catat saham yang kamu beli agar bisa dipantau otomatis  
-/myposition - Lihat semua posisi yang sedang kamu pantau  
-/news - Lihat berita terkini, alert berita penting saham, ringkasan berita
-/cancel - Batalkan perintah yang sedang berjalan
-/report - Melihat ringkasan hasil trading kamu berdasarkan posisi yang sudah kamu entry dan exit.
-/scheduler	- Lihat status scheduler & jalankan job secara manual  
-
-💡 *Tips Penggunaan:*
-1. Gunakan /analyze untuk analisa cepat atau mendalam (bisa juga langsung kirim kode saham, misalnya: 'BBCA')  
-2. Jalankan /buylist setiap pagi untuk melihat peluang baru  
-3. Setelah beli saham, gunakan /setposition agar bot bisa bantu awasi harga  
-4. Pantau semua posisi aktif kamu lewat /myposition
-
-
-📌 Gunakan sinyal ini sebagai referensi tambahan saja, ya.  
-Keputusan tetap di tangan kamu — jangan lupa *Do Your Own Research!* 🔍`
-	return c.Send(message, &telebot.SendOptions{ParseMode: telebot.ModeMarkdown})
-}
-
 func (t *TelegramBotHandler) handleConversation(ctx context.Context, c telebot.Context) error {
 	userID := c.Sender().ID
-	state, _ := cache.GetFromCache[int](fmt.Sprintf(UserStateKey, userID))
-	if state == StateWaitingAnalyzeSymbol {
-		return t.handleAnalyzeSymbol(ctx, c)
+	state, ok := cache.GetFromCache[int](fmt.Sprintf(UserStateKey, userID))
+	if !ok || state == StateIdle {
+		// This should not be treated as a conversation.
+		// Let the generic text handler deal with it.
+		return t.handleTextMessage(ctx, c)
 	}
-	return t.handleTextMessage(ctx, c)
+
+	switch {
+	case state >= StateWaitingSetPositionSymbol && state <= StateWaitingSetPositionAlertMonitor:
+		return t.handleSetPositionConversation(ctx, c)
+	case state == StateWaitingAnalyzeSymbol:
+		return t.handleAnalyzeSymbol(ctx, c)
+	default:
+		// If no specific conversation is matched, maybe it's a dangling state.
+		t.ResetUserState(userID)
+		_, err := t.telegram.Send(ctx, c, "Sepertinya Anda tidak sedang dalam percakapan aktif. Gunakan /help untuk melihat perintah yang tersedia.")
+		return err
+	}
 }
 
 func (t *TelegramBotHandler) handleTextMessage(ctx context.Context, c telebot.Context) error {
-	// userID := c.Sender().ID
+	userID := c.Sender().ID
 
-	// If user is in a conversation, handle it
-	// if state, ok := t.userStates[userID]; ok && state != StateIdle {
-	// 	t.handleConversation(ctx, c)
-	// 	return nil
-	// }
+	if state, ok := cache.GetFromCache[int](fmt.Sprintf(UserStateKey, userID)); ok && state != StateIdle {
+		t.handleConversation(ctx, c)
+		return nil
+	}
 
 	// Cek apakah bukan command
 	if !strings.HasPrefix(c.Text(), "/") {
@@ -88,4 +45,34 @@ func (t *TelegramBotHandler) handleTextMessage(ctx context.Context, c telebot.Co
 	}
 
 	return nil
+}
+
+func (t *TelegramBotHandler) ResetUserState(userID int64) {
+	t.inmemoryCache.Delete(fmt.Sprintf(UserStateKey, userID))
+	t.inmemoryCache.Delete(fmt.Sprintf(UserDataKey, userID))
+}
+
+func (t *TelegramBotHandler) IsOnConversationMiddleware() telebot.MiddlewareFunc {
+	return func(next telebot.HandlerFunc) telebot.HandlerFunc {
+		return func(c telebot.Context) (err error) {
+			if _, inConversation := cache.GetFromCache[int](fmt.Sprintf(UserStateKey, c.Sender().ID)); inConversation {
+				t.handleCancel(c)
+			}
+			return next(c)
+		}
+	}
+}
+
+func (t *TelegramBotHandler) handleCancel(c telebot.Context) error {
+	userID := c.Sender().ID
+
+	defer t.ResetUserState(userID)
+
+	// Check if user is in any conversation state
+	if state, ok := cache.GetFromCache[int](fmt.Sprintf(UserStateKey, userID)); ok && state != StateIdle {
+		return c.Send("✅ Percakapan dibatalkan.")
+	}
+
+	return nil
+
 }

@@ -21,6 +21,8 @@ import (
 type TelegramBotService interface {
 	AnalyzeStock(ctx context.Context, c telebot.Context) ([]model.StockAnalysis, error)
 	AnalyzeStockAI(ctx context.Context, c telebot.Context) (*dto.AIAnalyzeStockResponse, error)
+	EvaluateSignal(ctx context.Context, latestAnalyses []model.StockAnalysis) (string, error)
+	SetStockPosition(ctx context.Context, data *dto.RequestSetPositionData) error
 }
 
 type telegramBotService struct {
@@ -32,6 +34,9 @@ type telegramBotService struct {
 	systemParamRepository   repository.SystemParamRepository
 	stockAnalyzer           strategy.StockAnalyzer
 	aiRepository            repository.AIRepository
+	userRepo                repository.UserRepository
+	stockPositionRepository repository.StockPositionsRepository
+	uow                     repository.UnitOfWork
 }
 
 func NewTelegramBotService(
@@ -43,6 +48,9 @@ func NewTelegramBotService(
 	systemParamRepository repository.SystemParamRepository,
 	stockAnalyzer strategy.StockAnalyzer,
 	aiRepository repository.AIRepository,
+	userRepo repository.UserRepository,
+	stockPositionRepository repository.StockPositionsRepository,
+	uow repository.UnitOfWork,
 ) TelegramBotService {
 	return &telegramBotService{
 		log:                     log,
@@ -53,6 +61,9 @@ func NewTelegramBotService(
 		systemParamRepository:   systemParamRepository,
 		stockAnalyzer:           stockAnalyzer,
 		aiRepository:            aiRepository,
+		userRepo:                userRepo,
+		stockPositionRepository: stockPositionRepository,
+		uow:                     uow,
 	}
 }
 
@@ -132,4 +143,120 @@ func (s *telegramBotService) AnalyzeStockAI(ctx context.Context, c telebot.Conte
 	}
 
 	return s.aiRepository.AnalyzeStock(ctx, latestAnalyses)
+}
+
+func (s *telegramBotService) EvaluateSignal(ctx context.Context, latestAnalyses []model.StockAnalysis) (string, error) {
+	var totalScore int
+
+	// Ambil konfigurasi bobot timeframe
+	dtf, err := s.systemParamRepository.GetDefaultAnalysisTimeframes(ctx)
+	if err != nil {
+		s.log.ErrorContext(ctx, "Failed to get default analysis timeframes", logger.ErrorField(err))
+		return "", err
+	}
+
+	mapWeight := make(map[string]int)
+	mainTrend := ""
+	maxWeight := 0
+
+	for _, tf := range dtf {
+		mapWeight[tf.Interval] = tf.Weight
+		if tf.Weight > maxWeight {
+			maxWeight = tf.Weight
+			mainTrend = tf.Interval
+		}
+	}
+
+	mainTrendScore := -999 // Flag awal jika belum ditemukan
+
+	for _, analysis := range latestAnalyses {
+		weight, ok := mapWeight[analysis.Timeframe]
+		if !ok {
+			s.log.WarnContext(ctx, "Unknown timeframe in analysis", logger.StringField("timeframe", analysis.Timeframe))
+			continue
+		}
+
+		var technicalData dto.TradingViewScanner
+		if err := json.Unmarshal([]byte(analysis.TechnicalData), &technicalData); err != nil {
+			s.log.ErrorContext(ctx, "Failed to unmarshal technical data", logger.ErrorField(err))
+			continue
+		}
+
+		score := technicalData.Recommend.Global.Summary
+		totalScore += weight * score
+
+		if analysis.Timeframe == mainTrend {
+			mainTrendScore = score
+		}
+	}
+
+	// Pastikan main trend score ditemukan
+	if mainTrendScore == -999 {
+		err := fmt.Errorf("mainTrendScore for timeframe %s not found", mainTrend)
+		s.log.ErrorContext(ctx, "Main trend score not found", logger.ErrorField(err))
+		return "", err
+	}
+
+	// Evaluasi sinyal akhir
+	switch {
+	case totalScore >= 9 && mainTrendScore >= dto.TradingViewSignalBuy:
+		return dto.SignalStrongBuy, nil
+	case totalScore >= 6 && mainTrendScore >= dto.TradingViewSignalBuy:
+		return dto.SignalBuy, nil
+	case totalScore >= 3 && mainTrendScore >= dto.TradingViewSignalNeutral:
+		return dto.SignalNeutral, nil
+	default:
+		return dto.SignalSell, nil
+	}
+}
+
+func (s *telegramBotService) SetStockPosition(ctx context.Context, data *dto.RequestSetPositionData) error {
+	user, err := s.userRepo.GetUserByTelegramID(ctx, data.UserTelegram.ID)
+	if err != nil {
+		s.log.ErrorContext(ctx, "Failed to get user", logger.ErrorField(err))
+		return fmt.Errorf("failed to get user: %w", err)
+	}
+
+	positions, err := s.stockPositionRepository.Get(ctx, dto.GetStockPositionsParam{
+		TelegramID: &data.UserTelegram.ID,
+		StockCodes: []string{data.StockCode},
+		Exchange:   &data.Exchange,
+		IsActive:   utils.ToPointer(true),
+	})
+	if err != nil {
+		s.log.ErrorContext(ctx, "Failed to get stock position", logger.ErrorField(err))
+		return fmt.Errorf("failed to get stock position: %w", err)
+	}
+	if len(positions) > 0 {
+		s.log.WarnContext(ctx, "position already exists", logger.IntField("count", len(positions)))
+		return fmt.Errorf("position already exists")
+	}
+
+	err = s.uow.Run(func(opts ...utils.DBOption) error {
+		if user == nil {
+			user = data.UserTelegram.ToUserEntity()
+			err = s.userRepo.CreateUser(ctx, user, opts...)
+			if err != nil {
+				s.log.ErrorContext(ctx, "Failed to create user", logger.ErrorField(err))
+				return fmt.Errorf("failed to create user: %w", err)
+			}
+		}
+
+		stockPosition := data.ToStockPositionEntity()
+		stockPosition.UserID = user.ID
+		stockPosition.IsActive = utils.ToPointer(true)
+
+		err = s.stockPositionRepository.Create(ctx, stockPosition, opts...)
+		if err != nil {
+			s.log.ErrorContext(ctx, "Failed to create stock position", logger.ErrorField(err))
+			return fmt.Errorf("failed to create stock position: %w", err)
+		}
+		return nil
+	})
+	if err != nil {
+		s.log.ErrorContext(ctx, "Failed to create stock position", logger.ErrorField(err))
+		return fmt.Errorf("failed to create stock position: %w", err)
+	}
+
+	return nil
 }

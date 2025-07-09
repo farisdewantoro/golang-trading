@@ -52,6 +52,9 @@ type GetStockPositionsParam struct {
 	PriceAlert      *bool    `json:"price_alert"`
 	MonitorPosition *bool    `json:"monitor_position"`
 	IsActive        *bool    `json:"is_active"`
+	Exchange        *string  `json:"exchange"`
+	UserID          *uint    `json:"user_id"`
+	TelegramID      *int64   `json:"telegram_id"`
 }
 
 type StockInfo struct {

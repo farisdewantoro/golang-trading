@@ -18,15 +18,12 @@ import (
 
 func (t *TelegramBotHandler) handleStartAnalyze(ctx context.Context, c telebot.Context) error {
 	userID := c.Sender().ID
-
-	t.inmemoryCache.Set(fmt.Sprintf(UserStateKey, userID), StateWaitingAnalyzeSymbol, 0)
-
+	t.inmemoryCache.Set(fmt.Sprintf(UserStateKey, userID), StateWaitingAnalyzeSymbol, t.cfg.Cache.TelegramStateExpDuration)
 	return c.Send("Silakan masukkan simbol saham yang ingin Anda analisis berserta dengan exchange code (contoh: IDX:BBCA, NASDAQ:TESLA).")
 }
 
 func (t *TelegramBotHandler) handleAnalyzeSymbol(ctx context.Context, c telebot.Context) error {
-	// userID := c.Sender().ID
-	// symbol := c.Text()
+	defer t.ResetUserState(c.Sender().ID)
 
 	stopChan := make(chan struct{})
 
@@ -129,8 +126,6 @@ func (t *TelegramBotHandler) showAnalysis(ctx context.Context, c telebot.Context
 	support := []float64{}
 	resistance := []float64{}
 
-	countSummary := 0
-
 	sb.WriteString("\n📊 <b><i>Rangkuman Analisis (Multi-Timeframe)</i></b>\n")
 
 	analysisIDs := []string{}
@@ -148,7 +143,6 @@ func (t *TelegramBotHandler) showAnalysis(ctx context.Context, c telebot.Context
 		if err := json.Unmarshal([]byte(analysis.OHLCV), &ohclv); err != nil {
 			return err
 		}
-		countSummary += technicalData.Recommend.Global.Summary
 		valTimeframeSummary := "??"
 		switch technicalData.Recommend.Global.Summary {
 		case dto.TradingViewSignalStrongBuy:
@@ -207,25 +201,31 @@ func (t *TelegramBotHandler) showAnalysis(ctx context.Context, c telebot.Context
 		)
 	}
 
-	recommend := dto.SignalNeutral
+	evalSignal, err := t.service.TelegramBotService.EvaluateSignal(ctx, latestAnalyses)
+	if err != nil {
+		t.log.ErrorContext(ctx, "Failed to calculate weighted signal", logger.ErrorField(err))
+		return err
+	}
 
 	iconSignal := "??"
-	if countSummary >= dto.TradingViewSignalBuy {
-		recommend = dto.SignalBuy
+	recommend := dto.SignalBuy
+
+	if evalSignal == dto.SignalStrongBuy {
 		iconSignal = "🟢"
-	} else if countSummary >= dto.TradingViewSignalStrongBuy {
 		recommend = dto.SignalStrongBuy
-		iconSignal = "🟢"
-	} else if countSummary <= dto.TradingViewSignalSell {
-		recommend = dto.SignalHold
+	} else if evalSignal == dto.SignalBuy {
 		iconSignal = "🟡"
+		recommend = dto.SignalBuy
+	} else {
+		iconSignal = "🔴"
+		recommend = dto.SignalHold
 	}
 
 	sbHeader.WriteString(fmt.Sprintf("<b>%s Signal %s - %s <i>(berdasarkan teknikal indikator utama)</i></b>", iconSignal, recommend, symbolWithExchange))
 	sbHeader.WriteString("\n\n")
 	sbHeader.WriteString(fmt.Sprintf("<b>💰 Harga: %d</b>\n", marketPrice))
 
-	if countSummary >= dto.TradingViewSignalBuy {
+	if evalSignal == dto.SignalStrongBuy || evalSignal == dto.SignalBuy {
 		tradePlan := dto.CreateTradePlan(float64(marketPrice), support, resistance, float64(2.0))
 		sbHeader.WriteString(fmt.Sprintf("🎯 <b>Take Profit</b>: %d (%s)\n", int(tradePlan.TakeProfit), utils.FormatChange(float64(marketPrice), tradePlan.TakeProfit)))
 		sbHeader.WriteString(fmt.Sprintf("🛡️ <b>Stop Loss</b>: %d (%s)\n", int(tradePlan.StopLoss), utils.FormatChange(float64(marketPrice), tradePlan.StopLoss)))
@@ -241,7 +241,7 @@ func (t *TelegramBotHandler) showAnalysis(ctx context.Context, c telebot.Context
 
 	menu.Inline(menu.Row(btnAskAI))
 
-	_, err := t.telegram.Edit(ctx, c, loadingMsg, sbHeader.String()+sb.String(), menu, telebot.ModeHTML)
+	_, err = t.telegram.Edit(ctx, c, loadingMsg, sbHeader.String()+sb.String(), menu, telebot.ModeHTML)
 	if err != nil {
 		t.log.ErrorContext(ctx, "Failed to edit message", logger.ErrorField(err))
 		return err

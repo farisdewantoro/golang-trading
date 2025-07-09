@@ -34,9 +34,14 @@ func (t *TelegramBotHandler) RegisterHandlers() {
 	t.bot.Handle("/start", t.WithContext(t.handleStart))
 	t.bot.Handle("/help", t.WithContext(t.handleHelp))
 	t.bot.Handle("/analyze", t.WithContext(t.handleStartAnalyze))
+	t.bot.Handle("/setposition", t.WithContext(t.handleSetPosition), t.IsOnConversationMiddleware())
 
 	t.bot.Handle(telebot.OnText, t.WithContext(t.handleConversation))
 
 	t.bot.Handle(&btnAskAIAnalyzer, t.WithContext(t.handleAskAIAnalyzer))
+
+	// set position
+	t.bot.Handle(&btnSetPositionAlertPrice, t.WithContext(t.handleBtnSetPositionAlertPrice))
+	t.bot.Handle(&btnSetPositionAlertMonitor, t.WithContext(t.handleBtnSetPositionAlertMonitor))
 
 }
