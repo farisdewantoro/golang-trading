@@ -93,6 +93,12 @@ func (t *TelegramBotHandler) showMyPositionDetail(ctx context.Context, c telebot
 	lastUpdate := lastMonitoring.Timestamp
 	sb.WriteString(fmt.Sprintf("\n\n📅 Update Terakhir: %s", utils.PrettyDate(lastUpdate)))
 
-	_, err = t.telegram.Send(ctx, c, sb.String(), telebot.ModeHTML)
+	menu := &telebot.ReplyMarkup{}
+
+	btnBack := menu.Data(btnBackStockPosition.Text, btnBackStockPosition.Unique)
+	btnExit := menu.Data("🚪 Exit dari Posisi", btnExitStockPosition.Unique, fmt.Sprintf("%s|%d", stockCodeWithExchange, stockPosition.ID))
+
+	menu.Inline(menu.Row(btnExit, btnBack))
+	_, err = t.telegram.Send(ctx, c, sb.String(), menu, telebot.ModeHTML)
 	return err
 }

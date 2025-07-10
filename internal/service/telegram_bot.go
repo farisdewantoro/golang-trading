@@ -27,6 +27,7 @@ type TelegramBotService interface {
 	GetStockPositions(ctx context.Context, param dto.GetStockPositionsParam) ([]model.StockPosition, error)
 	DeleteStockPositionTelegramUser(ctx context.Context, telegramID int64, stockPositionID uint) error
 	GetDetailStockPosition(ctx context.Context, telegramID int64, stockPositionID uint) (*model.StockPosition, error)
+	ExitStockPosition(ctx context.Context, telegramID int64, data *dto.RequestExitPositionData) error
 }
 
 type telegramBotService struct {
@@ -268,4 +269,30 @@ func (s *telegramBotService) GetDetailStockPosition(ctx context.Context, telegra
 	positions[0].StockPositionMonitorings = monitorings
 
 	return &positions[0], nil
+}
+
+func (s *telegramBotService) ExitStockPosition(ctx context.Context, telegramID int64, data *dto.RequestExitPositionData) error {
+	positions, err := s.stockPositionRepository.Get(ctx, dto.GetStockPositionsParam{
+		TelegramID: &telegramID,
+		IDs:        []uint{data.StockPositionID},
+	})
+	if err != nil {
+		return fmt.Errorf("failed to get stock positions: %w", err)
+	}
+
+	if len(positions) == 0 {
+		return fmt.Errorf("position not found")
+	}
+
+	if !data.ExitDate.IsZero() {
+		positions[0].ExitDate = &data.ExitDate
+	}
+
+	if data.ExitPrice > 0 {
+		positions[0].ExitPrice = &data.ExitPrice
+	}
+
+	positions[0].IsActive = utils.ToPointer(false)
+
+	return s.stockPositionRepository.Update(ctx, positions[0])
 }

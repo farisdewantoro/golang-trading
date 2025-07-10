@@ -76,6 +76,10 @@ func (r *stockPositionsRepository) Get(ctx context.Context, param dto.GetStockPo
 		qFilterParam = append(qFilterParam, *param.UserID)
 	}
 
+	if param.IsExit != nil {
+		qFilter = append(qFilter, "stock_positions.is_active = false and stock_positions.exit_price is not null")
+	}
+
 	if len(qFilter) == 0 {
 		return nil, fmt.Errorf("no filter provided")
 	}

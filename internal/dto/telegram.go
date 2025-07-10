@@ -73,3 +73,10 @@ type GetStockPositionsUserTelegramParam struct {
 	TelegramID *int64
 	IsActive   *bool
 }
+
+type RequestExitPositionData struct {
+	Symbol          string
+	ExitPrice       float64
+	ExitDate        time.Time
+	StockPositionID uint
+}

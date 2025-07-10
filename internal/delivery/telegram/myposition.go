@@ -124,3 +124,7 @@ func (t *TelegramBotHandler) showMyPosition(ctx context.Context, c telebot.Conte
 	}
 	return nil
 }
+
+func (t *TelegramBotHandler) handleBtnBackStockPosition(ctx context.Context, c telebot.Context) error {
+	return t.handleMyPosition(ctx, c)
+}

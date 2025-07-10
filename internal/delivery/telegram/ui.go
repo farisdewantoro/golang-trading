@@ -12,10 +12,16 @@ var (
 
 	btnDeleteStockPosition   telebot.Btn = telebot.Btn{Text: "🗑️ Hapus Posisi", Unique: "btn_delete_stock_position"}
 	btnToDetailStockPosition telebot.Btn = telebot.Btn{Unique: "btn_detail_stock_position"}
+
+	btnSaveExitPosition  telebot.Btn = telebot.Btn{Text: "💾 Simpan", Unique: "btn_save_exit_position"}
+	btnCancelGeneral     telebot.Btn = telebot.Btn{Text: "❌ Batal", Unique: "btn_cancel_general"}
+	btnExitStockPosition telebot.Btn = telebot.Btn{Unique: "btn_exit_stock_position"}
+	btnBackStockPosition telebot.Btn = telebot.Btn{Text: "🔙 Kembali", Unique: "btn_back_stock_position"}
 )
 
 const (
 	commonErrorInternal            = "Terjadi kesalahan internal, silakan coba lagi"
 	commonErrorInternalSetPosition = commonErrorInternal + " dengan /setposition."
 	commonErrorInternalMyPosition  = commonErrorInternal + " dengan /myposition."
+	commonErrorInternalReport      = commonErrorInternal + " dengan /report."
 )

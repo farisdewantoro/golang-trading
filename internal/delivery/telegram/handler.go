@@ -36,6 +36,7 @@ func (t *TelegramBotHandler) RegisterHandlers() {
 	t.bot.Handle("/analyze", t.WithContext(t.handleStartAnalyze))
 	t.bot.Handle("/setposition", t.WithContext(t.handleSetPosition), t.IsOnConversationMiddleware())
 	t.bot.Handle("/myposition", t.WithContext(t.handleMyPosition))
+	t.bot.Handle("/report", t.WithContext(t.handleReport))
 
 	t.bot.Handle(telebot.OnText, t.WithContext(t.handleConversation))
 
@@ -45,7 +46,17 @@ func (t *TelegramBotHandler) RegisterHandlers() {
 	t.bot.Handle(&btnSetPositionAlertPrice, t.WithContext(t.handleBtnSetPositionAlertPrice))
 	t.bot.Handle(&btnSetPositionAlertMonitor, t.WithContext(t.handleBtnSetPositionAlertMonitor))
 
+	// common
+	t.bot.Handle(&btnCancelGeneral, t.handleCancel)
+	t.bot.Handle(&btnDeleteMessage, t.WithContext(t.handleBtnDeleteMessage))
+
 	// my position
 	t.bot.Handle(&btnToDetailStockPosition, t.WithContext(t.handleBtnToDetailStockPosition))
 	t.bot.Handle(&btnDeleteStockPosition, t.WithContext(t.handleBtnDeleteStockPosition))
+	t.bot.Handle(&btnBackStockPosition, t.WithContext(t.handleBtnBackStockPosition))
+
+	// exit position
+	t.bot.Handle(&btnExitStockPosition, t.WithContext(t.handleBtnExitStockPosition))
+	t.bot.Handle(&btnSaveExitPosition, t.WithContext(t.handleBtnSaveExitPosition))
+
 }

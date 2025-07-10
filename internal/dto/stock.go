@@ -56,6 +56,7 @@ type GetStockPositionsParam struct {
 	UserID          *uint                              `json:"user_id"`
 	TelegramID      *int64                             `json:"telegram_id"`
 	Monitoring      *StockPositionMonitoringQueryParam `json:"monitoring"`
+	IsExit          *bool                              `json:"is_exit"`
 }
 
 type StockInfo struct {
