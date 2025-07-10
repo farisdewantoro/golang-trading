@@ -16,7 +16,6 @@ import (
 	"strings"
 	"sync"
 
-	"golang.org/x/sync/errgroup"
 	"gorm.io/datatypes"
 )
 
@@ -159,6 +158,7 @@ func (s *StockAnalyzerStrategy) Execute(ctx context.Context, job *model.Job) (Jo
 func (s *StockAnalyzerStrategy) AnalyzeStock(ctx context.Context, stock dto.StockInfo) ([]model.StockAnalysis, error) {
 	var (
 		mu            sync.Mutex
+		wg            sync.WaitGroup
 		stockAnalyses []model.StockAnalysis
 		now           = utils.TimeNowWIB()
 	)
@@ -176,26 +176,27 @@ func (s *StockAnalyzerStrategy) AnalyzeStock(ctx context.Context, stock dto.Stoc
 	)
 
 	// errgroup with context
-	g, grpCtx := errgroup.WithContext(ctx)
 
 	for _, tf := range dataTF {
 		tf := tf // avoid closure capture bug
-		g.Go(func() error {
+		wg.Add(1)
+		utils.GoSafe(func() {
+			defer wg.Done()
 			var stockAnalysis model.StockAnalysis
 
-			stockData, err := s.tradingViewScreenersRepository.Get(grpCtx,
+			stockData, err := s.tradingViewScreenersRepository.Get(ctx,
 				fmt.Sprintf("%s:%s", stock.Exchange, stock.StockCode),
 				tf.ToTradingViewScreenersInterval(),
 			)
 			if err != nil {
 				s.logger.Error("Failed to get stock data", logger.ErrorField(err), logger.StringField("stock_code", stock.StockCode))
-				return err
+				return
 			}
 
 			jsonAnalysis, err := json.Marshal(stockData)
 			if err != nil {
 				s.logger.Error("Failed to marshal json", logger.ErrorField(err), logger.StringField("stock_code", stock.StockCode))
-				return err
+				return
 			}
 
 			stockAnalysis = model.StockAnalysis{
@@ -208,7 +209,7 @@ func (s *StockAnalyzerStrategy) AnalyzeStock(ctx context.Context, stock dto.Stoc
 					stockData.Recommend.Global.Summary),
 			}
 
-			stockDataOHCLV, err := s.yahooFinanceRepository.Get(grpCtx, dto.GetStockDataParam{
+			stockDataOHCLV, err := s.yahooFinanceRepository.Get(ctx, dto.GetStockDataParam{
 				StockCode: stock.StockCode,
 				Exchange:  stock.Exchange,
 				Range:     tf.Range,
@@ -216,13 +217,13 @@ func (s *StockAnalyzerStrategy) AnalyzeStock(ctx context.Context, stock dto.Stoc
 			})
 			if err != nil {
 				s.logger.Error("Failed to get OHCLV data", logger.ErrorField(err), logger.StringField("stock_code", stock.StockCode))
-				return err
+				return
 			}
 
 			jsonOHCLV, err := json.Marshal(stockDataOHCLV.OHLCV)
 			if err != nil {
 				s.logger.Error("Failed to marshal OHCLV json", logger.ErrorField(err), logger.StringField("stock_code", stock.StockCode))
-				return err
+				return
 			}
 
 			stockAnalysis.OHLCV = datatypes.JSON(jsonOHCLV)
@@ -234,14 +235,11 @@ func (s *StockAnalyzerStrategy) AnalyzeStock(ctx context.Context, stock dto.Stoc
 			stockAnalyses = append(stockAnalyses, stockAnalysis)
 			mu.Unlock()
 
-			return nil
-		})
+		}).Run()
 	}
 
 	// Wait for all goroutines
-	if err := g.Wait(); err != nil {
-		return nil, err
-	}
+	wg.Wait()
 
 	if len(stockAnalyses) > 0 {
 		if err := s.stockAnalysisRepo.CreateBulk(ctx, stockAnalyses); err != nil {

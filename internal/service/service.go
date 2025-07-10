@@ -32,7 +32,7 @@ func NewService(
 	taskExecutor := NewTaskExecutor(cfg, log, repo.JobRepo, executorStrategies)
 
 	schedulerService := NewSchedulerService(cfg, log, repo.JobRepo, taskExecutor)
-	telegramBotService := NewTelegramBotService(log, cfg, telegram, inmemoryCache, repo.StockAnalysisRepo, repo.SystemParamRepo, analyzerStrategy, repo.GeminiAIRepo, repo.UserRepo, repo.StockPositionsRepo, repo.UnitOfWork)
+	telegramBotService := NewTelegramBotService(log, cfg, telegram, inmemoryCache, repo.StockAnalysisRepo, repo.SystemParamRepo, analyzerStrategy, repo.GeminiAIRepo, repo.UserRepo, repo.StockPositionsRepo, repo.StockPositionMonitoringRepo, repo.UnitOfWork)
 	return &Service{
 		SchedulerService:   schedulerService,
 		TaskExecutor:       taskExecutor,

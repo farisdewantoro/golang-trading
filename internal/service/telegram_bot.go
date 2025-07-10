@@ -25,20 +25,23 @@ type TelegramBotService interface {
 	EvaluateSignal(ctx context.Context, latestAnalyses []model.StockAnalysis) (string, error)
 	SetStockPosition(ctx context.Context, data *dto.RequestSetPositionData) error
 	GetStockPositions(ctx context.Context, param dto.GetStockPositionsParam) ([]model.StockPosition, error)
+	DeleteStockPositionTelegramUser(ctx context.Context, telegramID int64, stockPositionID uint) error
+	GetDetailStockPosition(ctx context.Context, telegramID int64, stockPositionID uint) (*model.StockPosition, error)
 }
 
 type telegramBotService struct {
-	log                     *logger.Logger
-	cfg                     *config.Config
-	telegram                *telegram.TelegramRateLimiter
-	inmemoryCache           cache.Cache
-	stockAnalysisRepository repository.StockAnalysisRepository
-	systemParamRepository   repository.SystemParamRepository
-	stockAnalyzer           strategy.StockAnalyzer
-	aiRepository            repository.AIRepository
-	userRepo                repository.UserRepository
-	stockPositionRepository repository.StockPositionsRepository
-	uow                     repository.UnitOfWork
+	log                               *logger.Logger
+	cfg                               *config.Config
+	telegram                          *telegram.TelegramRateLimiter
+	inmemoryCache                     cache.Cache
+	stockAnalysisRepository           repository.StockAnalysisRepository
+	systemParamRepository             repository.SystemParamRepository
+	stockAnalyzer                     strategy.StockAnalyzer
+	aiRepository                      repository.AIRepository
+	userRepo                          repository.UserRepository
+	stockPositionRepository           repository.StockPositionsRepository
+	stockPositionMonitoringRepository repository.StockPositionMonitoringRepository
+	uow                               repository.UnitOfWork
 }
 
 func NewTelegramBotService(
@@ -52,20 +55,22 @@ func NewTelegramBotService(
 	aiRepository repository.AIRepository,
 	userRepo repository.UserRepository,
 	stockPositionRepository repository.StockPositionsRepository,
+	stockPositionMonitoringRepository repository.StockPositionMonitoringRepository,
 	uow repository.UnitOfWork,
 ) TelegramBotService {
 	return &telegramBotService{
-		log:                     log,
-		cfg:                     cfg,
-		telegram:                telegram,
-		inmemoryCache:           inmemoryCache,
-		stockAnalysisRepository: stockAnalysisRepository,
-		systemParamRepository:   systemParamRepository,
-		stockAnalyzer:           stockAnalyzer,
-		aiRepository:            aiRepository,
-		userRepo:                userRepo,
-		stockPositionRepository: stockPositionRepository,
-		uow:                     uow,
+		log:                               log,
+		cfg:                               cfg,
+		telegram:                          telegram,
+		inmemoryCache:                     inmemoryCache,
+		stockAnalysisRepository:           stockAnalysisRepository,
+		systemParamRepository:             systemParamRepository,
+		stockAnalyzer:                     stockAnalyzer,
+		aiRepository:                      aiRepository,
+		userRepo:                          userRepo,
+		stockPositionRepository:           stockPositionRepository,
+		stockPositionMonitoringRepository: stockPositionMonitoringRepository,
+		uow:                               uow,
 	}
 }
 
@@ -222,4 +227,45 @@ func (s *telegramBotService) GetStockPositions(ctx context.Context, param dto.Ge
 		return nil, fmt.Errorf("failed to get stock positions: %w", err)
 	}
 	return positions, nil
+}
+
+func (s *telegramBotService) DeleteStockPositionTelegramUser(ctx context.Context, telegramID int64, stockPositionID uint) error {
+	positions, err := s.stockPositionRepository.Get(ctx, dto.GetStockPositionsParam{
+		TelegramID: &telegramID,
+		IDs:        []uint{stockPositionID},
+	})
+	if err != nil {
+		return fmt.Errorf("failed to get stock positions: %w", err)
+	}
+
+	if len(positions) == 0 {
+		return fmt.Errorf("position not found")
+	}
+
+	return s.stockPositionRepository.Delete(ctx, &positions[0])
+}
+
+func (s *telegramBotService) GetDetailStockPosition(ctx context.Context, telegramID int64, stockPositionID uint) (*model.StockPosition, error) {
+	positions, err := s.stockPositionRepository.Get(ctx, dto.GetStockPositionsParam{
+		TelegramID: &telegramID,
+		IDs:        []uint{stockPositionID},
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to get stock positions: %w", err)
+	}
+
+	if len(positions) == 0 {
+		return nil, fmt.Errorf("position not found")
+	}
+
+	monitorings, err := s.stockPositionMonitoringRepository.GetRecentDistinctMonitorings(ctx, model.StockPositionMonitoringQueryParam{
+		StockPositionID: positions[0].ID,
+		Limit:           utils.ToPointer(10),
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to get stock position monitorings: %w", err)
+	}
+	positions[0].StockPositionMonitorings = monitorings
+
+	return &positions[0], nil
 }

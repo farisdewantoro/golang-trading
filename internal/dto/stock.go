@@ -47,17 +47,24 @@ type YahooFinanceResponse struct {
 }
 
 type GetStockPositionsParam struct {
-	IDs             []uint   `json:"ids"`
-	StockCodes      []string `json:"stock_codes"`
-	PriceAlert      *bool    `json:"price_alert"`
-	MonitorPosition *bool    `json:"monitor_position"`
-	IsActive        *bool    `json:"is_active"`
-	Exchange        *string  `json:"exchange"`
-	UserID          *uint    `json:"user_id"`
-	TelegramID      *int64   `json:"telegram_id"`
+	IDs             []uint                             `json:"ids"`
+	StockCodes      []string                           `json:"stock_codes"`
+	PriceAlert      *bool                              `json:"price_alert"`
+	MonitorPosition *bool                              `json:"monitor_position"`
+	IsActive        *bool                              `json:"is_active"`
+	Exchange        *string                            `json:"exchange"`
+	UserID          *uint                              `json:"user_id"`
+	TelegramID      *int64                             `json:"telegram_id"`
+	Monitoring      *StockPositionMonitoringQueryParam `json:"monitoring"`
 }
 
 type StockInfo struct {
 	StockCode string `json:"stock_code"`
 	Exchange  string `json:"exchange"`
+}
+
+type StockPositionMonitoringQueryParam struct {
+	Limit           *int  `json:"limit"`
+	ShowNewest      *bool `json:"show_newest"` // If true, show only the newest monitoring
+	StockPositionID uint  `json:"stock_position_id"`
 }

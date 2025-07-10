@@ -2,6 +2,7 @@ package telegram
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"golang-trading/internal/dto"
 	"golang-trading/internal/model"
@@ -19,6 +20,9 @@ func (t *TelegramBotHandler) handleMyPosition(ctx context.Context, c telebot.Con
 	positions, err := t.service.TelegramBotService.GetStockPositions(ctx, dto.GetStockPositionsParam{
 		TelegramID: &userID,
 		IsActive:   utils.ToPointer(true),
+		Monitoring: &dto.StockPositionMonitoringQueryParam{
+			ShowNewest: utils.ToPointer(true),
+		},
 	})
 	if err != nil {
 		t.telegram.Send(ctx, c, commonErrorInternalMyPosition)
@@ -37,20 +41,57 @@ func (t *TelegramBotHandler) showMyPosition(ctx context.Context, c telebot.Conte
 	sb := strings.Builder{}
 	header := `📊 Posisi Saham yang Kamu Pantau Saat ini:`
 	sb.WriteString(header)
-	sb.WriteString("\n")
+	sb.WriteString("\n\n")
 
-	for _, position := range positions {
-		sb.WriteString(position.StockCode)
-		sb.WriteString("\n")
-		sb.WriteString(fmt.Sprintf("\n• %s", position.StockCode))
-		sb.WriteString(fmt.Sprintf("\n 🎯 Buy: %d | TP: %d | SL: %d\n", int(position.BuyPrice), int(position.TakeProfitPrice), int(position.StopLossPrice)))
+	for idx, position := range positions {
+		stockWithExchange := position.Exchange + ":" + position.StockCode
+		sb.WriteString(fmt.Sprintf("<b>%d. %s</b>\n", idx+1, stockWithExchange))
+
+		sb.WriteString(fmt.Sprintf("  • Entry: %d\n", int(position.BuyPrice)))
+		sb.WriteString(fmt.Sprintf("  • TP: %d (%s)\n", int(position.TakeProfitPrice), utils.FormatChange(position.BuyPrice, position.TakeProfitPrice)))
+		sb.WriteString(fmt.Sprintf("  • SL: %d (%s)\n", int(position.StopLossPrice), utils.FormatChange(position.BuyPrice, position.StopLossPrice)))
+		// sb.WriteString(fmt.Sprintf("\n 🎯 Buy: %d | TP: %d | SL: %d\n", int(position.BuyPrice), int(position.TakeProfitPrice), int(position.StopLossPrice)))
+
+		var (
+			marketPrice        int
+			techScore          string
+			techRecommendation string
+			pnl                string
+		)
+
+		isHasMonitoring := len(position.StockPositionMonitorings) > 0
 
 		stockCodeWithExchange := position.Exchange + ":" + position.StockCode
-		marketPrice, _ := cache.GetFromCache[int](fmt.Sprintf(common.KEY_LAST_PRICE, stockCodeWithExchange))
-		if marketPrice == 0 {
-			continue
+		marketPrice, _ = cache.GetFromCache[int](fmt.Sprintf(common.KEY_LAST_PRICE, stockCodeWithExchange))
+
+		if marketPrice == 0 && isHasMonitoring {
+			marketPrice = int(position.StockPositionMonitorings[0].MarketPrice)
 		}
-		sb.WriteString(fmt.Sprintf(" 💰 Last Price: %d | 📈 PnL: (%s)\n", int(marketPrice), utils.FormatChange(float64(position.BuyPrice), float64(marketPrice))))
+
+		pnl = "N/A"
+		if marketPrice > 0 {
+			pnl = utils.FormatChange(position.BuyPrice, float64(marketPrice))
+		}
+		sb.WriteString(fmt.Sprintf("  • Last Price: %d | PnL: (%s)\n", int(marketPrice), pnl))
+
+		if !isHasMonitoring {
+			techScore = "N/A"
+			techRecommendation = "N/A"
+		} else {
+
+			var evalSummary model.EvaluationSummaryData
+
+			err := json.Unmarshal(position.StockPositionMonitorings[0].EvaluationSummary, &evalSummary)
+			if err != nil {
+				continue
+			}
+			techScore = fmt.Sprintf("%d", evalSummary.TechnicalScore)
+			techRecommendation = evalSummary.TechnicalRecommendation
+		}
+
+		sb.WriteString(fmt.Sprintf("  • Tech Status: %s\n", techRecommendation))
+		sb.WriteString(fmt.Sprintf("  • Tech Score: %s\n", techScore))
+		sb.WriteString("\n")
 	}
 
 	sb.WriteString("\n👉 Tekan tombol di bawah untuk melihat detail lengkap atau mengelola posisi.")

@@ -21,7 +21,7 @@ type StockPositionMonitoring struct {
 
 	StockPositionMonitoringAnalysisRefs []StockPositionMonitoringAnalysisRef `gorm:"foreignKey:StockPositionMonitoringID;references:ID"`
 	StockPosition                       StockPosition                        `gorm:"foreignKey:StockPositionID"`
-	StockAnalysisAI                     StockAnalysisAI                      `gorm:"foreignKey:StockAnalysisAIID;references:ID"`
+	StockAnalysisAI                     *StockAnalysisAI                     `gorm:"foreignKey:StockAnalysisAIID;references:ID"`
 }
 
 func (StockPositionMonitoring) TableName() string {
@@ -44,4 +44,9 @@ func (StockPositionMonitoringAnalysisRef) TableName() string {
 type EvaluationSummaryData struct {
 	TechnicalRecommendation string `json:"technical_recommendation"`
 	TechnicalScore          int    `json:"technical_score"`
+}
+
+type StockPositionMonitoringQueryParam struct {
+	Limit           *int `json:"limit"`
+	StockPositionID uint `json:"stock_position_id"`
 }
