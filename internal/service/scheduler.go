@@ -82,6 +82,12 @@ func (s *schedulerService) Execute(ctx context.Context) error {
 					logger.IntField("schedule_id", int(job.ID)),
 				)
 			}
+
+			s.log.InfoContext(ctx, "Job execution completed",
+				logger.IntField("job_id", int(job.JobID)),
+				logger.IntField("schedule_id", int(job.ID)),
+				logger.StringField("job_name", job.Job.Name),
+			)
 		}).Run()
 	}
 

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"golang-trading/config"
@@ -25,6 +26,7 @@ type tradingViewScreenersRepository struct {
 	log            *logger.Logger
 	httpClient     httpclient.HTTPClient
 	requestLimiter *rate.Limiter
+	mu             sync.Mutex
 }
 
 func NewTradingViewScreenersRepository(cfg *config.Config, log *logger.Logger) *tradingViewScreenersRepository {
@@ -36,6 +38,7 @@ func NewTradingViewScreenersRepository(cfg *config.Config, log *logger.Logger) *
 		httpClient:     httpclient.New(log, cfg.TradingView.BaseURLScanner, cfg.TradingView.BaseTimeout, ""),
 		log:            log,
 		requestLimiter: requestLimiter,
+		mu:             sync.Mutex{},
 	}
 }
 
@@ -54,9 +57,17 @@ func NewTradingViewScreenersRepository(cfg *config.Config, log *logger.Logger) *
 //
 //	error - returns an error if the request fails or the symbol/interval is invalid.
 func (t *tradingViewScreenersRepository) Get(ctx context.Context, symbol string, interval string) (*dto.TradingViewScanner, error) {
+	t.mu.Lock()
+	if !t.requestLimiter.Allow() {
+		t.log.WarnContext(ctx, "TradingView Screeners API request limit exceeded",
+			logger.IntField("max_request_per_minute", t.cfg.TradingView.MaxRequestPerMin),
+			logger.IntField("current_request", t.requestLimiter.Burst()),
+		)
+	}
 	if err := t.requestLimiter.Wait(ctx); err != nil {
 		return nil, err
 	}
+	t.mu.Unlock()
 
 	// Validate symbol parameter to ensure it has the correct format EXCHANGE:SYMBOL
 	if strings.Count(symbol, ":") != 1 {

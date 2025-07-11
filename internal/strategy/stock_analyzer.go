@@ -109,7 +109,13 @@ func (s *StockAnalyzerStrategy) Execute(ctx context.Context, job *model.Job) (Jo
 	isHasError := false
 	isHasSuccess := false
 
+	s.logger.Debug("Start analyzing stocks", logger.IntField("total_stock", len(stocks)))
+
 	for _, stock := range stocks {
+		if !utils.ShouldContinue(ctx, s.logger) {
+			s.logger.Info("Received stop signal, Stock analyzer execution stopped")
+			break
+		}
 		wg.Add(1)
 		utils.GoSafe(func() {
 			defer wg.Done()
@@ -178,9 +184,15 @@ func (s *StockAnalyzerStrategy) AnalyzeStock(ctx context.Context, stock dto.Stoc
 	// errgroup with context
 
 	for _, tf := range dataTF {
+		if !utils.ShouldContinue(ctx, s.logger) {
+			s.logger.Info("Received stop signal, Stock analyzer stopped")
+			break
+		}
+
 		tf := tf // avoid closure capture bug
 		wg.Add(1)
 		utils.GoSafe(func() {
+
 			defer wg.Done()
 			var stockAnalysis model.StockAnalysis
 

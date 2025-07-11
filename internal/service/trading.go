@@ -33,6 +33,14 @@ type Level struct {
 	Touches   int    // seberapa sering level disentuh (opsional, default 0)
 }
 
+type EMAData struct {
+	Timeframe string
+	EMA10     float64
+	EMA20     float64
+	EMA50     float64
+	IsMain    bool
+}
+
 func NewTradingService(
 	cfg *config.Config,
 	log *logger.Logger,
@@ -51,9 +59,10 @@ func (s *tradingService) CreateTradePlan(ctx context.Context, latestAnalyses []m
 		resistances []Level
 		marketPrice int
 		result      *dto.TradePlanResult
+		emaData     []EMAData
 
-		// mainTrend string
-		// maxWeight int
+		mainTrend string
+		maxWeight int
 	)
 
 	if len(latestAnalyses) == 0 {
@@ -66,12 +75,12 @@ func (s *tradingService) CreateTradePlan(ctx context.Context, latestAnalyses []m
 		return nil, err
 	}
 
-	// for _, tf := range timeframes {
-	// 	if tf.Weight > maxWeight {
-	// 		maxWeight = tf.Weight
-	// 		mainTrend = tf.Interval
-	// 	}
-	// }
+	for _, tf := range timeframes {
+		if tf.Weight > maxWeight {
+			maxWeight = tf.Weight
+			mainTrend = tf.Interval
+		}
+	}
 
 	lastAnalysis := latestAnalyses[len(latestAnalyses)-1]
 
@@ -95,11 +104,20 @@ func (s *tradingService) CreateTradePlan(ctx context.Context, latestAnalyses []m
 		if err := json.Unmarshal(analysis.OHLCV, &candles); err != nil {
 			return nil, err
 		}
+
+		emaData = append(emaData, EMAData{
+			Timeframe: analysis.Timeframe,
+			EMA10:     technicalData.Value.MovingAverages.EMA10,
+			EMA20:     technicalData.Value.MovingAverages.EMA20,
+			EMA50:     technicalData.Value.MovingAverages.EMA50,
+			IsMain:    analysis.Timeframe == mainTrend,
+		})
+
 		// if analysis.Timeframe != mainTrend {
 		// 	continue
 		// }
 
-		tolerancePercent := 0.05
+		tolerancePercent := 0.005
 		supports = append(supports,
 			Level{
 				Price:     technicalData.Value.Pivots.Classic.S1,
@@ -167,6 +185,7 @@ func (s *tradingService) CreateTradePlan(ctx context.Context, latestAnalyses []m
 				Touches:   s.countTouches(candles, technicalData.Value.Pivots.Woodie.S3, tolerancePercent, true),
 			},
 		)
+
 		resistances = append(resistances,
 			Level{
 				Price:     technicalData.Value.Pivots.Classic.R1,
@@ -237,7 +256,7 @@ func (s *tradingService) CreateTradePlan(ctx context.Context, latestAnalyses []m
 	}
 
 	s.log.DebugContext(ctx, "Create Trade Plan", logger.StringField("stock_code", stockCodeWithExchange))
-	plan := s.calculatePlan(float64(marketPrice), supports, resistances)
+	plan := s.calculatePlan(float64(marketPrice), supports, resistances, emaData)
 
 	score, signal, err := helper.EvaluateSignal(ctx, s.log, timeframes, latestAnalyses)
 	if err != nil {
@@ -264,10 +283,15 @@ func (s *tradingService) calculatePlan(
 	marketPrice float64,
 	supports []Level,
 	resistances []Level,
+	emas []EMAData,
 ) dto.TradePlan {
-	const minTouches = 2
+	const (
+		minTouches     = 2
+		maxSLDistance  = 0.03  // 3%
+		slFromEMA50Adj = 0.995 // SL 0.5% di bawah EMA50 jika perlu adjust
+	)
 
-	// SL: support dengan touches terbanyak, di bawah marketPrice
+	// Cari SL awal: support dengan touches terbanyak
 	var slSupport Level
 	for _, s := range supports {
 		if s.Price < marketPrice && s.Touches >= minTouches {
@@ -277,15 +301,27 @@ func (s *tradingService) calculatePlan(
 		}
 	}
 	if slSupport.Price == 0 {
-		return dto.TradePlan{} // Tidak ada SL valid
+		return dto.TradePlan{}
 	}
 	sl := slSupport.Price
+
+	// Validasi dan adjust SL jika terlalu jauh dari EMA50 (timeframe 1D)
+	for _, ema := range emas {
+		if ema.IsMain && sl < ema.EMA50 {
+			diff := ema.EMA50 - sl
+			if diff/ema.EMA50 > maxSLDistance {
+				// SL terlalu jauh dari EMA50 → adjust
+				sl = ema.EMA50 * slFromEMA50Adj
+			}
+		}
+	}
+
 	risk := marketPrice - sl
 	if risk <= 0 {
 		return dto.TradePlan{}
 	}
 
-	// TP: resistance dengan touches terbanyak, di atas marketPrice
+	// Cari TP: resistance dengan touches terbanyak
 	var tpResistance Level
 	for _, r := range resistances {
 		if r.Price > marketPrice && r.Touches >= minTouches {
@@ -295,7 +331,7 @@ func (s *tradingService) calculatePlan(
 		}
 	}
 	if tpResistance.Price == 0 {
-		return dto.TradePlan{} // Tidak ada TP valid
+		return dto.TradePlan{}
 	}
 	tp := tpResistance.Price
 	reward := tp - marketPrice
@@ -358,6 +394,10 @@ func (s *tradingService) BuyListTradePlan(ctx context.Context, mapSymbolExchange
 			return nil, err
 		}
 
+		if tradePlan == nil {
+			continue
+		}
+
 		if !tradePlan.IsBuySignal {
 			continue
 		}
@@ -367,7 +407,9 @@ func (s *tradingService) BuyListTradePlan(ctx context.Context, mapSymbolExchange
 
 	// add sort by score to return buylistresult
 	sort.Slice(listTradePlan, func(i, j int) bool {
-		return listTradePlan[i].Score > listTradePlan[j].Score && listTradePlan[i].RiskReward > listTradePlan[j].RiskReward
+		scoreI := listTradePlan[i].Score * listTradePlan[i].RiskReward
+		scoreJ := listTradePlan[j].Score * listTradePlan[j].RiskReward
+		return scoreI > scoreJ
 	})
 
 	return listTradePlan, nil

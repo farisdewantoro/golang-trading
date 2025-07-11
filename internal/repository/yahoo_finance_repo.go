@@ -9,6 +9,7 @@ import (
 	"golang-trading/pkg/logger"
 	"golang-trading/pkg/utils"
 	"net/http"
+	"sync"
 	"time"
 
 	"golang.org/x/time/rate"
@@ -24,6 +25,7 @@ type yahooFinanceRepository struct {
 	cfg            *config.Config
 	logger         *logger.Logger
 	requestLimiter *rate.Limiter
+	mu             sync.Mutex
 }
 
 // NewYahooFinanceRepository creates a new instance of yahooFinanceRepository.
@@ -36,13 +38,23 @@ func NewYahooFinanceRepository(cfg *config.Config, log *logger.Logger) YahooFina
 		cfg:            cfg,
 		logger:         log,
 		requestLimiter: requestLimiter,
+		mu:             sync.Mutex{},
 	}
 }
 
 func (r *yahooFinanceRepository) Get(ctx context.Context, param dto.GetStockDataParam) (*dto.StockData, error) {
+
+	r.mu.Lock()
+	if !r.requestLimiter.Allow() {
+		r.logger.WarnContext(ctx, "Yahoo Finance API request limit exceeded",
+			logger.IntField("max_request_per_minute", r.cfg.YahooFinance.MaxRequestPerMinute),
+			logger.IntField("current_request", r.requestLimiter.Burst()),
+		)
+	}
 	if err := r.requestLimiter.Wait(ctx); err != nil {
 		return nil, err
 	}
+	r.mu.Unlock()
 
 	if param.Exchange == dto.ExchangeIDX {
 		param.StockCode = fmt.Sprintf("%s.JK", param.StockCode)
@@ -64,7 +76,7 @@ func (r *yahooFinanceRepository) Get(ctx context.Context, param dto.GetStockData
 	}
 
 	headers := map[string]string{
-		"User-Agent":      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
+		"User-Agent":      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36",
 		"Accept":          "application/json, text/plain, */*",
 		"Accept-Language": "en-US,en;q=0.9",
 		"Accept-Encoding": "gzip, deflate, br",
@@ -79,6 +91,9 @@ func (r *yahooFinanceRepository) Get(ctx context.Context, param dto.GetStockData
 	}
 
 	if resp.StatusCode != http.StatusOK {
+		r.logger.Error("Yahoo Finance API returned Non-OK status",
+			logger.IntField("status_code", resp.StatusCode),
+			logger.StringField("body", string(resp.Body)))
 		return nil, fmt.Errorf("yahoo finance api returned status: %d", resp.StatusCode)
 	}
 
