@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"golang-trading/config"
 	"golang-trading/internal/dto"
-	"golang-trading/internal/helper"
 	"golang-trading/internal/model"
 	"golang-trading/internal/repository"
 	"golang-trading/internal/strategy"
@@ -22,12 +21,12 @@ import (
 type TelegramBotService interface {
 	AnalyzeStock(ctx context.Context, c telebot.Context) ([]model.StockAnalysis, error)
 	AnalyzeStockAI(ctx context.Context, c telebot.Context) (*dto.AIAnalyzeStockResponse, error)
-	EvaluateSignal(ctx context.Context, latestAnalyses []model.StockAnalysis) (string, error)
 	SetStockPosition(ctx context.Context, data *dto.RequestSetPositionData) error
 	GetStockPositions(ctx context.Context, param dto.GetStockPositionsParam) ([]model.StockPosition, error)
 	DeleteStockPositionTelegramUser(ctx context.Context, telegramID int64, stockPositionID uint) error
 	GetDetailStockPosition(ctx context.Context, telegramID int64, stockPositionID uint) (*model.StockPosition, error)
 	ExitStockPosition(ctx context.Context, telegramID int64, data *dto.RequestExitPositionData) error
+	GetAllLatestAnalyses(ctx context.Context) ([]model.StockAnalysis, error)
 }
 
 type telegramBotService struct {
@@ -151,23 +150,6 @@ func (s *telegramBotService) AnalyzeStockAI(ctx context.Context, c telebot.Conte
 	}
 
 	return s.aiRepository.AnalyzeStock(ctx, latestAnalyses)
-}
-
-func (s *telegramBotService) EvaluateSignal(ctx context.Context, latestAnalyses []model.StockAnalysis) (string, error) {
-
-	// Ambil konfigurasi bobot timeframe
-	dtf, err := s.systemParamRepository.GetDefaultAnalysisTimeframes(ctx)
-	if err != nil {
-		s.log.ErrorContext(ctx, "Failed to get default analysis timeframes", logger.ErrorField(err))
-		return "", err
-	}
-
-	_, signal, err := helper.EvaluateSignal(ctx, s.log, dtf, latestAnalyses)
-	if err != nil {
-		s.log.ErrorContext(ctx, "Failed to evaluate signal", logger.ErrorField(err))
-		return "", err
-	}
-	return signal, nil
 }
 
 func (s *telegramBotService) SetStockPosition(ctx context.Context, data *dto.RequestSetPositionData) error {
@@ -295,4 +277,22 @@ func (s *telegramBotService) ExitStockPosition(ctx context.Context, telegramID i
 	positions[0].IsActive = utils.ToPointer(false)
 
 	return s.stockPositionRepository.Update(ctx, positions[0])
+}
+
+func (s *telegramBotService) GetAllLatestAnalyses(ctx context.Context) ([]model.StockAnalysis, error) {
+	latestAnalyses, err := s.stockAnalysisRepository.GetLatestAnalyses(ctx, model.GetLatestAnalysisParam{
+		TimestampAfter:  utils.TimeNowWIB().Add(-s.cfg.Telegram.FeatureStockAnalyze.AfterTimestampDuration),
+		ExpectedTFCount: s.cfg.Telegram.FeatureStockAnalyze.ExpectedTFCount,
+	})
+
+	if err != nil {
+		s.log.ErrorContext(ctx, "Failed to get latest analyses", logger.ErrorField(err))
+		return nil, err
+	}
+	if len(latestAnalyses) == 0 {
+		return nil, nil
+	}
+
+	s.log.DebugContext(ctx, "Found latest analyses", logger.IntField("count", len(latestAnalyses)))
+	return latestAnalyses, nil
 }

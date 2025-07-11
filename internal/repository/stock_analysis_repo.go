@@ -32,17 +32,29 @@ func (s *stockAnalysisRepository) CreateBulk(ctx context.Context, stockAnalyses 
 }
 
 func (s *stockAnalysisRepository) GetLatestAnalyses(ctx context.Context, param model.GetLatestAnalysisParam) ([]model.StockAnalysis, error) {
-	var latestHash string
+	var latestHash []string
 
-	sub := s.db.Model(&model.StockAnalysis{}).
-		Select("hash_identifier").
-		Where("stock_code = ? AND exchange = ? AND timestamp >= ?", param.StockCode, param.Exchange, param.TimestampAfter).
-		Group("hash_identifier").
-		Having("COUNT(DISTINCT timeframe) >= ?", param.ExpectedTFCount).
-		Order("MAX(timestamp) DESC").
-		Limit(1)
+	sub := s.db.Debug().Model(&model.StockAnalysis{}).Select("hash_identifier")
 
-	err := sub.Take(&latestHash).Error
+	if param.StockCode != "" {
+		sub = sub.Where("stock_code = ?", param.StockCode)
+	}
+	if param.Exchange != "" {
+		sub = sub.Where("exchange = ?", param.Exchange)
+	}
+	if !param.TimestampAfter.IsZero() {
+		sub = sub.Where("timestamp >= ?", param.TimestampAfter)
+	}
+	if param.ExpectedTFCount > 0 {
+		sub = sub.Group("hash_identifier").
+			Having("COUNT(DISTINCT timeframe) >= ?", param.ExpectedTFCount)
+	} else {
+		sub = sub.Group("hash_identifier")
+	}
+
+	sub = sub.Order("MAX(timestamp) DESC")
+
+	err := sub.Find(&latestHash).Error
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return nil, nil
@@ -50,10 +62,20 @@ func (s *stockAnalysisRepository) GetLatestAnalyses(ctx context.Context, param m
 		return nil, err
 	}
 
+	if len(latestHash) == 0 {
+		return nil, nil
+	}
+
+	query := s.db.Debug().Where("hash_identifier IN ?", latestHash)
+	if param.StockCode != "" {
+		query = query.Where("stock_code = ?", param.StockCode)
+	}
+	if param.Exchange != "" {
+		query = query.Where("exchange = ?", param.Exchange)
+	}
+
 	var analyses []model.StockAnalysis
-	err = s.db.
-		Where("stock_code = ? AND exchange = ? AND hash_identifier = ?", param.StockCode, param.Exchange, latestHash).
-		Order("timeframe DESC").
+	err = query.Order("stock_code ASC,timeframe DESC").
 		Preload("StockAnalysisAI").
 		Find(&analyses).Error
 	if err != nil {

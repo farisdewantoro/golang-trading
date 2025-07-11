@@ -19,6 +19,7 @@ type Config struct {
 	Telegram     TelegramConfig
 	YahooFinance YahooFinance
 	Gemini       Gemini
+	Trading      Trading
 }
 
 type Logger struct {
@@ -98,6 +99,11 @@ type Gemini struct {
 	Timeout             time.Duration
 }
 
+type Trading struct {
+	RiskRewardRatio float64
+	MaxBuyList      int
+}
+
 func Load() (*Config, error) {
 	// Load .env file. It's okay if it doesn't exist.
 	err := godotenv.Load()
@@ -174,6 +180,10 @@ func Load() (*Config, error) {
 			MaxTokenPerMinute:   viper.GetInt("GEMINI_MAX_TOKEN_PER_MINUTE"),
 			BaseURL:             viper.GetString("GEMINI_BASE_URL"),
 			Timeout:             viper.GetDuration("GEMINI_TIMEOUT"),
+		},
+		Trading: Trading{
+			RiskRewardRatio: viper.GetFloat64("TRADING_RISK_REWARD_RATIO"),
+			MaxBuyList:      viper.GetInt("TRADING_MAX_BUY_LIST"),
 		},
 	}
 

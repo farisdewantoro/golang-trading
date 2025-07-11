@@ -56,7 +56,7 @@ func CalculateSummary(ctx context.Context, log *logger.Logger, dtf []dto.DataTim
 	return totalScore, mainTrendScore, nil
 }
 
-func EvaluateSignal(ctx context.Context, log *logger.Logger, dtf []dto.DataTimeframe, latestAnalyses []model.StockAnalysis) (int, string, error) {
+func EvaluateSignal(ctx context.Context, log *logger.Logger, dtf []dto.DataTimeframe, latestAnalyses []model.StockAnalysis) (score int, signal string, err error) {
 
 	totalScore, mainTrendScore, err := CalculateSummary(ctx, log, dtf, latestAnalyses)
 	if err != nil {

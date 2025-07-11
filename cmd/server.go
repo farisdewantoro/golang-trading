@@ -56,6 +56,7 @@ func Start(cmd *cobra.Command, args []string) {
 		appDep.validator,
 		services,
 		appDep.cache,
+		repo.SystemParamRepo,
 	)
 
 	apiServer := NewHTTPServer(ctx, appDep, httpHandler)

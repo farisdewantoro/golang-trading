@@ -7,6 +7,7 @@ import (
 	"golang-trading/pkg/logger"
 	"golang-trading/pkg/utils"
 	"strings"
+	"sync"
 	"time"
 
 	"gopkg.in/telebot.v3"
@@ -115,4 +116,96 @@ func (t *TelegramBotHandler) handleBtnDeleteMessage(ctx context.Context, c teleb
 	t.telegram.Edit(ctx, c, c.Message(), "✅ Pesan akan dihapus....")
 	time.Sleep(1 * time.Second)
 	return t.telegram.Delete(ctx, c, c.Message())
+}
+
+type Progress struct {
+	Index     int
+	StockCode string
+	Content   string
+	Header    string
+}
+
+func (t *TelegramBotHandler) showProgressBarWithChannel(
+	ctx context.Context,
+	c telebot.Context,
+	msgRoot *telebot.Message,
+	progressCh <-chan Progress,
+	totalSteps int,
+	wg *sync.WaitGroup,
+) {
+	utils.GoSafe(func() {
+		const barLength = 15 // total panjang bar, bisa diubah sesuai estetika
+
+		current := Progress{Index: 0}
+
+		defer func() {
+			result := fmt.Sprintf("%s\n%s", current.Header, current.Content)
+			_, errInner := t.telegram.Edit(ctx, c, msgRoot, result, &telebot.ReplyMarkup{}, telebot.ModeHTML)
+			if errInner != nil {
+				t.log.ErrorContext(ctx, "Gagal edit pesan", logger.ErrorField(errInner))
+			}
+			wg.Done()
+		}()
+
+		for {
+			select {
+			case <-ctx.Done():
+				t.log.ErrorContext(ctx, "Done signal received", logger.ErrorField(ctx.Err()))
+				return
+			case newProgress, ok := <-progressCh:
+				if !ok {
+					t.log.WarnContext(ctx, "showProgressBarWithChannel - Progress channel closed")
+					return
+				}
+
+				current = newProgress
+
+				// Hitung persen dan jumlah "blok" progress
+				percent := int(float64(current.Index) / float64(totalSteps) * 100)
+				progressBlocks := int(float64(barLength) * float64(current.Index) / float64(totalSteps))
+				if progressBlocks > barLength {
+					progressBlocks = barLength
+				}
+
+				// Buat bar: ▓ untuk progress, ░ untuk sisanya
+				currentAnalysis := fmt.Sprintf(messageLoadingAnalysis, current.StockCode)
+				filled := strings.Repeat("▓", progressBlocks)
+				empty := strings.Repeat("░", barLength-progressBlocks)
+				progressBar := fmt.Sprintf("⏳ Progress: [%s%s] %d%%", filled, empty, percent)
+
+				menu := &telebot.ReplyMarkup{}
+				btnCancel := menu.Data(btnCancelBuyListAnalysis.Text, btnCancelBuyListAnalysis.Unique)
+				menu.Inline(menu.Row(btnCancel))
+
+				body := &strings.Builder{}
+				body.WriteString(current.Header)
+				body.WriteString("\n")
+
+				if current.Content != "" {
+					body.WriteString(current.Content)
+					body.WriteString("\n\n")
+				}
+
+				body.WriteString(currentAnalysis)
+				body.WriteString("\n")
+				body.WriteString(progressBar)
+
+				time.Sleep(100 * time.Millisecond)
+
+				if msgRoot == nil {
+					msgNew, err := t.telegram.Send(ctx, c, body.String(), menu, telebot.ModeHTML)
+					if err != nil {
+						t.log.ErrorContext(ctx, "Gagal create progress bar", logger.ErrorField(err))
+					}
+					msgRoot = msgNew
+				} else {
+					_, err := t.telegram.Edit(ctx, c, msgRoot, body.String(), menu, telebot.ModeHTML)
+					if err != nil {
+						t.log.ErrorContext(ctx, "Gagal update progress bar", logger.ErrorField(err))
+					}
+				}
+
+			}
+		}
+	}).Run()
 }

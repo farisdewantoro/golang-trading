@@ -17,6 +17,9 @@ var (
 	btnCancelGeneral     telebot.Btn = telebot.Btn{Text: "❌ Batal", Unique: "btn_cancel_general"}
 	btnExitStockPosition telebot.Btn = telebot.Btn{Unique: "btn_exit_stock_position"}
 	btnBackStockPosition telebot.Btn = telebot.Btn{Text: "🔙 Kembali", Unique: "btn_back_stock_position"}
+
+	//buylist
+	btnCancelBuyListAnalysis telebot.Btn = telebot.Btn{Text: "⛔ Hentikan Analisis", Unique: "btn_cancel_buy_list_analysis"}
 )
 
 const (
@@ -24,4 +27,8 @@ const (
 	commonErrorInternalSetPosition = commonErrorInternal + " dengan /setposition."
 	commonErrorInternalMyPosition  = commonErrorInternal + " dengan /myposition."
 	commonErrorInternalReport      = commonErrorInternal + " dengan /report."
+)
+
+const (
+	messageLoadingAnalysis string = "🔍 Menganalisis: $%s"
 )

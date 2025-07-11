@@ -123,12 +123,14 @@ func (t *TelegramBotHandler) showAnalysis(ctx context.Context, c telebot.Context
 		marketPrice = int(latestAnalyses[0].MarketPrice)
 	}
 
-	support := []float64{}
-	resistance := []float64{}
-
 	sb.WriteString("\n📊 <b><i>Rangkuman Analisis (Multi-Timeframe)</i></b>\n")
 
 	analysisIDs := []string{}
+
+	tradePlanResult, err := t.service.TradingService.CreateTradePlan(ctx, latestAnalyses)
+	if err != nil {
+		return err
+	}
 
 	for _, analysis := range latestAnalyses {
 		analysisIDs = append(analysisIDs, fmt.Sprintf("%d", analysis.ID))
@@ -168,52 +170,15 @@ func (t *TelegramBotHandler) showAnalysis(ctx context.Context, c telebot.Context
 		sb.WriteString(fmt.Sprintf("- <b>S1</b>: %d (%s) | <b>S2</b>: %d (%s)\n",
 			int(technicalData.Value.Pivots.Classic.S1), utils.FormatChange(float64(marketPrice), technicalData.Value.Pivots.Classic.S1),
 			int(technicalData.Value.Pivots.Classic.S2), utils.FormatChange(float64(marketPrice), technicalData.Value.Pivots.Classic.S2)))
-
-		support = append(support,
-			technicalData.Value.Pivots.Classic.S1,
-			technicalData.Value.Pivots.Classic.S2,
-			technicalData.Value.Pivots.Classic.S3,
-			technicalData.Value.Pivots.Camarilla.S1,
-			technicalData.Value.Pivots.Camarilla.S2,
-			technicalData.Value.Pivots.Camarilla.S3,
-			technicalData.Value.Pivots.Demark.S1,
-			technicalData.Value.Pivots.Fibonacci.S1,
-			technicalData.Value.Pivots.Fibonacci.S2,
-			technicalData.Value.Pivots.Fibonacci.S3,
-			technicalData.Value.Pivots.Woodie.S1,
-			technicalData.Value.Pivots.Woodie.S2,
-			technicalData.Value.Pivots.Woodie.S3,
-		)
-		resistance = append(resistance,
-			technicalData.Value.Pivots.Classic.R1,
-			technicalData.Value.Pivots.Classic.R2,
-			technicalData.Value.Pivots.Classic.R3,
-			technicalData.Value.Pivots.Camarilla.R1,
-			technicalData.Value.Pivots.Camarilla.R2,
-			technicalData.Value.Pivots.Camarilla.R3,
-			technicalData.Value.Pivots.Demark.R1,
-			technicalData.Value.Pivots.Fibonacci.R1,
-			technicalData.Value.Pivots.Fibonacci.R2,
-			technicalData.Value.Pivots.Fibonacci.R3,
-			technicalData.Value.Pivots.Woodie.R1,
-			technicalData.Value.Pivots.Woodie.R2,
-			technicalData.Value.Pivots.Woodie.R3,
-		)
-	}
-
-	evalSignal, err := t.service.TelegramBotService.EvaluateSignal(ctx, latestAnalyses)
-	if err != nil {
-		t.log.ErrorContext(ctx, "Failed to calculate weighted signal", logger.ErrorField(err))
-		return err
 	}
 
 	iconSignal := "??"
 	recommend := dto.SignalBuy
 
-	if evalSignal == dto.SignalStrongBuy {
+	if tradePlanResult.Status == dto.SignalStrongBuy {
 		iconSignal = "🟢"
 		recommend = dto.SignalStrongBuy
-	} else if evalSignal == dto.SignalBuy {
+	} else if tradePlanResult.Status == dto.SignalBuy {
 		iconSignal = "🟡"
 		recommend = dto.SignalBuy
 	} else {
@@ -225,11 +190,10 @@ func (t *TelegramBotHandler) showAnalysis(ctx context.Context, c telebot.Context
 	sbHeader.WriteString("\n\n")
 	sbHeader.WriteString(fmt.Sprintf("<b>💰 Harga: %d</b>\n", marketPrice))
 
-	if evalSignal == dto.SignalStrongBuy || evalSignal == dto.SignalBuy {
-		tradePlan := dto.CreateTradePlan(float64(marketPrice), support, resistance, float64(2.0))
-		sbHeader.WriteString(fmt.Sprintf("🎯 <b>Take Profit</b>: %d (%s)\n", int(tradePlan.TakeProfit), utils.FormatChange(float64(marketPrice), tradePlan.TakeProfit)))
-		sbHeader.WriteString(fmt.Sprintf("🛡️ <b>Stop Loss</b>: %d (%s)\n", int(tradePlan.StopLoss), utils.FormatChange(float64(marketPrice), tradePlan.StopLoss)))
-		sbHeader.WriteString(fmt.Sprintf("🔁 <b>Risk Reward</b>: %.2f\n", tradePlan.RiskReward))
+	if tradePlanResult.Status == dto.SignalStrongBuy || tradePlanResult.Status == dto.SignalBuy {
+		sbHeader.WriteString(fmt.Sprintf("🎯 <b>Take Profit</b>: %d (%s)\n", int(tradePlanResult.TakeProfit), utils.FormatChange(float64(marketPrice), tradePlanResult.TakeProfit)))
+		sbHeader.WriteString(fmt.Sprintf("🛡️ <b>Stop Loss</b>: %d (%s)\n", int(tradePlanResult.StopLoss), utils.FormatChange(float64(marketPrice), tradePlanResult.StopLoss)))
+		sbHeader.WriteString(fmt.Sprintf("🔁 <b>Risk Reward</b>: %.2f\n", tradePlanResult.RiskReward))
 	}
 
 	sbHeader.WriteString(fmt.Sprintf("<i><b>📅 Update: %s</b></i>", utils.PrettyDate(latestAnalyses[0].Timestamp)))

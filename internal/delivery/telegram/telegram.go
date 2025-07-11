@@ -3,6 +3,7 @@ package telegram
 import (
 	"context"
 	"golang-trading/config"
+	"golang-trading/internal/repository"
 	"golang-trading/internal/service"
 	"golang-trading/pkg/cache"
 	"golang-trading/pkg/httpclient"
@@ -28,6 +29,7 @@ type TelegramBotHandler struct {
 	service       *service.Service
 	httpClient    httpclient.HTTPClient
 	inmemoryCache cache.Cache
+	sysParam      repository.SystemParamRepository
 }
 
 func NewTelegramBotHandler(
@@ -39,7 +41,8 @@ func NewTelegramBotHandler(
 	echo *echo.Echo,
 	validator *goValidator.Validate,
 	service *service.Service,
-	inmemoryCache cache.Cache) *TelegramBotHandler {
+	inmemoryCache cache.Cache,
+	sysParam repository.SystemParamRepository) *TelegramBotHandler {
 	return &TelegramBotHandler{
 		ctx:           ctx,
 		mu:            sync.Mutex{},
@@ -52,6 +55,7 @@ func NewTelegramBotHandler(
 		service:       service,
 		httpClient:    httpclient.New(log, cfg.Telegram.WebhookURL, cfg.Telegram.TimeoutDuration, ""),
 		inmemoryCache: inmemoryCache,
+		sysParam:      sysParam,
 	}
 }
 

@@ -13,6 +13,7 @@ type Service struct {
 	SchedulerService   SchedulerService
 	TaskExecutor       TaskExecutor
 	TelegramBotService TelegramBotService
+	TradingService     TradingService
 }
 
 func NewService(
@@ -33,9 +34,11 @@ func NewService(
 
 	schedulerService := NewSchedulerService(cfg, log, repo.JobRepo, taskExecutor)
 	telegramBotService := NewTelegramBotService(log, cfg, telegram, inmemoryCache, repo.StockAnalysisRepo, repo.SystemParamRepo, analyzerStrategy, repo.GeminiAIRepo, repo.UserRepo, repo.StockPositionsRepo, repo.StockPositionMonitoringRepo, repo.UnitOfWork)
+	tradingService := NewTradingService(cfg, log, repo.SystemParamRepo)
 	return &Service{
 		SchedulerService:   schedulerService,
 		TaskExecutor:       taskExecutor,
 		TelegramBotService: telegramBotService,
+		TradingService:     tradingService,
 	}
 }
