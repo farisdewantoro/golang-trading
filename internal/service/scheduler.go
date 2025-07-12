@@ -65,36 +65,26 @@ func (s *schedulerService) Execute(ctx context.Context) error {
 			return nil
 		}
 
-		semaphore <- struct{}{}
-
-		utils.GoSafe(func() {
-			defer func() {
-				<-semaphore
-			}()
-
-			newCtx, cancel := context.WithTimeout(context.Background(), time.Duration(job.Job.Timeout)*time.Second)
-			defer cancel()
-			err := s.executeJob(newCtx, job)
-			if err != nil {
-				s.log.ErrorContext(ctx, "Failed to execute job",
-					logger.ErrorField(err),
-					logger.IntField("job_id", int(job.JobID)),
-					logger.IntField("schedule_id", int(job.ID)),
-				)
-			}
-
-			s.log.InfoContext(ctx, "Job execution completed",
+		err := s.executeJob(ctx, job, semaphore)
+		if err != nil {
+			s.log.ErrorContext(ctx, "Failed to execute job",
+				logger.ErrorField(err),
 				logger.IntField("job_id", int(job.JobID)),
 				logger.IntField("schedule_id", int(job.ID)),
-				logger.StringField("job_name", job.Job.Name),
 			)
-		}).Run()
+		}
+
+		s.log.InfoContext(ctx, "Job execution completed",
+			logger.IntField("job_id", int(job.JobID)),
+			logger.IntField("schedule_id", int(job.ID)),
+			logger.StringField("job_name", job.Job.Name),
+		)
 	}
 
 	return nil
 }
 
-func (s *schedulerService) executeJob(ctx context.Context, task model.TaskSchedule) error {
+func (s *schedulerService) executeJob(ctx context.Context, task model.TaskSchedule, semaphore chan struct{}) error {
 	now := utils.TimeNowWIB()
 	history := &model.TaskExecutionHistory{
 		JobID:      task.JobID,
@@ -108,10 +98,19 @@ func (s *schedulerService) executeJob(ctx context.Context, task model.TaskSchedu
 		return fmt.Errorf("failed to create task history: %w", err)
 	}
 
-	if err := s.taskExecutor.Execute(ctx, history); err != nil {
-		s.log.ErrorContext(ctx, "Failed to execute task", logger.ErrorField(err), logger.IntField("schedule_id", int(task.ID)))
-		return fmt.Errorf("failed to execute task: %w", err)
-	}
+	utils.GoSafe(func() {
+		semaphore <- struct{}{}
+
+		defer func() {
+			<-semaphore
+		}()
+
+		newCtx, cancel := context.WithTimeout(context.Background(), time.Duration(task.Job.Timeout)*time.Second)
+		defer cancel()
+		if err := s.taskExecutor.Execute(newCtx, history); err != nil {
+			s.log.ErrorContext(newCtx, "Failed to execute task", logger.ErrorField(err), logger.IntField("schedule_id", int(task.ID)))
+		}
+	}).Run()
 
 	// Update schedule for next run
 	cronSchedule, err := s.cronParser.Parse(task.CronExpression)
