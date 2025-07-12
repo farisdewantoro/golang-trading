@@ -3,6 +3,8 @@ package httpclient
 import (
 	"context"
 	"golang-trading/pkg/logger"
+	"net/http/cookiejar"
+	"net/url"
 	"time"
 
 	"github.com/go-resty/resty/v2"
@@ -14,10 +16,13 @@ type RestyClient struct {
 }
 
 func New(log *logger.Logger, baseURL string, timeout time.Duration, bearerToken string) HTTPClient {
+	jar, _ := cookiejar.New(nil) // bisa juga handle error kalau perlu
+
 	client := resty.New().
 		SetBaseURL(baseURL).
 		SetTimeout(timeout).
 		SetHeader("Accept", "application/json").
+		SetCookieJar(jar).
 		SetAuthToken(bearerToken).OnBeforeRequest(func(c *resty.Client, r *resty.Request) error {
 		log.Debug("HTTP Client Request",
 			logger.StringField("url", baseURL+r.URL),
@@ -28,6 +33,20 @@ func New(log *logger.Logger, baseURL string, timeout time.Duration, bearerToken 
 			logger.StringField("url", r.Request.URL),
 			logger.StringField("method", r.Request.Method),
 			logger.IntField("status_code", r.StatusCode()))
+
+		parsedURL, err := url.Parse(r.Request.URL)
+		if err != nil {
+			log.Error("Failed to parse request URL", logger.ErrorField(err))
+			return nil
+		}
+		for _, cookie := range c.GetClient().Jar.Cookies(parsedURL) {
+			log.Debug("Set-Cookie",
+				logger.StringField("name", cookie.Name),
+				logger.StringField("value", cookie.Value),
+				logger.StringField("domain", cookie.Domain),
+				logger.StringField("expires", cookie.Expires.String()),
+			)
+		}
 		return nil
 	})
 
