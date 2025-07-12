@@ -10,16 +10,17 @@ import (
 )
 
 type Config struct {
-	Log          Logger
-	DB           Database
-	API          API
-	Scheduler    Scheduler
-	TradingView  TradingView
-	Cache        Cache
-	Telegram     TelegramConfig
-	YahooFinance YahooFinance
-	Gemini       Gemini
-	Trading      Trading
+	Log           Logger
+	DB            Database
+	API           API
+	Scheduler     Scheduler
+	TradingView   TradingView
+	Cache         Cache
+	Telegram      TelegramConfig
+	YahooFinance  YahooFinance
+	Gemini        Gemini
+	Trading       Trading
+	StockAnalyzer StockAnalyzer
 }
 
 type Logger struct {
@@ -104,6 +105,10 @@ type Trading struct {
 	MaxBuyList      int
 }
 
+type StockAnalyzer struct {
+	MaxConcurrency int
+}
+
 func Load() (*Config, error) {
 	// Load .env file. It's okay if it doesn't exist.
 	err := godotenv.Load()
@@ -184,6 +189,9 @@ func Load() (*Config, error) {
 		Trading: Trading{
 			RiskRewardRatio: viper.GetFloat64("TRADING_RISK_REWARD_RATIO"),
 			MaxBuyList:      viper.GetInt("TRADING_MAX_BUY_LIST"),
+		},
+		StockAnalyzer: StockAnalyzer{
+			MaxConcurrency: viper.GetInt("STOCK_ANALYZER_MAX_CONCURRENCY"),
 		},
 	}
 

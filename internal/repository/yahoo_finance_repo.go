@@ -48,7 +48,7 @@ func (r *yahooFinanceRepository) Get(ctx context.Context, param dto.GetStockData
 	if !r.requestLimiter.Allow() {
 		r.logger.WarnContext(ctx, "Yahoo Finance API request limit exceeded",
 			logger.IntField("max_request_per_minute", r.cfg.YahooFinance.MaxRequestPerMinute),
-			logger.IntField("current_request", r.requestLimiter.Burst()),
+			logger.IntField("available_tokens_at", int(r.requestLimiter.TokensAt(utils.TimeNowWIB()))),
 		)
 	}
 	if err := r.requestLimiter.Wait(ctx); err != nil {

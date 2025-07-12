@@ -103,11 +103,14 @@ func (s *StockAnalyzerStrategy) Execute(ctx context.Context, job *model.Job) (Jo
 		return JobResult{ExitCode: JOB_EXIT_CODE_SKIPPED, Output: "no stocks to analyze"}, nil
 	}
 
-	wg := sync.WaitGroup{}
-	results := []StockAnalyzerResult{}
-	mu := sync.Mutex{}
-	isHasError := false
-	isHasSuccess := false
+	var (
+		wg           sync.WaitGroup
+		results      []StockAnalyzerResult
+		mu           sync.Mutex
+		isHasError   bool
+		isHasSuccess bool
+		semaphore    = make(chan struct{}, s.cfg.StockAnalyzer.MaxConcurrency)
+	)
 
 	s.logger.Debug("Start analyzing stocks", logger.IntField("total_stock", len(stocks)))
 
@@ -117,8 +120,12 @@ func (s *StockAnalyzerStrategy) Execute(ctx context.Context, job *model.Job) (Jo
 			break
 		}
 		wg.Add(1)
+		semaphore <- struct{}{}
 		utils.GoSafe(func() {
-			defer wg.Done()
+			defer func() {
+				<-semaphore
+				wg.Done()
+			}()
 			resultData := StockAnalyzerResult{
 				StockCode: stock.Exchange + ":" + stock.StockCode,
 			}
