@@ -112,14 +112,13 @@ type StockAnalyzer struct {
 
 func Load() (*Config, error) {
 	// Load .env file. It's okay if it doesn't exist.
-	cfgName := "env-config"
-	err := godotenv.Load(cfgName)
+	err := godotenv.Load("env-config")
 	if err != nil {
 		dir, errWd := os.Getwd()
 		if errWd != nil {
 			fmt.Println(fmt.Sprintf("Failed to get current directory %v", errWd))
 		}
-		fmt.Printf("Failed to load %v file %v -> current directory: %v\n", cfgName, err, dir)
+		fmt.Printf("Failed to load .env file %v -> current directory: %v\n", err, dir)
 	}
 	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 	viper.AutomaticEnv()
