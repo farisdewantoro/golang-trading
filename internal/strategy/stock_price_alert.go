@@ -89,7 +89,7 @@ func (s *StockPriceAlertStrategy) Execute(ctx context.Context, job *model.Job) (
 		}
 
 		s.logger.DebugContext(ctx, "Processing stock alert", logger.StringField("stock_code", stockPosition.StockCode))
-		stockData, err := s.tradingViewScreenersRepository.Get(ctx, stockPosition.StockCode, payload.DataInterval)
+		stockData, err := s.tradingViewScreenersRepository.Get(ctx, stockPosition.StockCode, stockPosition.Exchange, payload.DataInterval)
 		if err != nil {
 			s.logger.Error("Failed to get stock data", logger.ErrorField(err), logger.StringField("stock_code", stockPosition.StockCode))
 			resultData.Errors = err.Error()

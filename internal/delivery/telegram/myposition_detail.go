@@ -43,23 +43,33 @@ func (t *TelegramBotHandler) showMyPositionDetail(ctx context.Context, c telebot
 	isHasMonitoring := len(stockPosition.StockPositionMonitorings) > 0
 
 	stockCodeWithExchange := stockPosition.Exchange + ":" + stockPosition.StockCode
-	marketPrice, _ := cache.GetFromCache[int](fmt.Sprintf(common.KEY_LAST_PRICE, stockCodeWithExchange))
+	marketPrice, _ := cache.GetFromCache[float64](fmt.Sprintf(common.KEY_LAST_PRICE, stockCodeWithExchange))
 
 	if marketPrice == 0 && isHasMonitoring {
-		marketPrice = int(stockPosition.StockPositionMonitorings[0].MarketPrice)
+		marketPrice = stockPosition.StockPositionMonitorings[0].MarketPrice
 	}
 
 	sb.WriteString(fmt.Sprintf("<b>📌 Detail Posisi Saham %s</b>\n", stockCodeWithExchange))
 	sb.WriteString("\n")
 	sb.WriteString("<b>🧾 Informasi Posisi:</b>\n")
-	sb.WriteString(fmt.Sprintf("  • Entry: %d\n", int(stockPosition.BuyPrice)))
-	sb.WriteString(fmt.Sprintf("  • Last Price: %d\n", int(marketPrice)))
-	sb.WriteString(fmt.Sprintf("  • PnL: %s\n", utils.FormatChange(stockPosition.BuyPrice, float64(marketPrice))))
-	sb.WriteString(fmt.Sprintf("  • TP: %d (%s)\n", int(stockPosition.TakeProfitPrice), utils.FormatChange(stockPosition.BuyPrice, stockPosition.TakeProfitPrice)))
-	sb.WriteString(fmt.Sprintf("  • SL: %d (%s)\n", int(stockPosition.StopLossPrice), utils.FormatChange(stockPosition.BuyPrice, stockPosition.StopLossPrice)))
+	sb.WriteString(fmt.Sprintf("  • Entry: %.2f \n", stockPosition.BuyPrice))
+	sb.WriteString(fmt.Sprintf("  • Last Price: %.2f\n", marketPrice))
+	sb.WriteString(fmt.Sprintf("  • PnL: %s\n", utils.FormatChange(stockPosition.BuyPrice, marketPrice)))
+	sb.WriteString(fmt.Sprintf("  • TP: %.2f (%s)\n", stockPosition.TakeProfitPrice, utils.FormatChange(stockPosition.BuyPrice, stockPosition.TakeProfitPrice)))
+	sb.WriteString(fmt.Sprintf("  • SL: %.2f (%s)\n", stockPosition.StopLossPrice, utils.FormatChange(stockPosition.BuyPrice, stockPosition.StopLossPrice)))
+
+	menu := &telebot.ReplyMarkup{}
+
+	btnBack := menu.Data(btnBackStockPosition.Text, btnBackStockPosition.Unique)
+	btnExit := menu.Data("🚪 Exit dari Posisi", btnExitStockPosition.Unique, fmt.Sprintf("%s|%d", stockCodeWithExchange, stockPosition.ID))
+	btnDelete := menu.Data("🗑 Hapus Posisi", btnDeleteStockPosition.Unique, fmt.Sprintf("%d", stockPosition.ID))
+
+	menu.Inline(menu.Row(btnExit, btnDelete), menu.Row(btnBack))
 
 	if !isHasMonitoring {
-		sb.WriteString("<i>⚠️ Belum ada monitoring</i>")
+		sb.WriteString("\n\n<i>⚠️ Belum ada monitoring</i>")
+		_, err := t.telegram.Send(ctx, c, sb.String(), menu, telebot.ModeHTML)
+		return err
 	}
 
 	lastMonitoring := stockPosition.StockPositionMonitorings[len(stockPosition.StockPositionMonitorings)-1]
@@ -87,18 +97,12 @@ func (t *TelegramBotHandler) showMyPositionDetail(ctx context.Context, c telebot
 		sb.WriteString(fmt.Sprintf("  <b>• %s</b>: %s\n",
 			stockPositionMonitoring.Timestamp.Format("02 Jan 15:04"),
 			evalSummary.TechnicalRecommendation))
-		sb.WriteString(fmt.Sprintf("  ↳ Market Price: %d (%s)\n", int(stockPositionMonitoring.MarketPrice), utils.FormatChange(stockPosition.BuyPrice, float64(stockPositionMonitoring.MarketPrice))))
+		sb.WriteString(fmt.Sprintf("  ↳ Market Price: %.2f (%s)\n", stockPositionMonitoring.MarketPrice, utils.FormatChange(stockPosition.BuyPrice, float64(stockPositionMonitoring.MarketPrice))))
 	}
 
 	lastUpdate := lastMonitoring.Timestamp
 	sb.WriteString(fmt.Sprintf("\n\n📅 Update Terakhir: %s", utils.PrettyDate(lastUpdate)))
 
-	menu := &telebot.ReplyMarkup{}
-
-	btnBack := menu.Data(btnBackStockPosition.Text, btnBackStockPosition.Unique)
-	btnExit := menu.Data("🚪 Exit dari Posisi", btnExitStockPosition.Unique, fmt.Sprintf("%s|%d", stockCodeWithExchange, stockPosition.ID))
-
-	menu.Inline(menu.Row(btnExit, btnBack))
 	_, err = t.telegram.Send(ctx, c, sb.String(), menu, telebot.ModeHTML)
 	return err
 }

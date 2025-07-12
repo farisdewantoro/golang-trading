@@ -22,18 +22,33 @@ func (t *TelegramBotHandler) handleStartAnalyze(ctx context.Context, c telebot.C
 	return c.Send("Silakan masukkan simbol saham yang ingin Anda analisis berserta dengan exchange code (contoh: IDX:BBCA, NASDAQ:TESLA).")
 }
 
+func (t *TelegramBotHandler) handleBtnGeneralAnalysis(ctx context.Context, c telebot.Context) error {
+	return t.showAnalysisWithLoading(ctx, c, false)
+}
+
 func (t *TelegramBotHandler) handleAnalyzeSymbol(ctx context.Context, c telebot.Context) error {
 	defer t.ResetUserState(c.Sender().ID)
 
+	return t.showAnalysisWithLoading(ctx, c, true)
+}
+
+func (t *TelegramBotHandler) showAnalysisWithLoading(ctx context.Context, c telebot.Context, shouldSendMsg bool) error {
+
 	stopChan := make(chan struct{})
 
-	msg := t.showLoadingFlowAnalysis(c, stopChan, true)
+	msg := t.showLoadingFlowAnalysis(c, stopChan, shouldSendMsg)
+
+	symbol := c.Data()
+
+	if symbol == "" {
+		symbol = c.Text()
+	}
 
 	utils.GoSafe(func() {
 		newCtx, cancel := context.WithTimeout(t.ctx, t.cfg.Telegram.TimeoutDuration)
 		defer cancel()
 
-		latestAnalyses, err := t.service.TelegramBotService.AnalyzeStock(newCtx, c)
+		latestAnalyses, err := t.service.TelegramBotService.AnalyzeStock(newCtx, c, symbol)
 		if err != nil {
 			close(stopChan)
 			t.log.ErrorContext(ctx, "Failed to analyze stock", logger.ErrorField(err))
@@ -112,20 +127,23 @@ func (t *TelegramBotHandler) showLoadingFlowAnalysis(c telebot.Context, stop <-c
 
 func (t *TelegramBotHandler) showAnalysis(ctx context.Context, c telebot.Context, loadingMsg *telebot.Message, latestAnalyses []model.StockAnalysis) error {
 
-	sbHeader := strings.Builder{}
+	var (
+		analysisIDs []string
+		sbHeader    strings.Builder
+		sb          strings.Builder
+		sbPivots    strings.Builder
 
-	sb := strings.Builder{}
+		pivotsLevel []dto.TimeframePivot
+	)
 
 	symbolWithExchange := latestAnalyses[0].Exchange + ":" + latestAnalyses[0].StockCode
 
-	marketPrice, _ := cache.GetFromCache[int](fmt.Sprintf(common.KEY_LAST_PRICE, symbolWithExchange))
+	marketPrice, _ := cache.GetFromCache[float64](fmt.Sprintf(common.KEY_LAST_PRICE, symbolWithExchange))
 	if marketPrice == 0 {
-		marketPrice = int(latestAnalyses[0].MarketPrice)
+		marketPrice = latestAnalyses[0].MarketPrice
 	}
 
 	sb.WriteString("\n📊 <b><i>Rangkuman Analisis (Multi-Timeframe)</i></b>\n")
-
-	analysisIDs := []string{}
 
 	tradePlanResult, err := t.service.TradingService.CreateTradePlan(ctx, latestAnalyses)
 	if err != nil {
@@ -161,16 +179,59 @@ func (t *TelegramBotHandler) showAnalysis(ctx context.Context, c telebot.Context
 
 		sb.WriteString("\n")
 		sb.WriteString(fmt.Sprintf("<b><i>%s</i></b>\n", valTimeframeSummary))
-		sb.WriteString(fmt.Sprintf("- <b>Close</b>: %d (%s) | <b>Vol</b>: %s\n", int(ohclv[len(ohclv)-1].Close), utils.FormatChange(ohclv[len(ohclv)-1].Open, ohclv[len(ohclv)-1].Close), utils.FormatVolume(ohclv[len(ohclv)-1].Volume)))
+		sb.WriteString(fmt.Sprintf("- <b>Close</b>: %.2f (%s) | <b>Vol</b>: %s\n", ohclv[len(ohclv)-1].Close, utils.FormatChange(ohclv[len(ohclv)-1].Open, ohclv[len(ohclv)-1].Close), utils.FormatVolume(ohclv[len(ohclv)-1].Volume)))
 		sb.WriteString(fmt.Sprintf("- <b>MACD</b>: %s | <b>RSI</b>: %d - %s\n", technicalData.GetTrendMACD(), int(technicalData.Value.Oscillators.RSI), dto.GetRSIText(int(technicalData.Recommend.Oscillators.RSI))))
 		sb.WriteString(fmt.Sprintf("- <b>MA</b>: %s | <b>Osc</b>: %s \n", dto.GetSignalText(technicalData.Recommend.Global.MA), dto.GetSignalText(technicalData.Recommend.Global.Oscillators)))
-		sb.WriteString(fmt.Sprintf("- <b>R1</b>: %d (%s) | <b>R2</b>: %d (%s)\n",
-			int(technicalData.Value.Pivots.Classic.R1), utils.FormatChange(float64(marketPrice), technicalData.Value.Pivots.Classic.R1),
-			int(technicalData.Value.Pivots.Classic.R2), utils.FormatChange(float64(marketPrice), technicalData.Value.Pivots.Classic.R2)))
-		sb.WriteString(fmt.Sprintf("- <b>S1</b>: %d (%s) | <b>S2</b>: %d (%s)\n",
-			int(technicalData.Value.Pivots.Classic.S1), utils.FormatChange(float64(marketPrice), technicalData.Value.Pivots.Classic.S1),
-			int(technicalData.Value.Pivots.Classic.S2), utils.FormatChange(float64(marketPrice), technicalData.Value.Pivots.Classic.S2)))
+
+		// sb.WriteString(fmt.Sprintf("- <b>R1</b>: %d (%s) | <b>S1</b>: %d (%s)\n",
+		// 	int(technicalData.Value.Pivots.Classic.R1), utils.FormatChange(float64(marketPrice), technicalData.Value.Pivots.Classic.R1),
+		// 	int(technicalData.Value.Pivots.Classic.S1), utils.FormatChange(float64(marketPrice), technicalData.Value.Pivots.Classic.S1)))
+		// sb.WriteString(fmt.Sprintf("- <b>R2</b>: %d (%s) | <b>S2</b>: %d (%s)\n",
+		// 	int(technicalData.Value.Pivots.Classic.R2), utils.FormatChange(float64(marketPrice), technicalData.Value.Pivots.Classic.R2),
+		// 	int(technicalData.Value.Pivots.Classic.S2), utils.FormatChange(float64(marketPrice), technicalData.Value.Pivots.Classic.S2)))
+		// sb.WriteString(fmt.Sprintf("- <b>R3</b>: %d (%s) | <b>S3</b>: %d (%s)\n",
+		// 	int(technicalData.Value.Pivots.Classic.R3), utils.FormatChange(float64(marketPrice), technicalData.Value.Pivots.Classic.R3),
+		// 	int(technicalData.Value.Pivots.Classic.S3), utils.FormatChange(float64(marketPrice), technicalData.Value.Pivots.Classic.S3)))
+
+		resultPivots, err := t.service.TradingService.BuildTimeframePivots(&analysis)
+		if err != nil {
+			t.log.ErrorContext(ctx, "Failed to build pivots", logger.ErrorField(err))
+			return err
+		}
+		pivotsLevel = append(pivotsLevel, resultPivots...)
 	}
+
+	if len(pivotsLevel) == 0 {
+		return fmt.Errorf("no pivots level")
+	}
+
+	sbPivots.WriteString("\n <b>📐 Support & Resistance</b>\n\n")
+
+	for _, val := range pivotsLevel {
+		sbPivots.WriteString(fmt.Sprintf("<b>🕒 Timeframe - %s</b>", strings.ToUpper(val.Timeframe)))
+		for _, pivot := range val.PivotData {
+			sbPivots.WriteString(fmt.Sprintf("\n<b>%s:</b>\n", pivot.Type))
+			sbPivots.WriteString("<b>- R: </b>")
+			for idx, level := range pivot.Resistance {
+				sbPivots.WriteString(fmt.Sprintf("%.2f (%d)", level.Price, level.Touches))
+				if idx < len(pivot.Resistance)-1 {
+					sbPivots.WriteString(" | ")
+				}
+			}
+			sbPivots.WriteString("\n")
+			sbPivots.WriteString("<b>- S: </b>")
+			for idx, level := range pivot.Support {
+				sbPivots.WriteString(fmt.Sprintf("%.2f (%d)", level.Price, level.Touches))
+				if idx < len(pivot.Support)-1 {
+					sbPivots.WriteString(" | ")
+				}
+			}
+			sbPivots.WriteString("\n")
+		}
+		sbPivots.WriteString("\n")
+	}
+
+	sb.WriteString(sbPivots.String())
 
 	iconSignal := "??"
 	recommend := dto.SignalBuy
@@ -188,22 +249,27 @@ func (t *TelegramBotHandler) showAnalysis(ctx context.Context, c telebot.Context
 
 	sbHeader.WriteString(fmt.Sprintf("<b>%s Signal %s - %s <i>(berdasarkan teknikal indikator utama)</i></b>", iconSignal, recommend, symbolWithExchange))
 	sbHeader.WriteString("\n\n")
-	sbHeader.WriteString(fmt.Sprintf("<b>💰 Harga: %d</b>\n", marketPrice))
+	sbHeader.WriteString(fmt.Sprintf("<b>💰 Harga: %.2f</b>\n", marketPrice))
+
+	menu := &telebot.ReplyMarkup{}
+	row := []telebot.Row{}
+	btnAskAI := menu.Data(btnAskAIAnalyzer.Text, btnAskAIAnalyzer.Unique, fmt.Sprintf(btnAskAIAnalyzer.Data, symbolWithExchange))
+	row = append(row, menu.Row(btnAskAI))
 
 	if tradePlanResult.Status == dto.SignalStrongBuy || tradePlanResult.Status == dto.SignalBuy {
-		sbHeader.WriteString(fmt.Sprintf("🎯 <b>Take Profit</b>: %d (%s)\n", int(tradePlanResult.TakeProfit), utils.FormatChange(float64(marketPrice), tradePlanResult.TakeProfit)))
-		sbHeader.WriteString(fmt.Sprintf("🛡️ <b>Stop Loss</b>: %d (%s)\n", int(tradePlanResult.StopLoss), utils.FormatChange(float64(marketPrice), tradePlanResult.StopLoss)))
+		sbHeader.WriteString(fmt.Sprintf("🎯 <b>Take Profit</b>: %.2f (%s)\n", tradePlanResult.TakeProfit, utils.FormatChange(marketPrice, tradePlanResult.TakeProfit)))
+		sbHeader.WriteString(fmt.Sprintf("🛡️ <b>Stop Loss</b>: %.2f (%s)\n", tradePlanResult.StopLoss, utils.FormatChange(marketPrice, tradePlanResult.StopLoss)))
 		sbHeader.WriteString(fmt.Sprintf("🔁 <b>Risk Reward</b>: %.2f\n", tradePlanResult.RiskReward))
+
+		btnSetPosition := menu.Data(btnSetPositionTechnical.Text, btnSetPositionTechnical.Unique, symbolWithExchange)
+		row = append(row, menu.Row(btnSetPosition))
 	}
 
 	sbHeader.WriteString(fmt.Sprintf("<i><b>📅 Update: %s</b></i>", utils.PrettyDate(latestAnalyses[0].Timestamp)))
 	sbHeader.WriteString("\n")
 
-	menu := &telebot.ReplyMarkup{}
-
-	btnAskAI := menu.Data(btnAskAIAnalyzer.Text, btnAskAIAnalyzer.Unique, fmt.Sprintf(btnAskAIAnalyzer.Data, symbolWithExchange))
-
-	menu.Inline(menu.Row(btnAskAI))
+	row = append(row, menu.Row(btnDeleteMessage))
+	menu.Inline(row...)
 
 	_, err = t.telegram.Edit(ctx, c, loadingMsg, sbHeader.String()+sb.String(), menu, telebot.ModeHTML)
 	if err != nil {

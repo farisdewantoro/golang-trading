@@ -4,6 +4,7 @@ type DataTimeframe struct {
 	Interval string `json:"interval"`
 	Range    string `json:"range"`
 	Weight   int    `json:"weight"`
+	IsMain   bool   `json:"is_main"`
 }
 
 func (d *DataTimeframe) ToTradingViewScreenersInterval() string {

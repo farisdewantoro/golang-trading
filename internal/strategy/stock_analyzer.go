@@ -206,7 +206,8 @@ func (s *StockAnalyzerStrategy) AnalyzeStock(ctx context.Context, stock dto.Stoc
 			var stockAnalysis model.StockAnalysis
 
 			stockData, err := s.tradingViewScreenersRepository.Get(ctx,
-				fmt.Sprintf("%s:%s", stock.Exchange, stock.StockCode),
+				stock.StockCode,
+				stock.Exchange,
 				tf.ToTradingViewScreenersInterval(),
 			)
 			if err != nil {

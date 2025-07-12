@@ -31,16 +31,23 @@ type Part struct {
 }
 
 type AIAnalyzeStockResponse struct {
-	Signal            string            `json:"signal"`
-	StockCode         string            `json:"stock_code"`
-	Exchange          string            `json:"exchange"`
-	TargetPrice       float64           `json:"target_price"`
-	StopLoss          float64           `json:"stop_loss"`
-	TechnicalScore    float64           `json:"technical_score"`
-	Confidence        float64           `json:"confidence"`
-	KeyInsights       map[string]string `json:"key_insights"`
-	EstimatedTimeToTP string            `json:"estimated_time_to_tp"`
-	Reason            string            `json:"reason"`
-	MarketPrice       float64           `json:"market_price"`
-	Timestamp         time.Time         `json:"timestamp"`
+	Signal                string            `json:"signal"`
+	StockCode             string            `json:"stock_code"`
+	Exchange              string            `json:"exchange"`
+	TargetPrice           float64           `json:"target_price"`
+	StopLoss              float64           `json:"stop_loss"`
+	TechnicalScore        float64           `json:"technical_score"`
+	Confidence            float64           `json:"confidence"`
+	KeyInsights           map[string]string `json:"key_insights"`
+	EstimatedTimeToTPDays int               `json:"estimated_time_to_tp_days"`
+	Reason                string            `json:"reason"`
+	MarketPrice           float64           `json:"market_price"`
+	Timestamp             time.Time         `json:"timestamp"`
+	ExitStrategyReason    string            `json:"exit_strategy_reason"`
+	LevelStrength         LevelStrength     `json:"level_strength"`
+}
+
+type LevelStrength struct {
+	TPTouchCount int `json:"tp_touch_count"`
+	SLTouchCount int `json:"sl_touch_count"`
 }

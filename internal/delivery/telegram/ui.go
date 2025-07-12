@@ -8,7 +8,10 @@ var (
 	btnGeneralFinishAnalisis   telebot.Btn = telebot.Btn{Text: "✅ Analisis selesai", Unique: "btn_general_finish_analisis"}
 	btnSetPositionAlertPrice   telebot.Btn = telebot.Btn{Unique: "btn_set_position_alert_price"}
 	btnSetPositionAlertMonitor telebot.Btn = telebot.Btn{Unique: "btn_set_position_alert_monitor"}
-	btnDeleteMessage           telebot.Btn = telebot.Btn{Text: "🗑️ Hapus Pesan", Unique: "btn_delete_message"}
+	btnSetPositionTechnical    telebot.Btn = telebot.Btn{Text: "📥 Simpan posisi ini", Unique: "btn_set_position_by_technical"}
+	btnSetPositionAI           telebot.Btn = telebot.Btn{Text: "🤖 Simpan posisi ini", Unique: "btn_set_position_by_ai"}
+
+	btnDeleteMessage telebot.Btn = telebot.Btn{Text: "🗑️ Hapus Pesan", Unique: "btn_delete_message"}
 
 	btnDeleteStockPosition   telebot.Btn = telebot.Btn{Text: "🗑️ Hapus Posisi", Unique: "btn_delete_stock_position"}
 	btnToDetailStockPosition telebot.Btn = telebot.Btn{Unique: "btn_detail_stock_position"}
@@ -20,6 +23,9 @@ var (
 
 	//buylist
 	btnCancelBuyListAnalysis telebot.Btn = telebot.Btn{Text: "⛔ Hentikan Analisis", Unique: "btn_cancel_buy_list_analysis"}
+	btnShowBuyListAnalysis   telebot.Btn = telebot.Btn{Unique: "btn_show_buy_list_analysis"}
+
+	btnGeneralAnalisis telebot.Btn = telebot.Btn{Unique: "btn_general_analisis"}
 )
 
 const (

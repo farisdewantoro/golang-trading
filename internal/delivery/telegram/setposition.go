@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"golang-trading/internal/dto"
+	"golang-trading/internal/model"
 	"golang-trading/pkg/cache"
 	"golang-trading/pkg/utils"
 	"strconv"
@@ -294,4 +295,90 @@ func (t *TelegramBotHandler) showSetPositionSuccess(ctx context.Context, c teleb
 		return err
 	}
 	return nil
+}
+
+func (t *TelegramBotHandler) handleBtnSetPositionByTechnical(ctx context.Context, c telebot.Context) error {
+	userTelegram := dto.ToRequestUserTelegram(c.Sender())
+	symbolWithExchange := c.Data()
+
+	parts := strings.Split(symbolWithExchange, ":")
+	if len(parts) != 2 {
+		_, err := t.telegram.Send(ctx, c, commonErrorInternalSetPosition)
+		return err
+	}
+	exchange := parts[0]
+	stockCode := parts[1]
+
+	latestAnalyses, err := t.service.TelegramBotService.AnalyzeStock(ctx, c, symbolWithExchange)
+	if err != nil {
+		_, err := t.telegram.Send(ctx, c, commonErrorInternalSetPosition)
+		return err
+	}
+
+	tradePlanResult, err := t.service.TradingService.CreateTradePlan(ctx, latestAnalyses)
+	if err != nil {
+		_, err := t.telegram.Send(ctx, c, commonErrorInternalSetPosition)
+		return err
+	}
+
+	data := &dto.RequestSetPositionData{
+		UserTelegram: userTelegram,
+		StockCode:    stockCode,
+		Exchange:     exchange,
+		BuyPrice:     tradePlanResult.Entry,
+		TakeProfit:   tradePlanResult.TakeProfit,
+		StopLoss:     tradePlanResult.StopLoss,
+		BuyDate:      utils.TimeNowWIB().Format("2006-01-02"),
+		MaxHolding:   5,
+		AlertPrice:   true,
+		AlertMonitor: true,
+		SourceType:   model.StockPositionSourceTypeTechnical,
+	}
+
+	if err := t.service.TelegramBotService.SetStockPosition(ctx, data); err != nil {
+		_, err := t.telegram.Send(ctx, c, commonErrorInternalSetPosition)
+		return err
+	}
+
+	return t.showSetPositionSuccess(ctx, c, data)
+}
+
+func (t *TelegramBotHandler) handleBtnSetPositionByAI(ctx context.Context, c telebot.Context) error {
+	userTelegram := dto.ToRequestUserTelegram(c.Sender())
+	symbolWithExchange := c.Data()
+
+	parts := strings.Split(symbolWithExchange, ":")
+	if len(parts) != 2 {
+		_, err := t.telegram.Send(ctx, c, commonErrorInternalSetPosition)
+		return err
+	}
+	exchange := parts[0]
+	stockCode := parts[1]
+
+	analysis, err := t.service.TelegramBotService.AnalyzeStockAI(ctx, c, symbolWithExchange)
+	if err != nil {
+		_, err := t.telegram.Send(ctx, c, commonErrorInternalSetPosition)
+		return err
+	}
+
+	data := &dto.RequestSetPositionData{
+		UserTelegram: userTelegram,
+		StockCode:    stockCode,
+		Exchange:     exchange,
+		BuyPrice:     analysis.MarketPrice,
+		TakeProfit:   analysis.TargetPrice,
+		StopLoss:     analysis.StopLoss,
+		BuyDate:      utils.TimeNowWIB().Format("2006-01-02"),
+		MaxHolding:   5,
+		AlertPrice:   true,
+		AlertMonitor: true,
+		SourceType:   model.StockPositionSourceTypeAI,
+	}
+
+	if err := t.service.TelegramBotService.SetStockPosition(ctx, data); err != nil {
+		_, err := t.telegram.Send(ctx, c, commonErrorInternalSetPosition)
+		return err
+	}
+
+	return t.showSetPositionSuccess(ctx, c, data)
 }

@@ -19,19 +19,20 @@ type RequestSetPositionData struct {
 	AlertPrice   bool
 	AlertMonitor bool
 	UserTelegram *RequestUserTelegram
+	SourceType   string
 }
 
 func (r *RequestSetPositionData) ToStockPositionEntity() *model.StockPosition {
 	return &model.StockPosition{
-		StockCode:            r.StockCode,
-		BuyPrice:             r.BuyPrice,
-		BuyDate:              utils.MustParseDate(r.BuyDate),
-		TakeProfitPrice:      r.TakeProfit,
-		StopLossPrice:        r.StopLoss,
-		MaxHoldingPeriodDays: r.MaxHolding,
-		PriceAlert:           utils.ToPointer(r.AlertPrice),
-		MonitorPosition:      utils.ToPointer(r.AlertMonitor),
-		Exchange:             r.Exchange,
+		StockCode:       r.StockCode,
+		BuyPrice:        r.BuyPrice,
+		BuyDate:         utils.MustParseDate(r.BuyDate),
+		TakeProfitPrice: r.TakeProfit,
+		StopLossPrice:   r.StopLoss,
+		PriceAlert:      utils.ToPointer(r.AlertPrice),
+		MonitorPosition: utils.ToPointer(r.AlertMonitor),
+		Exchange:        r.Exchange,
+		SourceType:      r.SourceType,
 	}
 }
 

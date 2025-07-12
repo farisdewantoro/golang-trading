@@ -15,6 +15,7 @@ import (
 
 func (t *TelegramBotHandler) handleAskAIAnalyzer(ctx context.Context, c telebot.Context) error {
 	markup := &telebot.ReplyMarkup{}
+	markup.Inline(markup.Row(btnDeleteMessage))
 
 	_, err := t.telegram.Edit(ctx, c, c.Message(), markup, telebot.ModeHTML)
 	if err != nil {
@@ -26,12 +27,18 @@ func (t *TelegramBotHandler) handleAskAIAnalyzer(ctx context.Context, c telebot.
 
 	msg := t.showLoadingFlowAnalysis(c, stopChan, true)
 
+	symbol := c.Data()
+
+	if symbol == "" {
+		symbol = c.Text()
+	}
+
 	utils.GoSafe(func() {
 
 		newCtx, cancel := context.WithTimeout(t.ctx, t.cfg.Telegram.TimeoutAsyncDuration)
 		defer cancel()
 
-		analysis, err := t.service.TelegramBotService.AnalyzeStockAI(newCtx, c)
+		analysis, err := t.service.TelegramBotService.AnalyzeStockAI(newCtx, c, symbol)
 		if err != nil {
 			close(stopChan)
 			t.log.ErrorContext(ctx, "Failed to AI analyze stock", logger.ErrorField(err))
@@ -69,15 +76,15 @@ func (t *TelegramBotHandler) showAnalysisAI(ctx context.Context, c telebot.Conte
 	sb := strings.Builder{}
 
 	symbolWithExchange := analysis.Exchange + ":" + analysis.StockCode
-	marketPrice, _ := cache.GetFromCache[int](fmt.Sprintf(common.KEY_LAST_PRICE, symbolWithExchange))
+	marketPrice, _ := cache.GetFromCache[float64](fmt.Sprintf(common.KEY_LAST_PRICE, symbolWithExchange))
 	if marketPrice == 0 {
-		marketPrice = int(analysis.MarketPrice)
+		marketPrice = analysis.MarketPrice
 	}
 
 	iconSignal := "??"
-	if analysis.Signal == "BUY" {
+	if analysis.Signal == dto.SignalBuy {
 		iconSignal = "🟢"
-	} else if analysis.Signal == "HOLD" {
+	} else if analysis.Signal == dto.SignalHold {
 		iconSignal = "🟡"
 	}
 
@@ -85,14 +92,15 @@ func (t *TelegramBotHandler) showAnalysisAI(ctx context.Context, c telebot.Conte
 	sb.WriteString(fmt.Sprintf("<i>⏰ %s</i>\n", utils.PrettyDate(analysis.Timestamp)))
 	sb.WriteString("\n")
 
-	sb.WriteString(fmt.Sprintf("<b>💰 Harga: %d</b>\n", int(marketPrice)))
-	sb.WriteString(fmt.Sprintf("<b>🎯 TP:</b> %d (%s)\n", int(analysis.TargetPrice), utils.FormatChange(float64(marketPrice), float64(analysis.TargetPrice))))
-	sb.WriteString(fmt.Sprintf("<b>🛡 SL:</b> %d (%s)\n", int(analysis.StopLoss), utils.FormatChange(float64(marketPrice), float64(analysis.StopLoss))))
+	sb.WriteString(fmt.Sprintf("<b>💰 Harga: %.2f</b>\n", marketPrice))
+	sb.WriteString(fmt.Sprintf("<b>🎯 TP:</b> %.2f (%s)\n", analysis.TargetPrice, utils.FormatChange(marketPrice, analysis.TargetPrice)))
+	sb.WriteString(fmt.Sprintf("<b>🛡 SL:</b> %.2f (%s)\n", analysis.StopLoss, utils.FormatChange(marketPrice, analysis.StopLoss)))
 	sb.WriteString(fmt.Sprintf("<b>📊 Score:</b> %d | <b>🤖 Confidence:</b> %d\n", int(analysis.TechnicalScore), int(analysis.Confidence)))
 
-	_, stringRatio, _ := utils.CalculateRiskRewardRatio(float64(marketPrice), float64(analysis.TargetPrice), float64(analysis.StopLoss))
-	sb.WriteString(fmt.Sprintf("<b>⚖️ RR:</b> %s | <b>⏳ ETA:</b> %s\n", stringRatio, analysis.EstimatedTimeToTP))
+	_, stringRatio, _ := utils.CalculateRiskRewardRatio(marketPrice, analysis.TargetPrice, analysis.StopLoss)
+	sb.WriteString(fmt.Sprintf("<b>⚖️ RR:</b> %s | <b>⏳ ETA:</b> %d hari\n", stringRatio, analysis.EstimatedTimeToTPDays))
 
+	sb.WriteString(fmt.Sprintf("\n<b>🤖 Strategi Exit:</b>\n%s\n", analysis.ExitStrategyReason))
 	sb.WriteString("\n")
 	sb.WriteString("<b>📌 Key Insights:</b>\n")
 	for k, insight := range analysis.KeyInsights {
@@ -103,7 +111,15 @@ func (t *TelegramBotHandler) showAnalysisAI(ctx context.Context, c telebot.Conte
 	sb.WriteString(analysis.Reason)
 	sb.WriteString("\n")
 
-	_, err := t.telegram.Send(ctx, c, sb.String(), telebot.ModeHTML)
+	menu := &telebot.ReplyMarkup{}
+	row := []telebot.Row{}
+	if analysis.Signal == dto.SignalBuy {
+		btnSetPosition := menu.Data(btnSetPositionAI.Text, btnSetPositionAI.Unique, symbolWithExchange)
+		row = append(row, menu.Row(btnSetPosition), menu.Row(btnDeleteMessage))
+	}
+	menu.Inline(row...)
+
+	_, err := t.telegram.Send(ctx, c, sb.String(), menu, telebot.ModeHTML)
 	if err != nil {
 		t.log.ErrorContext(ctx, "Failed to send message show analysis AI", logger.ErrorField(err))
 		return err

@@ -17,7 +17,7 @@ import (
 )
 
 type TradingViewScreenersRepository interface {
-	Get(ctx context.Context, symbol string, interval string) (*dto.TradingViewScanner, error)
+	Get(ctx context.Context, symbol string, exchange string, interval string) (*dto.TradingViewScanner, error)
 	GetBuyList(ctx context.Context, payload map[string]interface{}) ([]dto.StockInfo, error)
 }
 
@@ -56,7 +56,7 @@ func NewTradingViewScreenersRepository(cfg *config.Config, log *logger.Logger) *
 // Returns:
 //
 //	error - returns an error if the request fails or the symbol/interval is invalid.
-func (t *tradingViewScreenersRepository) Get(ctx context.Context, symbol string, interval string) (*dto.TradingViewScanner, error) {
+func (t *tradingViewScreenersRepository) Get(ctx context.Context, symbol string, exchange string, interval string) (*dto.TradingViewScanner, error) {
 	t.mu.Lock()
 	if !t.requestLimiter.Allow() {
 		t.log.WarnContext(ctx, "TradingView Screeners API request limit exceeded",
@@ -68,10 +68,7 @@ func (t *tradingViewScreenersRepository) Get(ctx context.Context, symbol string,
 	}
 	t.mu.Unlock()
 
-	// Validate symbol parameter to ensure it has the correct format EXCHANGE:SYMBOL
-	if strings.Count(symbol, ":") != 1 {
-		return nil, fmt.Errorf("symbol parameter is not valid")
-	}
+	symbol = exchange + ":" + symbol
 
 	// Map interval input to appropriate TradingView format
 	var dataInterval string
@@ -543,6 +540,7 @@ func (t *tradingViewScreenersRepository) GetBuyList(ctx context.Context, payload
 		if len(valueParse) < 2 {
 			continue
 		}
+
 		result = append(result, dto.StockInfo{
 			StockCode: valueParse[1],
 			Exchange:  valueParse[0],

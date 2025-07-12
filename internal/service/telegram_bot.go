@@ -19,14 +19,14 @@ import (
 )
 
 type TelegramBotService interface {
-	AnalyzeStock(ctx context.Context, c telebot.Context) ([]model.StockAnalysis, error)
-	AnalyzeStockAI(ctx context.Context, c telebot.Context) (*dto.AIAnalyzeStockResponse, error)
+	AnalyzeStock(ctx context.Context, c telebot.Context, symbol string) ([]model.StockAnalysis, error)
+	AnalyzeStockAI(ctx context.Context, c telebot.Context, symbol string) (*dto.AIAnalyzeStockResponse, error)
 	SetStockPosition(ctx context.Context, data *dto.RequestSetPositionData) error
 	GetStockPositions(ctx context.Context, param dto.GetStockPositionsParam) ([]model.StockPosition, error)
 	DeleteStockPositionTelegramUser(ctx context.Context, telegramID int64, stockPositionID uint) error
 	GetDetailStockPosition(ctx context.Context, telegramID int64, stockPositionID uint) (*model.StockPosition, error)
 	ExitStockPosition(ctx context.Context, telegramID int64, data *dto.RequestExitPositionData) error
-	GetAllLatestAnalyses(ctx context.Context) ([]model.StockAnalysis, error)
+	GetAllLatestAnalyses(ctx context.Context, exchange string) ([]model.StockAnalysis, error)
 }
 
 type telegramBotService struct {
@@ -74,8 +74,7 @@ func NewTelegramBotService(
 	}
 }
 
-func (s *telegramBotService) AnalyzeStock(ctx context.Context, c telebot.Context) ([]model.StockAnalysis, error) {
-	symbol := c.Text()
+func (s *telegramBotService) AnalyzeStock(ctx context.Context, c telebot.Context, symbol string) ([]model.StockAnalysis, error) {
 
 	symbol = strings.ToUpper(symbol)
 	stockCode, exchange, err := utils.ParseStockSymbol(symbol)
@@ -115,11 +114,10 @@ func (s *telegramBotService) GetLatestAnalyses(ctx context.Context, stockCode st
 	return latestAnalyses, nil
 }
 
-func (s *telegramBotService) AnalyzeStockAI(ctx context.Context, c telebot.Context) (*dto.AIAnalyzeStockResponse, error) {
+func (s *telegramBotService) AnalyzeStockAI(ctx context.Context, c telebot.Context, symbol string) (*dto.AIAnalyzeStockResponse, error) {
 	var result dto.AIAnalyzeStockResponse
 
-	data := c.Data()
-	stockCode, exchange, err := utils.ParseStockSymbol(data)
+	stockCode, exchange, err := utils.ParseStockSymbol(symbol)
 
 	if err != nil {
 		s.log.ErrorContext(ctx, "Failed to parse stock symbol", logger.ErrorField(err))
@@ -279,10 +277,12 @@ func (s *telegramBotService) ExitStockPosition(ctx context.Context, telegramID i
 	return s.stockPositionRepository.Update(ctx, positions[0])
 }
 
-func (s *telegramBotService) GetAllLatestAnalyses(ctx context.Context) ([]model.StockAnalysis, error) {
+func (s *telegramBotService) GetAllLatestAnalyses(ctx context.Context, exchange string) ([]model.StockAnalysis, error) {
+
 	latestAnalyses, err := s.stockAnalysisRepository.GetLatestAnalyses(ctx, model.GetLatestAnalysisParam{
 		TimestampAfter:  utils.TimeNowWIB().Add(-s.cfg.Telegram.FeatureStockAnalyze.AfterTimestampDuration),
 		ExpectedTFCount: s.cfg.Telegram.FeatureStockAnalyze.ExpectedTFCount,
+		Exchange:        exchange,
 	})
 
 	if err != nil {

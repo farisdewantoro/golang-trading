@@ -37,8 +37,6 @@ const (
 	EvalVeryWeak   = "❌ Sangat Lemah / Potensi Breakdown"
 	EvalWeak       = "❌ Lemah / Tidak Stabil"
 
-	ExchangeIDX string = "IDX"
-
 	TrendBullish string = "Bullish"
 	TrendBearish string = "Bearish"
 	TrendNeutral string = "Neutral"
@@ -46,4 +44,7 @@ const (
 	OverBought string = "OverBought"
 	OverSold   string = "OverSold"
 	Normal     string = "Normal"
+
+	LevelClassic   = "Classic"
+	LevelFibonacci = "Fibonacci"
 )

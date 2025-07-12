@@ -5,10 +5,12 @@ import (
 	"fmt"
 	"golang-trading/config"
 	"golang-trading/internal/dto"
+	"golang-trading/pkg/common"
 	"golang-trading/pkg/httpclient"
 	"golang-trading/pkg/logger"
 	"golang-trading/pkg/utils"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
@@ -55,9 +57,12 @@ func (r *yahooFinanceRepository) Get(ctx context.Context, param dto.GetStockData
 	}
 	r.mu.Unlock()
 
-	if param.Exchange == dto.ExchangeIDX {
-		param.StockCode = fmt.Sprintf("%s.JK", param.StockCode)
+	symbol, err := r.parseSymbol(param.StockCode, param.Exchange)
+	if err != nil {
+		return nil, err
 	}
+
+	param.StockCode = symbol
 
 	// Build URL with query parameters
 	endpoint := "/" + param.StockCode
@@ -189,4 +194,14 @@ func (r *yahooFinanceRepository) MapPeriodeStringToUnix(periode string) (int64, 
 	default:
 		return 0, 0
 	}
+}
+
+func (r *yahooFinanceRepository) parseSymbol(symbol string, exchange string) (string, error) {
+	symbol = strings.ToUpper(symbol)
+
+	if exchange == common.EXCHANGE_IDX {
+		return symbol + ".JK", nil
+	}
+
+	return symbol, nil
 }

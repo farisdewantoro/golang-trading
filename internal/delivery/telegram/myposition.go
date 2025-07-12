@@ -47,13 +47,13 @@ func (t *TelegramBotHandler) showMyPosition(ctx context.Context, c telebot.Conte
 		stockWithExchange := position.Exchange + ":" + position.StockCode
 		sb.WriteString(fmt.Sprintf("<b>%d. %s</b>\n", idx+1, stockWithExchange))
 
-		sb.WriteString(fmt.Sprintf("  • Entry: %d\n", int(position.BuyPrice)))
-		sb.WriteString(fmt.Sprintf("  • TP: %d (%s)\n", int(position.TakeProfitPrice), utils.FormatChange(position.BuyPrice, position.TakeProfitPrice)))
-		sb.WriteString(fmt.Sprintf("  • SL: %d (%s)\n", int(position.StopLossPrice), utils.FormatChange(position.BuyPrice, position.StopLossPrice)))
+		sb.WriteString(fmt.Sprintf("  • Entry: %.2f\n", position.BuyPrice))
+		sb.WriteString(fmt.Sprintf("  • TP: %.2f (%s)\n", position.TakeProfitPrice, utils.FormatChange(position.BuyPrice, position.TakeProfitPrice)))
+		sb.WriteString(fmt.Sprintf("  • SL: %.2f (%s)\n", position.StopLossPrice, utils.FormatChange(position.BuyPrice, position.StopLossPrice)))
 		// sb.WriteString(fmt.Sprintf("\n 🎯 Buy: %d | TP: %d | SL: %d\n", int(position.BuyPrice), int(position.TakeProfitPrice), int(position.StopLossPrice)))
 
 		var (
-			marketPrice        int
+			marketPrice        float64
 			techScore          string
 			techRecommendation string
 			pnl                string
@@ -62,17 +62,17 @@ func (t *TelegramBotHandler) showMyPosition(ctx context.Context, c telebot.Conte
 		isHasMonitoring := len(position.StockPositionMonitorings) > 0
 
 		stockCodeWithExchange := position.Exchange + ":" + position.StockCode
-		marketPrice, _ = cache.GetFromCache[int](fmt.Sprintf(common.KEY_LAST_PRICE, stockCodeWithExchange))
+		marketPrice, _ = cache.GetFromCache[float64](fmt.Sprintf(common.KEY_LAST_PRICE, stockCodeWithExchange))
 
 		if marketPrice == 0 && isHasMonitoring {
-			marketPrice = int(position.StockPositionMonitorings[0].MarketPrice)
+			marketPrice = position.StockPositionMonitorings[0].MarketPrice
 		}
 
 		pnl = "N/A"
 		if marketPrice > 0 {
-			pnl = utils.FormatChange(position.BuyPrice, float64(marketPrice))
+			pnl = utils.FormatChange(position.BuyPrice, marketPrice)
 		}
-		sb.WriteString(fmt.Sprintf("  • Last Price: %d | PnL: (%s)\n", int(marketPrice), pnl))
+		sb.WriteString(fmt.Sprintf("  • Last Price: %.2f | PnL: (%s)\n", marketPrice, pnl))
 
 		if !isHasMonitoring {
 			techScore = "N/A"

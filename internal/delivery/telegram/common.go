@@ -121,8 +121,11 @@ func (t *TelegramBotHandler) handleBtnDeleteMessage(ctx context.Context, c teleb
 type Progress struct {
 	Index     int
 	StockCode string
+	ID        string
 	Content   string
 	Header    string
+	BuySymbol []string
+	Menu      *telebot.ReplyMarkup
 }
 
 func (t *TelegramBotHandler) showProgressBarWithChannel(
@@ -140,7 +143,12 @@ func (t *TelegramBotHandler) showProgressBarWithChannel(
 
 		defer func() {
 			result := fmt.Sprintf("%s\n%s", current.Header, current.Content)
-			_, errInner := t.telegram.Edit(ctx, c, msgRoot, result, &telebot.ReplyMarkup{}, telebot.ModeHTML)
+
+			menu := &telebot.ReplyMarkup{}
+			if current.Menu != nil {
+				menu = current.Menu
+			}
+			_, errInner := t.telegram.Edit(ctx, c, msgRoot, result, menu, telebot.ModeHTML)
 			if errInner != nil {
 				t.log.ErrorContext(ctx, "Gagal edit pesan", logger.ErrorField(errInner))
 			}

@@ -42,10 +42,12 @@ func (t *TelegramBotHandler) RegisterHandlers() {
 	t.bot.Handle(telebot.OnText, t.WithContext(t.handleConversation))
 
 	t.bot.Handle(&btnAskAIAnalyzer, t.WithContext(t.handleAskAIAnalyzer))
+	t.bot.Handle(&btnGeneralAnalisis, t.WithContext(t.handleBtnGeneralAnalysis))
 
 	// set position
 	t.bot.Handle(&btnSetPositionAlertPrice, t.WithContext(t.handleBtnSetPositionAlertPrice))
 	t.bot.Handle(&btnSetPositionAlertMonitor, t.WithContext(t.handleBtnSetPositionAlertMonitor))
+	t.bot.Handle(&btnSetPositionTechnical, t.WithContext(t.handleBtnSetPositionByTechnical))
 
 	// common
 	t.bot.Handle(&btnCancelGeneral, t.handleCancel)
@@ -59,5 +61,8 @@ func (t *TelegramBotHandler) RegisterHandlers() {
 	// exit position
 	t.bot.Handle(&btnExitStockPosition, t.WithContext(t.handleBtnExitStockPosition))
 	t.bot.Handle(&btnSaveExitPosition, t.WithContext(t.handleBtnSaveExitPosition))
+
+	//buylist
+	t.bot.Handle(&btnShowBuyListAnalysis, t.WithContext(t.handleBtnShowBuyListAnalysis))
 
 }
