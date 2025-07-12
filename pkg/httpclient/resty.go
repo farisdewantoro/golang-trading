@@ -23,6 +23,23 @@ func New(log *logger.Logger, baseURL string, timeout time.Duration, bearerToken 
 		SetTimeout(timeout).
 		SetHeader("Accept", "application/json").
 		SetCookieJar(jar).
+		SetRetryCount(3).                      // total retry (bisa disesuaikan)
+		SetRetryWaitTime(2 * time.Second).     // waktu tunggu antar retry
+		SetRetryMaxWaitTime(10 * time.Second). // batas tunggu maksimal
+		AddRetryCondition(
+			func(r *resty.Response, err error) bool {
+				shouldRetry := r.StatusCode() == 429
+				return shouldRetry
+			}).
+		AddRetryHook(func(r *resty.Response, err error) {
+			log.Warn("Retrying request...",
+				logger.StringField("url", r.Request.URL),
+				logger.StringField("method", r.Request.Method),
+				logger.IntField("attempt", r.Request.Attempt),
+				logger.IntField("status_code", r.StatusCode()),
+				logger.ErrorField(err),
+			)
+		}).
 		SetAuthToken(bearerToken).OnBeforeRequest(func(c *resty.Client, r *resty.Request) error {
 		log.Debug("HTTP Client Request",
 			logger.StringField("url", baseURL+r.URL),
