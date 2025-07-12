@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"os"
 	"strings"
 	"time"
 
@@ -113,7 +114,11 @@ func Load() (*Config, error) {
 	// Load .env file. It's okay if it doesn't exist.
 	err := godotenv.Load()
 	if err != nil {
-		fmt.Printf("Failed to load .env file %v\n", err)
+		dir, errWd := os.Getwd()
+		if errWd != nil {
+			fmt.Println(fmt.Sprintf("Failed to get current directory %v", errWd))
+		}
+		fmt.Printf("Failed to load .env file %v -> current directory: %v\n", err, dir)
 	}
 	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 	viper.AutomaticEnv()

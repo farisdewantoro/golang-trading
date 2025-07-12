@@ -12,7 +12,6 @@ import (
 	"golang-trading/internal/dto"
 	"golang-trading/pkg/httpclient"
 	"golang-trading/pkg/logger"
-	"golang-trading/pkg/utils"
 
 	"golang.org/x/time/rate"
 )
@@ -62,7 +61,6 @@ func (t *tradingViewScreenersRepository) Get(ctx context.Context, symbol string,
 	if !t.requestLimiter.Allow() {
 		t.log.WarnContext(ctx, "TradingView Screeners API request limit exceeded",
 			logger.IntField("max_request_per_minute", t.cfg.TradingView.MaxRequestPerMin),
-			logger.IntField("available_tokens_at", int(t.requestLimiter.TokensAt(utils.TimeNowWIB()))),
 		)
 	}
 	if err := t.requestLimiter.Wait(ctx); err != nil {
