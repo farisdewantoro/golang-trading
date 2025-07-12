@@ -4,7 +4,6 @@ import (
 	"context"
 	"golang-trading/pkg/logger"
 	"net/http/cookiejar"
-	"net/url"
 	"time"
 
 	"github.com/go-resty/resty/v2"
@@ -49,21 +48,9 @@ func New(log *logger.Logger, baseURL string, timeout time.Duration, bearerToken 
 		log.Debug("HTTP Client Response",
 			logger.StringField("url", r.Request.URL),
 			logger.StringField("method", r.Request.Method),
-			logger.IntField("status_code", r.StatusCode()))
-
-		parsedURL, err := url.Parse(r.Request.URL)
-		if err != nil {
-			log.Error("Failed to parse request URL", logger.ErrorField(err))
-			return nil
-		}
-		for _, cookie := range c.GetClient().Jar.Cookies(parsedURL) {
-			log.Debug("Set-Cookie",
-				logger.StringField("name", cookie.Name),
-				logger.StringField("value", cookie.Value),
-				logger.StringField("domain", cookie.Domain),
-				logger.StringField("expires", cookie.Expires.String()),
-			)
-		}
+			logger.IntField("status_code", r.StatusCode()),
+			logger.StringField("cookies", r.RawResponse.Header.Get("Set-Cookie")),
+		)
 		return nil
 	})
 
