@@ -37,6 +37,6 @@ golang-trading
 config.yaml
 
 # Ignore all .env* files
-.env*
+env*
 # Except .env.example
-!.env.example
+!env-config.example
