@@ -112,7 +112,7 @@ type StockAnalyzer struct {
 
 func Load() (*Config, error) {
 	// Load .env file. It's okay if it doesn't exist.
-	err := godotenv.Load("env-config")
+	err := godotenv.Load()
 	if err != nil {
 		dir, errWd := os.Getwd()
 		if errWd != nil {
