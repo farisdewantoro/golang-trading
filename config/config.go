@@ -108,6 +108,7 @@ type Trading struct {
 
 type StockAnalyzer struct {
 	MaxConcurrency int
+	Timeout        time.Duration
 }
 
 func Load() (*Config, error) {
@@ -197,6 +198,7 @@ func Load() (*Config, error) {
 		},
 		StockAnalyzer: StockAnalyzer{
 			MaxConcurrency: viper.GetInt("STOCK_ANALYZER_MAX_CONCURRENCY"),
+			Timeout:        viper.GetDuration("STOCK_ANALYZER_TIMEOUT"),
 		},
 	}
 
