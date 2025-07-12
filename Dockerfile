@@ -23,7 +23,6 @@ WORKDIR /app
 
 COPY --from=builder /app/app .
 
-RUN chmod +x /app/app
 
 ENTRYPOINT ["/app/app"]
 CMD ["start"]
