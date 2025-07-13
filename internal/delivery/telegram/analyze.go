@@ -180,7 +180,7 @@ func (t *TelegramBotHandler) showAnalysis(ctx context.Context, c telebot.Context
 		sb.WriteString("\n")
 		sb.WriteString(fmt.Sprintf("<b>%s</b>\n", valTimeframeSummary))
 		sb.WriteString(fmt.Sprintf("- <b>Close</b>: %.2f (%s) | <b>Vol</b>: %s\n", ohclv[len(ohclv)-1].Close, utils.FormatChange(ohclv[len(ohclv)-1].Open, ohclv[len(ohclv)-1].Close), utils.FormatVolume(ohclv[len(ohclv)-1].Volume)))
-		sb.WriteString(fmt.Sprintf("- <b>MACD</b>: %s | <b>RSI</b>: %d - %s\n", technicalData.GetTrendMACD(), int(technicalData.Value.Oscillators.RSI), dto.GetRSIText(int(technicalData.Recommend.Oscillators.RSI))))
+		sb.WriteString(fmt.Sprintf("- <b>MACD</b>: %s | <b>RSI</b>: %d - %s\n", technicalData.GetTrendMACD(), int(technicalData.Value.Oscillators.RSI), dto.GetRSIStatus(int(technicalData.Value.Oscillators.RSI))))
 		sb.WriteString(fmt.Sprintf("- <b>MA</b>: %s | <b>Osc</b>: %s \n", dto.GetSignalText(technicalData.Recommend.Global.MA), dto.GetSignalText(technicalData.Recommend.Global.Oscillators)))
 
 		resultPivots, err := t.service.TradingService.BuildTimeframePivots(&analysis)
@@ -203,7 +203,7 @@ func (t *TelegramBotHandler) showAnalysis(ctx context.Context, c telebot.Context
 			sbPivots.WriteString(fmt.Sprintf("\n<b>%s:</b>\n", pivot.Type))
 			sbPivots.WriteString("<b>- R: </b>")
 			for idx, level := range pivot.Resistance {
-				sbPivots.WriteString(fmt.Sprintf("%.2f (%d)", level.Price, level.Touches))
+				sbPivots.WriteString(fmt.Sprintf("%.2f (%dx)", level.Price, level.Touches))
 				if idx < len(pivot.Resistance)-1 {
 					sbPivots.WriteString(" | ")
 				}
@@ -211,7 +211,7 @@ func (t *TelegramBotHandler) showAnalysis(ctx context.Context, c telebot.Context
 			sbPivots.WriteString("\n")
 			sbPivots.WriteString("<b>- S: </b>")
 			for idx, level := range pivot.Support {
-				sbPivots.WriteString(fmt.Sprintf("%.2f (%d)", level.Price, level.Touches))
+				sbPivots.WriteString(fmt.Sprintf("%.2f (%dx)", level.Price, level.Touches))
 				if idx < len(pivot.Support)-1 {
 					sbPivots.WriteString(" | ")
 				}

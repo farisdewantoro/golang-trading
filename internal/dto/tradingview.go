@@ -166,16 +166,14 @@ func GetSignalText(signal int) string {
 	}
 }
 
-func GetRSIText(rsi int) string {
-	switch rsi {
-	case TradingViewSignalBuy, TradingViewSignalStrongBuy:
+func GetRSIStatus(rsi int) string {
+	switch {
+	case rsi < 30:
 		return "Oversold"
-	case TradingViewSignalSell, TradingViewSignalStrongSell:
+	case rsi > 70:
 		return "Overbought"
-	case TradingViewSignalNeutral:
-		return "Normal"
 	default:
-		return "Unknown"
+		return "Normal"
 	}
 }
 

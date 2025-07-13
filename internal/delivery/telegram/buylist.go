@@ -129,6 +129,7 @@ Coba lagi nanti atau gunakan filter /analyze untuk menemukan peluang baru.`
 		}
 
 		for _, tradePlan := range buyListResult {
+			tradePlan := tradePlan
 
 			time.Sleep(200 * time.Millisecond)
 			counter++
