@@ -23,3 +23,13 @@ type Job struct {
 func (Job) TableName() string {
 	return "jobs"
 }
+
+type GetJobParam struct {
+	IDs             []uint                        `json:"ids"`
+	IsActive        *bool                         `json:"is_active"`
+	Limit           *int                          `json:"limit"`
+	WithTaskHistory *GetTaskExecutionHistoryParam `json:"with_task_history"`
+}
+type GetTaskExecutionHistoryParam struct {
+	Limit *int `json:"limit"`
+}

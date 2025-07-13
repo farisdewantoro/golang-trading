@@ -16,6 +16,8 @@ import (
 
 type SchedulerService interface {
 	Execute(ctx context.Context) error
+	GetJobSchedule(ctx context.Context, param model.GetJobParam) ([]model.Job, error)
+	RunJobTask(ctx context.Context, jobID uint) error
 }
 
 type schedulerService struct {
@@ -24,6 +26,7 @@ type schedulerService struct {
 	cronParser   cron.Parser
 	jobRepo      repository.JobRepository
 	taskExecutor TaskExecutor
+	semaphore    chan struct{}
 }
 
 func NewSchedulerService(
@@ -38,6 +41,7 @@ func NewSchedulerService(
 		jobRepo:      jobRepo,
 		cronParser:   cron.NewParser(cron.Minute | cron.Hour | cron.Dom | cron.Month | cron.Dow | cron.Descriptor),
 		taskExecutor: taskExecutor,
+		semaphore:    make(chan struct{}, cfg.Scheduler.MaxConcurrency),
 	}
 }
 
@@ -47,8 +51,6 @@ func (s *schedulerService) Execute(ctx context.Context) error {
 		s.log.ErrorContext(ctx, "Failed to find jobs to schedule", logger.ErrorField(err))
 		return fmt.Errorf("failed to find jobs to schedule: %w", err)
 	}
-
-	semaphore := make(chan struct{}, s.cfg.Scheduler.MaxConcurrency)
 
 	if len(jobs) == 0 {
 		s.log.InfoContext(ctx, "No jobs to schedule")
@@ -65,7 +67,7 @@ func (s *schedulerService) Execute(ctx context.Context) error {
 			return nil
 		}
 
-		err := s.executeJob(ctx, job, semaphore)
+		err := s.executeJob(ctx, job, s.semaphore)
 		if err != nil {
 			s.log.ErrorContext(ctx, "Failed to execute job",
 				logger.ErrorField(err),
@@ -126,4 +128,28 @@ func (s *schedulerService) executeJob(ctx context.Context, task model.TaskSchedu
 		return fmt.Errorf("failed to update task schedule: %w", err)
 	}
 	return nil
+}
+
+func (s *schedulerService) GetJobSchedule(ctx context.Context, param model.GetJobParam) ([]model.Job, error) {
+	return s.jobRepo.Get(ctx, &param)
+}
+
+func (s *schedulerService) RunJobTask(ctx context.Context, jobID uint) error {
+	s.log.InfoContext(ctx, "Running job task", logger.IntField("job_id", int(jobID)))
+	job, err := s.jobRepo.Get(ctx, &model.GetJobParam{IDs: []uint{jobID}})
+	if err != nil {
+		s.log.ErrorContext(ctx, "Failed to find job", logger.ErrorField(err), logger.IntField("job_id", int(jobID)))
+		return fmt.Errorf("failed to find job: %w", err)
+	}
+	if len(job) == 0 {
+		s.log.ErrorContext(ctx, "Job not found", logger.IntField("job_id", int(jobID)))
+		return fmt.Errorf("job not found")
+	}
+
+	if len(job[0].Schedules) == 0 {
+		s.log.ErrorContext(ctx, "Schedule not found", logger.IntField("job_id", int(jobID)))
+		return fmt.Errorf("schedule not found")
+	}
+
+	return s.executeJob(ctx, job[0].Schedules[0], s.semaphore)
 }

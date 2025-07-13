@@ -18,6 +18,9 @@ func GetWibTimeLocation() *time.Location {
 func TimeNowWIB() time.Time {
 	return time.Now().In(GetWibTimeLocation())
 }
+func TimeToWIB(time time.Time) time.Time {
+	return time.In(TimeNowWIB().Location())
+}
 
 func GetNowWithOnlyHour() time.Time {
 	now := TimeNowWIB()

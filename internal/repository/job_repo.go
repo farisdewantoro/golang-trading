@@ -14,6 +14,7 @@ type JobRepository interface {
 	UpdateTaskSchedule(ctx context.Context, schedule *model.TaskSchedule, opts ...utils.DBOption) error
 	FindByID(ctx context.Context, id uint) (*model.Job, error)
 	UpdateTaskExecutionHistory(ctx context.Context, history *model.TaskExecutionHistory, opts ...utils.DBOption) error
+	Get(ctx context.Context, param *model.GetJobParam, opts ...utils.DBOption) ([]model.Job, error)
 }
 
 type jobRepository struct {
@@ -55,4 +56,36 @@ func (r *jobRepository) FindByID(ctx context.Context, id uint) (*model.Job, erro
 
 func (r *jobRepository) UpdateTaskExecutionHistory(ctx context.Context, history *model.TaskExecutionHistory, opts ...utils.DBOption) error {
 	return utils.ApplyOptions(r.db.WithContext(ctx), opts...).Updates(history).Error
+}
+
+func (r *jobRepository) Get(ctx context.Context, param *model.GetJobParam, opts ...utils.DBOption) ([]model.Job, error) {
+	var jobs []model.Job
+	db := utils.ApplyOptions(r.db.WithContext(ctx), opts...)
+	db = db.Model(&model.Job{}).Joins("LEFT JOIN task_schedules ON task_schedules.job_id = jobs.id")
+	if param.IsActive != nil {
+		db = db.Where("task_schedules.is_active = ?", *param.IsActive)
+	}
+	if len(param.IDs) > 0 {
+		db = db.Where("jobs.id IN ?", param.IDs)
+	}
+	if param.Limit != nil {
+		db = db.Limit(*param.Limit)
+	}
+	if param.WithTaskHistory != nil {
+		db = db.Preload("Histories", func(db *gorm.DB) *gorm.DB {
+			db = db.Order("created_at DESC")
+			if param.WithTaskHistory.Limit != nil {
+				db = db.Limit(*param.WithTaskHistory.Limit)
+			}
+			return db
+		})
+	}
+	result := db.Preload("Schedules.Job").Find(&jobs)
+	if result.Error != nil {
+		if result.Error == gorm.ErrRecordNotFound {
+			return nil, nil
+		}
+		return nil, result.Error
+	}
+	return jobs, nil
 }

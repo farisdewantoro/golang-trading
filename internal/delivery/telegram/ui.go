@@ -26,6 +26,11 @@ var (
 	btnShowBuyListAnalysis   telebot.Btn = telebot.Btn{Unique: "btn_show_buy_list_analysis"}
 
 	btnGeneralAnalisis telebot.Btn = telebot.Btn{Unique: "btn_general_analisis"}
+
+	//schedule
+	btnDetailJob           telebot.Btn = telebot.Btn{Unique: "btn_detail_job"}
+	btnActionBackToJobList telebot.Btn = telebot.Btn{Text: "🔙 Kembali", Unique: "btn_action_back_to_job_list"}
+	btnActionRunJob        telebot.Btn = telebot.Btn{Text: "🚀 Jalankan", Unique: "btn_action_run_job"}
 )
 
 const (
