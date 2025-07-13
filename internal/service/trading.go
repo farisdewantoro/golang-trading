@@ -130,6 +130,7 @@ func (s *tradingService) CreateTradePlan(ctx context.Context, latestAnalyses []m
 		SLReason:           plan.SLReason,
 		TPReason:           plan.TPReason,
 	}
+	s.log.DebugContext(ctx, "Finished create trade plan", logger.StringField("stock_code", stockCodeWithExchange))
 
 	return result, nil
 }

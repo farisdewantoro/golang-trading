@@ -136,6 +136,11 @@ func (t *TelegramBotHandler) showAnalysis(ctx context.Context, c telebot.Context
 		pivotsLevel []dto.TimeframePivot
 	)
 
+	if len(latestAnalyses) == 0 {
+		_, err := t.telegram.Send(ctx, c, "❌ Tidak ada analisis")
+		return err
+	}
+
 	symbolWithExchange := latestAnalyses[0].Exchange + ":" + latestAnalyses[0].StockCode
 
 	marketPrice, _ := cache.GetFromCache[float64](fmt.Sprintf(common.KEY_LAST_PRICE, symbolWithExchange))
@@ -161,6 +166,11 @@ func (t *TelegramBotHandler) showAnalysis(ctx context.Context, c telebot.Context
 		}
 
 		if err := json.Unmarshal([]byte(analysis.OHLCV), &ohclv); err != nil {
+			return err
+		}
+
+		if len(ohclv) == 0 {
+			_, err := t.telegram.Send(ctx, c, "❌ Tidak ada data harga")
 			return err
 		}
 		valTimeframeSummary := "??"

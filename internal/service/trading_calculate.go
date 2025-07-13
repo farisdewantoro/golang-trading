@@ -129,7 +129,7 @@ func getSLCandidates(marketPrice float64, supports []dto.Level, emas []dto.EMADa
 	// 4. SL dari price bucket (di atas EMA dan di bawah market)
 	var bestPriceBucket []dto.PriceBucket
 	for _, pb := range priceBuckets {
-		if pb.Bucket < marketPrice && (len(bestSupport) == 0 || (pb.Bucket > bestSupport[0].Price && pb.Bucket > highEMA[0])) {
+		if pb.Bucket < marketPrice && (len(bestSupport) == 0 || (pb.Bucket > bestSupport[0].Price && (len(highEMA) == 0 || pb.Bucket > highEMA[0]))) {
 			bestPriceBucket = append(bestPriceBucket, pb)
 		}
 	}
