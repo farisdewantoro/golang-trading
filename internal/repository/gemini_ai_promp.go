@@ -39,7 +39,7 @@ func (r *geminiAIRepository) promptAnalyzeStock(
      - Hindari memilih level yang belum teruji atau baru disentuh sekali, kecuali ada konfirmasi tambahan seperti breakout volume besar.
    - Dalam strategi swing trading dengan waktu 2-10 hari, target price (TP) dan stop loss (SL) harus disesuaikan dengan volatilitas historis (seperti ATR).
      - Hindari menetapkan TP melebihi **6%** dan SL melebihi **4%** dari entry price, kecuali ada konfirmasi kuat seperti breakout volume besar.
-     - Jika estimasi waktu ke TP sangat pendek (misalnya 2-5 hari), maka TP sebaiknya dibatasi maksimal **3-4%** saja.
+     - Jika estimasi waktu ke TP sangat pendek (misalnya 2-5 hari), maka TP sebaiknya dibatasi maksimal **3-7%** saja.
    - Idealnya Risk:Reward (RR) **≥ 1:2**, namun tidak wajib. Jika tidak memenuhi, tetap prioritaskan level teknikal yang paling masuk akal.
    - Jelaskan alasan pemilihan TP dan SL secara profesional dalam field **exit_strategy_reason** (maksimal 2 kalimat).
    - Jangan membuat angka acak untuk TP atau SL — semua harus berdasarkan logika teknikal yang kuat dari timeframe utama (misal: 4H, 1D).

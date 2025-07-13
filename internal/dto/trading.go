@@ -11,6 +11,12 @@ type TradePlanResult struct {
 	Status             string
 	IsBuySignal        bool
 	Symbol             string
+
+	SLType   string // jenis SL: support / ema-adjust
+	SLReason string // alasan SL
+
+	TPType   string // jenis TP: resistance / price-bucket / avg-resistance
+	TPReason string // alasan TP
 }
 
 type TradePlan struct {
@@ -21,9 +27,12 @@ type TradePlan struct {
 	Risk               float64
 	Reward             float64
 	RiskReward         float64
-	IsTPValid          bool // TP realistis dan RR valid
-	IsTPIdeal          bool // TP berasal dari resistance ideal
-	Confidence         int  // Skor 1–3 (1 = low, 3 = high)
+
+	SLType   string // jenis SL: support / ema-adjust
+	SLReason string // alasan SL
+
+	TPType   string // jenis TP: resistance / price-bucket / avg-resistance
+	TPReason string // alasan TP
 }
 
 type Level struct {
