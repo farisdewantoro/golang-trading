@@ -34,27 +34,39 @@ func (s *stockAnalysisRepository) CreateBulk(ctx context.Context, stockAnalyses 
 func (s *stockAnalysisRepository) GetLatestAnalyses(ctx context.Context, param model.GetLatestAnalysisParam) ([]model.StockAnalysis, error) {
 	var latestHash []string
 
-	sub := s.db.Debug().Model(&model.StockAnalysis{}).Select("hash_identifier")
+	var queryBuilder strings.Builder
+	args := []interface{}{}
 
+	queryBuilder.WriteString(`WITH ranked_hashes AS (SELECT hash_identifier, stock_code, ROW_NUMBER() OVER(PARTITION BY stock_code ORDER BY MAX(timestamp) DESC) as rn FROM stock_analyses`)
+
+	whereClauses := []string{}
 	if param.StockCode != "" {
-		sub = sub.Where("stock_code = ?", param.StockCode)
+		whereClauses = append(whereClauses, "stock_code = ?")
+		args = append(args, param.StockCode)
 	}
 	if param.Exchange != "" {
-		sub = sub.Where("exchange = ?", param.Exchange)
+		whereClauses = append(whereClauses, "exchange = ?")
+		args = append(args, param.Exchange)
 	}
 	if !param.TimestampAfter.IsZero() {
-		sub = sub.Where("timestamp >= ?", param.TimestampAfter)
+		whereClauses = append(whereClauses, "timestamp >= ?")
+		args = append(args, param.TimestampAfter)
 	}
+
+	if len(whereClauses) > 0 {
+		queryBuilder.WriteString(" WHERE " + strings.Join(whereClauses, " AND "))
+	}
+
+	queryBuilder.WriteString(" GROUP BY stock_code, hash_identifier")
+
 	if param.ExpectedTFCount > 0 {
-		sub = sub.Group("hash_identifier").
-			Having("COUNT(DISTINCT timeframe) >= ?", param.ExpectedTFCount)
-	} else {
-		sub = sub.Group("hash_identifier")
+		queryBuilder.WriteString(" HAVING COUNT(DISTINCT timeframe) >= ?")
+		args = append(args, param.ExpectedTFCount)
 	}
 
-	sub = sub.Order("MAX(timestamp) DESC")
+	queryBuilder.WriteString(") SELECT hash_identifier FROM ranked_hashes WHERE rn = 1")
 
-	err := sub.Find(&latestHash).Error
+	err := s.db.Debug().Raw(queryBuilder.String(), args...).Scan(&latestHash).Error
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return nil, nil
@@ -66,18 +78,14 @@ func (s *stockAnalysisRepository) GetLatestAnalyses(ctx context.Context, param m
 		return nil, nil
 	}
 
+	// Fetch the full analysis data for the selected hash_identifiers
 	query := s.db.Debug().Where("hash_identifier IN ?", latestHash)
-	if param.StockCode != "" {
-		query = query.Where("stock_code = ?", param.StockCode)
-	}
-	if param.Exchange != "" {
-		query = query.Where("exchange = ?", param.Exchange)
-	}
 
 	var analyses []model.StockAnalysis
-	err = query.Order("stock_code ASC,timeframe DESC").
+	err = query.Order("stock_code ASC, timeframe DESC").
 		Preload("StockAnalysisAI").
 		Find(&analyses).Error
+
 	if err != nil {
 		return nil, err
 	}

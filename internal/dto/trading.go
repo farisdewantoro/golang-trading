@@ -27,6 +27,7 @@ type TradePlan struct {
 	Risk               float64
 	Reward             float64
 	RiskReward         float64
+	Score              float64
 
 	SLType   string // jenis SL: support / ema-adjust
 	SLReason string // alasan SL

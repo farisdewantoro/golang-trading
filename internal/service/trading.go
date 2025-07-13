@@ -43,14 +43,14 @@ func NewTradingService(
 
 func (s *tradingService) CreateTradePlan(ctx context.Context, latestAnalyses []model.StockAnalysis) (*dto.TradePlanResult, error) {
 	var (
-		supports    []dto.Level
-		resistances []dto.Level
-		marketPrice float64
-		result      *dto.TradePlanResult
-		emaData     []dto.EMAData
-
-		tfMap        map[string]dto.DataTimeframe
-		priceBuckets []dto.PriceBucket
+		supports       []dto.Level
+		resistances    []dto.Level
+		emaData        []dto.EMAData
+		priceBuckets   []dto.PriceBucket
+		mainTFCandles  []dto.StockOHLCV
+		marketPrice    float64
+		result         *dto.TradePlanResult
+		tfMap          map[string]dto.DataTimeframe
 	)
 
 	if len(latestAnalyses) == 0 {
@@ -92,6 +92,9 @@ func (s *tradingService) CreateTradePlan(ctx context.Context, latestAnalyses []m
 		}
 
 		isMainTF := tfMap[analysis.Timeframe].IsMain
+		if isMainTF {
+			mainTFCandles = candles
+		}
 
 		emaData = append(emaData, dto.EMAData{
 			Timeframe: analysis.Timeframe,
@@ -109,7 +112,11 @@ func (s *tradingService) CreateTradePlan(ctx context.Context, latestAnalyses []m
 	}
 
 	s.log.DebugContext(ctx, "Create Trade Plan", logger.StringField("stock_code", stockCodeWithExchange))
-	plan := s.calculatePlan(float64(marketPrice), supports, resistances, emaData, priceBuckets)
+
+	// Calculate ATR using the main timeframe's candles
+	atr14 := s.calculateATR(mainTFCandles, 14)
+
+	plan := s.calculatePlan(float64(marketPrice), supports, resistances, emaData, priceBuckets, atr14)
 
 	score, signal, err := helper.EvaluateSignal(ctx, s.log, timeframes, latestAnalyses)
 	if err != nil {
@@ -133,27 +140,6 @@ func (s *tradingService) CreateTradePlan(ctx context.Context, latestAnalyses []m
 	s.log.DebugContext(ctx, "Finished create trade plan", logger.StringField("stock_code", stockCodeWithExchange))
 
 	return result, nil
-}
-
-func (s *tradingService) countTouches(candles []dto.StockOHLCV, level float64, isSupport bool) int {
-	tolerancePercent := 0.5
-	tolerance := level * tolerancePercent / 100.0
-	low := level - tolerance
-	high := level + tolerance
-	touches := 0
-
-	for _, c := range candles {
-		if isSupport {
-			if c.Low <= high && c.High >= low {
-				touches++
-			}
-		} else {
-			if c.High >= high && c.Low <= low {
-				touches++
-			}
-		}
-	}
-	return touches
 }
 
 func (s *tradingService) EvaluateSignal(ctx context.Context, latestAnalyses []model.StockAnalysis) (string, error) {
@@ -385,4 +371,57 @@ func (s *tradingService) GetClosePriceBuckets(candles []dto.StockOHLCV) []dto.Pr
 	}
 
 	return result
+}
+
+func (s *tradingService) calculateATR(candles []dto.StockOHLCV, period int) float64 {
+	if len(candles) <= period {
+		return 0 // Not enough data
+	}
+
+	trueRanges := make([]float64, len(candles)-1)
+	for i := 1; i < len(candles); i++ {
+		high := candles[i].High
+		low := candles[i].Low
+		prevClose := candles[i-1].Close
+
+		tr1 := high - low
+		tr2 := math.Abs(high - prevClose)
+		tr3 := math.Abs(low - prevClose)
+
+		trueRanges[i-1] = math.Max(tr1, math.Max(tr2, tr3))
+	}
+
+	// Smoothed Moving Average (Wilder's Smoothing)
+	atr := 0.0
+	for i := 0; i < period; i++ {
+		atr += trueRanges[i]
+	}
+	atr /= float64(period)
+
+	for i := period; i < len(trueRanges); i++ {
+		atr = (atr*float64(period-1) + trueRanges[i]) / float64(period)
+	}
+
+	return atr
+}
+
+func (s *tradingService) countTouches(candles []dto.StockOHLCV, level float64, isSupport bool) int {
+	tolerancePercent := 0.5
+	tolerance := level * tolerancePercent / 100.0
+	low := level - tolerance
+	high := level + tolerance
+	touches := 0
+
+	for _, c := range candles {
+		if isSupport {
+			if c.Low <= high && c.High >= low {
+				touches++
+			}
+		} else {
+			if c.High >= high && c.Low <= low {
+				touches++
+			}
+		}
+	}
+	return touches
 }

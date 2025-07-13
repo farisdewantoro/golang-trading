@@ -190,3 +190,5 @@ type TradingViewBuyListDataResponse struct {
 	StockCode       string    `json:"s"`
 	TechnicalRating []float64 `json:"d"`
 }
+
+
