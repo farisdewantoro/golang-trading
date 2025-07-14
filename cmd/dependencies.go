@@ -47,12 +47,12 @@ func NewAppDependency(ctx context.Context) (*AppDependency, error) {
 		Token:  cfg.Telegram.BotToken,
 		Poller: &telebot.LongPoller{Timeout: 10 * time.Second},
 		OnError: func(err error, c telebot.Context) {
-			log.Error("Telegram bot error", zap.Error(err))
+			log.ErrorContextWithAlert(ctx, "Telegram bot error", logger.ErrorField(err))
 		},
 	}
 	telebot, err := telebot.NewBot(pref)
 	if err != nil {
-		log.Error("Failed to create telegram bot", zap.Error(err))
+		log.ErrorContextWithAlert(ctx, "Failed to create telegram bot", logger.ErrorField(err))
 		return nil, err
 	}
 	e := echo.New()

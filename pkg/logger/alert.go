@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"golang-trading/config"
 	"golang-trading/pkg/common"
+	"io"
 	"net/http"
 
 	"go.uber.org/zap/zapcore"
@@ -71,7 +72,7 @@ func (a *AlertCore) sendTelegramAlert(entry zapcore.Entry, fields []zapcore.Fiel
 
 	// Final message
 	message := fmt.Sprintf(
-		"🚨 *%s Alert*\n\n*Message:* %s\n\n*Fields:*\n%s\n*Time:* %s",
+		"🚨 <b>%s Alert</b>\n\n<b>Message:</b> %s\n\n<b>Fields:</b>\n%s\n<b>Time:</b> %s",
 		entry.Level.CapitalString(),
 		entry.Message,
 		fieldStr,
@@ -86,9 +87,16 @@ func (a *AlertCore) sendTelegramAlert(entry zapcore.Entry, fields []zapcore.Fiel
 	payload := map[string]interface{}{
 		"chat_id":    chatID,
 		"text":       message,
-		"parse_mode": "Markdown",
+		"parse_mode": "HTML",
 	}
 
 	jsonBody, _ := json.Marshal(payload)
-	http.Post(url, "application/json", bytes.NewBuffer(jsonBody))
+	resp, err := http.Post(url, "application/json", bytes.NewBuffer(jsonBody))
+	if err != nil {
+		fmt.Println("Failed to send alert to Telegram:", err)
+	}
+
+	defer resp.Body.Close()
+	body, _ := io.ReadAll(resp.Body)
+	fmt.Println("Alert sent to Telegram:", resp.Status, string(body))
 }

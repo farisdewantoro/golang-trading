@@ -89,20 +89,20 @@ func (t *TelegramBotHandler) showMyPositionDetail(ctx context.Context, c telebot
 		return err
 	}
 	sb.WriteString("\n")
-	sb.WriteString("<b>📊 Evaluasi Terbaru:</b>\n")
+	sb.WriteString("<b>📊 Evaluasi Terbaru</b>\n")
 	sb.WriteString(fmt.Sprintf("  • Score: %.2f (TA)\n", evalSummary.TechnicalAnalysis.Score))
 	sb.WriteString(fmt.Sprintf("  • Signal: %s (TA)\n", dto.Signal(evalSummary.TechnicalAnalysis.Signal).String()))
 	sb.WriteString(fmt.Sprintf("  • Status: %s (TA)\n", dto.PositionStatus(evalSummary.TechnicalAnalysis.Status).String()))
 	sb.WriteString(fmt.Sprintf("  • Note: %s\n", evalSummary.TechnicalAnalysis.SignalEvaluation))
 
 	sb.WriteString("\n")
-	sb.WriteString("<b>🧠 Insight:</b>\n")
+	sb.WriteString("<b>🧠 Insight</b>\n")
 	for _, insight := range evalSummary.TechnicalAnalysis.Insight {
-		sb.WriteString(fmt.Sprintf("- %s\n", insight))
+		sb.WriteString(fmt.Sprintf("- %s\n", utils.EscapeHTMLForTelegram(insight)))
 	}
 
 	sb.WriteString("\n")
-	sb.WriteString("<b>📜 Riwayat Evaluasi:</b>\n")
+	sb.WriteString("<b>📜 Riwayat Evaluasi</b>\n")
 	for _, stockPositionMonitoring := range stockPosition.StockPositionMonitorings {
 		var evalSummary model.PositionAnalysisSummary
 		err := json.Unmarshal(stockPositionMonitoring.EvaluationSummary, &evalSummary)
@@ -110,7 +110,7 @@ func (t *TelegramBotHandler) showMyPositionDetail(ctx context.Context, c telebot
 			continue
 		}
 
-		sb.WriteString(fmt.Sprintf("  <b>• %s</b>: %s\n",
+		sb.WriteString(fmt.Sprintf("  <b>• %s</b> %s\n",
 			stockPositionMonitoring.Timestamp.Format("02 Jan 15:04"),
 			dto.Signal(evalSummary.TechnicalAnalysis.Signal).String()))
 		sb.WriteString(fmt.Sprintf("  ↳ Price: %.2f (%s)\n", stockPositionMonitoring.MarketPrice, utils.FormatChange(stockPosition.BuyPrice, float64(stockPositionMonitoring.MarketPrice))))
@@ -125,6 +125,7 @@ func (t *TelegramBotHandler) showMyPositionDetail(ctx context.Context, c telebot
 		_, err = t.telegram.Send(ctx, c, sb.String(), menu, telebot.ModeHTML)
 		return err
 	} else {
+		fmt.Println(sb.String())
 		_, err = t.telegram.Edit(ctx, c, msgRoot, sb.String(), menu, telebot.ModeHTML)
 		return err
 	}

@@ -272,3 +272,10 @@ func PrettyKey(key string) string {
 	}
 	return strings.Join(words, " ")
 }
+
+func EscapeHTMLForTelegram(s string) string {
+	s = strings.ReplaceAll(s, "&", "&amp;")
+	s = strings.ReplaceAll(s, "<", "&lt;")
+	s = strings.ReplaceAll(s, ">", "&gt;")
+	return s
+}
