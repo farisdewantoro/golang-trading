@@ -1,5 +1,15 @@
 package dto
 
+type Evaluation string
+
+const (
+	EvalVeryStrong Evaluation = "Sangat Kuat & Potensi Naik"
+	EvalStrong     Evaluation = "Cukup Kuat tapi Perlu Waspada"
+	EvalNeutral    Evaluation = "Netral / Lemah"
+	EvalVeryWeak   Evaluation = "Sangat Lemah / Potensi Breakdown"
+	EvalWeak       Evaluation = "Lemah / Tidak Stabil"
+)
+
 const (
 	TradingViewInterval1Min   string = "1"   // 1 minute
 	TradingViewInterval5Min   string = "5"   // 5 minutes
@@ -31,12 +41,6 @@ const (
 	SignalStrongSell = "STRONG_SELL"
 	SignalHold       = "HOLD"
 
-	EvalVeryStrong = "✅ Sangat Kuat & Potensi Naik"
-	EvalStrong     = "⚠️ Cukup Kuat tapi Perlu Waspada"
-	EvalNeutral    = "⚠️ Netral / Lemah"
-	EvalVeryWeak   = "❌ Sangat Lemah / Potensi Breakdown"
-	EvalWeak       = "❌ Lemah / Tidak Stabil"
-
 	TrendBullish string = "Bullish"
 	TrendBearish string = "Bearish"
 	TrendNeutral string = "Neutral"
@@ -48,3 +52,48 @@ const (
 	LevelClassic   = "Classic"
 	LevelFibonacci = "Fibonacci"
 )
+
+type PositionStatus string
+
+const (
+	Safe      PositionStatus = "safe"
+	Warning   PositionStatus = "warning"
+	Dangerous PositionStatus = "dangerous"
+)
+
+func (p PositionStatus) String() string {
+	switch p {
+	case Safe:
+		return "✅ Safe"
+	case Warning:
+		return "⚠️ Warning"
+	case Dangerous:
+		return "❌ Dangerous"
+	default:
+		return "Unknown"
+	}
+}
+
+type Signal string
+
+const (
+	TakeProfit   Signal = "take_profit"
+	CutLoss      Signal = "cut_loss"
+	TrailingStop Signal = "trailing_stop"
+	Hold         Signal = "hold"
+)
+
+func (s Signal) String() string {
+	switch s {
+	case TakeProfit:
+		return "🟢 Take Profit"
+	case CutLoss:
+		return "🔴 Cut Loss"
+	case TrailingStop:
+		return "🟠 Trailing Stop"
+	case Hold:
+		return "🟡 Hold"
+	default:
+		return "Unknown"
+	}
+}

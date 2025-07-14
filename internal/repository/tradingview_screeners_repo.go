@@ -367,6 +367,8 @@ func (t *tradingViewScreenersRepository) Get(ctx context.Context, symbol string,
 	ta.Value.Prices.High = responseMap[key("high%s", dataInterval)]
 	ta.Value.Prices.Low = responseMap[key("low%s", dataInterval)]
 
+	ta.Timeframe = dto.TradingViewIntervalToDataTimeframe(dataInterval)
+
 	return ta, nil
 }
 

@@ -2,6 +2,7 @@ package dto
 
 // TradingView Payload Data
 type TradingViewScanner struct {
+	Timeframe string `json:"timeframe"`
 	Recommend struct {
 		Global struct {
 			Summary     int // Summary recommendation
@@ -190,5 +191,3 @@ type TradingViewBuyListDataResponse struct {
 	StockCode       string    `json:"s"`
 	TechnicalRating []float64 `json:"d"`
 }
-
-

@@ -24,7 +24,9 @@ func NewService(
 	telegram *telegram.TelegramRateLimiter,
 ) *Service {
 	analyzerStrategy := strategy.NewStockAnalyzerStrategy(cfg, log, inmemoryCache, repo.StockPositionsRepo, repo.TradingViewScreenersRepo, repo.YahooFinanceRepo, repo.StockAnalysisRepo, repo.SystemParamRepo)
-	stockPositionMonitoringStrategy := strategy.NewStockPositionMonitoringStrategy(log, inmemoryCache, repo.TradingViewScreenersRepo, telegram, repo.StockPositionsRepo, analyzerStrategy, repo.StockPositionMonitoringRepo, repo.SystemParamRepo)
+	tradingService := NewTradingService(cfg, log, repo.SystemParamRepo)
+
+	stockPositionMonitoringStrategy := strategy.NewStockPositionMonitoringStrategy(log, inmemoryCache, repo.TradingViewScreenersRepo, telegram, repo.StockPositionsRepo, analyzerStrategy, repo.StockPositionMonitoringRepo, repo.SystemParamRepo, tradingService)
 	executorStrategies := make(map[strategy.JobType]strategy.JobExecutionStrategy)
 	executorStrategies[strategy.JobTypeStockPriceAlert] = strategy.NewStockPriceAlertStrategy(cfg, log, inmemoryCache, repo.TradingViewScreenersRepo, telegram, repo.StockPositionsRepo, repo.YahooFinanceRepo)
 	executorStrategies[strategy.JobTypeStockAnalyzer] = analyzerStrategy
@@ -34,7 +36,6 @@ func NewService(
 
 	schedulerService := NewSchedulerService(cfg, log, repo.JobRepo, taskExecutor)
 	telegramBotService := NewTelegramBotService(log, cfg, telegram, inmemoryCache, repo.StockAnalysisRepo, repo.SystemParamRepo, analyzerStrategy, repo.GeminiAIRepo, repo.UserRepo, repo.StockPositionsRepo, repo.StockPositionMonitoringRepo, repo.UnitOfWork)
-	tradingService := NewTradingService(cfg, log, repo.SystemParamRepo)
 	return &Service{
 		SchedulerService:   schedulerService,
 		TaskExecutor:       taskExecutor,

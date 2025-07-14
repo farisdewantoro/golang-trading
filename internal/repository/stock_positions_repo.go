@@ -37,7 +37,7 @@ func (r *stockPositionsRepository) Get(ctx context.Context, param dto.GetStockPo
 	db := utils.ApplyOptions(r.db.WithContext(ctx), opts...)
 
 	if param.TelegramID != nil {
-		db = db.Joins("JOIN users ON stock_positions.user_id = users.id").
+		db = db.Debug().Joins("JOIN users ON stock_positions.user_id = users.id").
 			Where("users.telegram_id = ?", *param.TelegramID)
 	}
 
@@ -86,7 +86,7 @@ func (r *stockPositionsRepository) Get(ctx context.Context, param dto.GetStockPo
 
 	if param.Monitoring != nil {
 		// Preload monitoring dengan order by
-		db = db.Preload("StockPositionMonitorings.StockAnalysisAI", func(pDb *gorm.DB) *gorm.DB {
+		db = db.Preload("StockPositionMonitorings", func(pDb *gorm.DB) *gorm.DB {
 
 			if param.Monitoring.ShowNewest != nil && *param.Monitoring.ShowNewest {
 				pDb = pDb.Order("created_at DESC")
@@ -97,6 +97,7 @@ func (r *stockPositionsRepository) Get(ctx context.Context, param dto.GetStockPo
 			}
 			return pDb
 		})
+		db = db.Preload("StockPositionMonitorings.StockAnalysisAI")
 	}
 
 	if err := db.Preload("User").Debug().Where(strings.Join(qFilter, " AND "), qFilterParam...).Find(&stockPositions).Error; err != nil {

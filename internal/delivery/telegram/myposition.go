@@ -57,6 +57,7 @@ func (t *TelegramBotHandler) showMyPosition(ctx context.Context, c telebot.Conte
 			techScore          string
 			techRecommendation string
 			pnl                string
+			techSignal         string
 		)
 
 		isHasMonitoring := len(position.StockPositionMonitorings) > 0
@@ -72,25 +73,30 @@ func (t *TelegramBotHandler) showMyPosition(ctx context.Context, c telebot.Conte
 		if marketPrice > 0 {
 			pnl = utils.FormatChangeWithIcon(position.BuyPrice, marketPrice)
 		}
-		sb.WriteString(fmt.Sprintf("  • Last Price: %.2f | PnL: %s\n", marketPrice, pnl))
+		sb.WriteString(fmt.Sprintf("  • Last Price: %.2f\n", marketPrice))
+		sb.WriteString(fmt.Sprintf("  • PnL: %s\n", pnl))
 
 		if !isHasMonitoring {
 			techScore = "N/A"
 			techRecommendation = "N/A"
+			techSignal = "N/A"
 		} else {
 
-			var evalSummary model.EvaluationSummaryData
+			var evalSummary model.PositionAnalysisSummary
 
 			err := json.Unmarshal(position.StockPositionMonitorings[0].EvaluationSummary, &evalSummary)
 			if err != nil {
 				continue
 			}
-			techScore = fmt.Sprintf("%d", evalSummary.TechnicalScore)
-			techRecommendation = evalSummary.TechnicalRecommendation
+			techScore = fmt.Sprintf("%.2f", evalSummary.TechnicalAnalysis.Score)
+			techRecommendation = dto.PositionStatus(evalSummary.TechnicalAnalysis.Status).String()
+			techSignal = dto.Signal(evalSummary.TechnicalAnalysis.Signal).String()
 		}
 
-		sb.WriteString(fmt.Sprintf("  • Tech Status: %s\n", techRecommendation))
-		sb.WriteString(fmt.Sprintf("  • Tech Score: %s\n", techScore))
+		sb.WriteString(fmt.Sprintf("  • Status: %s (TA)\n", techRecommendation))
+		sb.WriteString(fmt.Sprintf("  • Score: %s (TA)\n", techScore))
+		sb.WriteString(fmt.Sprintf("  • Signal: %s (TA)\n", techSignal))
+
 		sb.WriteString("\n")
 	}
 

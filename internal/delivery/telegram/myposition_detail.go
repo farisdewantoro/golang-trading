@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"golang-trading/internal/dto"
 	"golang-trading/internal/model"
 	"golang-trading/pkg/cache"
 	"golang-trading/pkg/common"
@@ -79,9 +80,9 @@ func (t *TelegramBotHandler) showMyPositionDetail(ctx context.Context, c telebot
 		}
 	}
 
-	lastMonitoring := stockPosition.StockPositionMonitorings[len(stockPosition.StockPositionMonitorings)-1]
+	lastMonitoring := stockPosition.StockPositionMonitorings[0]
 
-	var evalSummary model.EvaluationSummaryData
+	var evalSummary model.PositionAnalysisSummary
 	err := json.Unmarshal(lastMonitoring.EvaluationSummary, &evalSummary)
 	if err != nil {
 		_, err := t.telegram.Send(ctx, c, commonErrorInternalMyPosition)
@@ -89,13 +90,21 @@ func (t *TelegramBotHandler) showMyPositionDetail(ctx context.Context, c telebot
 	}
 	sb.WriteString("\n")
 	sb.WriteString("<b>📊 Evaluasi Terbaru:</b>\n")
-	sb.WriteString(fmt.Sprintf("  • Skor Technical: %d\n", evalSummary.TechnicalScore))
-	sb.WriteString(fmt.Sprintf("  • Status Technical: %s\n", evalSummary.TechnicalRecommendation))
+	sb.WriteString(fmt.Sprintf("  • Score: %.2f (TA)\n", evalSummary.TechnicalAnalysis.Score))
+	sb.WriteString(fmt.Sprintf("  • Signal: %s (TA)\n", dto.Signal(evalSummary.TechnicalAnalysis.Signal).String()))
+	sb.WriteString(fmt.Sprintf("  • Status: %s (TA)\n", dto.PositionStatus(evalSummary.TechnicalAnalysis.Status).String()))
+	sb.WriteString(fmt.Sprintf("  • Note: %s\n", evalSummary.TechnicalAnalysis.SignalEvaluation))
+
+	sb.WriteString("\n")
+	sb.WriteString("<b>🧠 Insight:</b>\n")
+	for _, insight := range evalSummary.TechnicalAnalysis.Insight {
+		sb.WriteString(fmt.Sprintf("- %s\n", insight))
+	}
 
 	sb.WriteString("\n")
 	sb.WriteString("<b>📜 Riwayat Evaluasi:</b>\n")
 	for _, stockPositionMonitoring := range stockPosition.StockPositionMonitorings {
-		var evalSummary model.EvaluationSummaryData
+		var evalSummary model.PositionAnalysisSummary
 		err := json.Unmarshal(stockPositionMonitoring.EvaluationSummary, &evalSummary)
 		if err != nil {
 			continue
@@ -103,8 +112,10 @@ func (t *TelegramBotHandler) showMyPositionDetail(ctx context.Context, c telebot
 
 		sb.WriteString(fmt.Sprintf("  <b>• %s</b>: %s\n",
 			stockPositionMonitoring.Timestamp.Format("02 Jan 15:04"),
-			evalSummary.TechnicalRecommendation))
-		sb.WriteString(fmt.Sprintf("  ↳ Market Price: %.2f (%s)\n", stockPositionMonitoring.MarketPrice, utils.FormatChange(stockPosition.BuyPrice, float64(stockPositionMonitoring.MarketPrice))))
+			dto.Signal(evalSummary.TechnicalAnalysis.Signal).String()))
+		sb.WriteString(fmt.Sprintf("  ↳ Price: %.2f (%s)\n", stockPositionMonitoring.MarketPrice, utils.FormatChange(stockPosition.BuyPrice, float64(stockPositionMonitoring.MarketPrice))))
+		sb.WriteString(fmt.Sprintf("  ↳ %s\n", evalSummary.TechnicalAnalysis.SignalEvaluation))
+
 	}
 
 	lastUpdate := lastMonitoring.Timestamp

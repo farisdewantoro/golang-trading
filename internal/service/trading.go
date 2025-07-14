@@ -5,8 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"golang-trading/config"
+	"golang-trading/internal/contract"
 	"golang-trading/internal/dto"
-	"golang-trading/internal/helper"
 	"golang-trading/internal/model"
 	"golang-trading/internal/repository"
 	"golang-trading/pkg/cache"
@@ -18,9 +18,9 @@ import (
 
 type TradingService interface {
 	CreateTradePlan(ctx context.Context, latestAnalyses []model.StockAnalysis) (*dto.TradePlanResult, error)
-	EvaluateSignal(ctx context.Context, latestAnalyses []model.StockAnalysis) (string, error)
 	BuyListTradePlan(ctx context.Context, mapSymbolExchangeAnalysis map[string][]model.StockAnalysis) ([]dto.TradePlanResult, error)
 	BuildTimeframePivots(analysis *model.StockAnalysis) ([]dto.TimeframePivot, error)
+	contract.TradingPositionContract
 }
 
 type tradingService struct {
@@ -43,14 +43,14 @@ func NewTradingService(
 
 func (s *tradingService) CreateTradePlan(ctx context.Context, latestAnalyses []model.StockAnalysis) (*dto.TradePlanResult, error) {
 	var (
-		supports       []dto.Level
-		resistances    []dto.Level
-		emaData        []dto.EMAData
-		priceBuckets   []dto.PriceBucket
-		mainTFCandles  []dto.StockOHLCV
-		marketPrice    float64
-		result         *dto.TradePlanResult
-		tfMap          map[string]dto.DataTimeframe
+		supports      []dto.Level
+		resistances   []dto.Level
+		emaData       []dto.EMAData
+		priceBuckets  []dto.PriceBucket
+		mainTFCandles []dto.StockOHLCV
+		marketPrice   float64
+		result        *dto.TradePlanResult
+		tfMap         map[string]dto.DataTimeframe
 	)
 
 	if len(latestAnalyses) == 0 {
@@ -118,7 +118,7 @@ func (s *tradingService) CreateTradePlan(ctx context.Context, latestAnalyses []m
 
 	plan := s.calculatePlan(float64(marketPrice), supports, resistances, emaData, priceBuckets, atr14)
 
-	score, signal, err := helper.EvaluateSignal(ctx, s.log, timeframes, latestAnalyses)
+	score, signal, err := s.evaluateSignal(ctx, timeframes, latestAnalyses)
 	if err != nil {
 		s.log.ErrorContext(ctx, "Failed to evaluate signal", logger.ErrorField(err))
 		return nil, err
@@ -140,23 +140,6 @@ func (s *tradingService) CreateTradePlan(ctx context.Context, latestAnalyses []m
 	s.log.DebugContext(ctx, "Finished create trade plan", logger.StringField("stock_code", stockCodeWithExchange))
 
 	return result, nil
-}
-
-func (s *tradingService) EvaluateSignal(ctx context.Context, latestAnalyses []model.StockAnalysis) (string, error) {
-
-	// Ambil konfigurasi bobot timeframe
-	dtf, err := s.systemParamRepository.GetDefaultAnalysisTimeframes(ctx)
-	if err != nil {
-		s.log.ErrorContext(ctx, "Failed to get default analysis timeframes", logger.ErrorField(err))
-		return "", err
-	}
-
-	_, signal, err := helper.EvaluateSignal(ctx, s.log, dtf, latestAnalyses)
-	if err != nil {
-		s.log.ErrorContext(ctx, "Failed to evaluate signal", logger.ErrorField(err))
-		return "", err
-	}
-	return signal, nil
 }
 
 func (s *tradingService) BuyListTradePlan(ctx context.Context, mapSymbolExchangeAnalysis map[string][]model.StockAnalysis) ([]dto.TradePlanResult, error) {

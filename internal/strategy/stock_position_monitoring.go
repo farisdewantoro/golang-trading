@@ -6,8 +6,8 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"golang-trading/internal/contract"
 	"golang-trading/internal/dto"
-	"golang-trading/internal/helper"
 	"golang-trading/internal/model"
 	"golang-trading/internal/repository"
 	"golang-trading/pkg/cache"
@@ -29,6 +29,7 @@ type StockPositionMonitoringStrategy struct {
 	stockAnalyzer                  StockAnalyzer
 	stockPositionMonitoringRepo    repository.StockPositionMonitoringRepository
 	systemParamRepository          repository.SystemParamRepository
+	tradingPositionService         contract.TradingPositionContract
 }
 
 type StockPositionMonitoringResult struct {
@@ -45,6 +46,7 @@ func NewStockPositionMonitoringStrategy(
 	stockAnalyzer StockAnalyzer,
 	stockPositionMonitoringRepo repository.StockPositionMonitoringRepository,
 	systemParamRepository repository.SystemParamRepository,
+	tradingPositionService contract.TradingPositionContract,
 ) JobExecutionStrategy {
 	return &StockPositionMonitoringStrategy{
 		logger:                         logger,
@@ -55,6 +57,7 @@ func NewStockPositionMonitoringStrategy(
 		stockAnalyzer:                  stockAnalyzer,
 		stockPositionMonitoringRepo:    stockPositionMonitoringRepo,
 		systemParamRepository:          systemParamRepository,
+		tradingPositionService:         tradingPositionService,
 	}
 }
 
@@ -107,11 +110,6 @@ func (s *StockPositionMonitoringStrategy) EvaluateStockPosition(ctx context.Cont
 		mu      sync.Mutex
 		results []StockPositionMonitoringResult
 	)
-	dtf, err := s.systemParamRepository.GetDefaultAnalysisTimeframes(ctx)
-	if err != nil {
-		s.logger.ErrorContext(ctx, "Failed to get default analysis timeframes", logger.ErrorField(err))
-		return nil, err
-	}
 
 	mapStockCode := map[string][]model.StockPosition{}
 	for _, stockPosition := range stockPositions {
@@ -144,16 +142,21 @@ func (s *StockPositionMonitoringStrategy) EvaluateStockPosition(ctx context.Cont
 				resultData.Errors = err.Error()
 				return
 			}
-			score, signal, err := helper.EvaluatePosition(ctx, s.logger, dtf, stockAnalyses)
+			positionAnalysis, err := s.tradingPositionService.EvaluatePositionMonitoring(ctx, &stockPosition, stockAnalyses)
 			if err != nil {
-				s.logger.Error("Failed to evaluate signal", logger.ErrorField(err), logger.StringField("stock_code", stockPosition.StockCode))
+				s.logger.ErrorContext(ctx, "Failed to evaluate signal", logger.ErrorField(err), logger.StringField("stock_code", stockPosition.StockCode))
 				resultData.Errors = err.Error()
 				return
 			}
 
-			summary := model.EvaluationSummaryData{
-				TechnicalRecommendation: signal,
-				TechnicalScore:          score,
+			summary := model.PositionAnalysisSummary{
+				TechnicalAnalysis: model.PositionTechnicalAnalysisSummary{
+					Signal:           string(positionAnalysis.Signal),
+					Score:            positionAnalysis.Score,
+					Insight:          positionAnalysis.Insight,
+					Status:           string(positionAnalysis.Status),
+					SignalEvaluation: string(positionAnalysis.SignalEvaluation),
+				},
 			}
 
 			jsonSummary, err := json.Marshal(summary)
@@ -181,7 +184,7 @@ func (s *StockPositionMonitoringStrategy) EvaluateStockPosition(ctx context.Cont
 					})
 				}
 				stockPositionMonitorings = append(stockPositionMonitorings, stockPositionMonitoring)
-				shouldSendTelegram := summary.TechnicalRecommendation != dto.EvalStrong && summary.TechnicalRecommendation != dto.EvalVeryStrong
+				shouldSendTelegram := summary.TechnicalAnalysis.Status != string(dto.Safe)
 				if shouldSendTelegram {
 					sendTelegramToUsers = append(sendTelegramToUsers, stockPosition)
 				}
@@ -219,7 +222,7 @@ func (s *StockPositionMonitoringStrategy) GenerateHashIdentifier(data *model.Sto
 	return hex.EncodeToString(hash[:])
 }
 
-func (s *StockPositionMonitoringStrategy) SendMessageUser(ctx context.Context, stockPositions []model.StockPosition, stockAnalyses []model.StockAnalysis, summary model.EvaluationSummaryData) error {
+func (s *StockPositionMonitoringStrategy) SendMessageUser(ctx context.Context, stockPositions []model.StockPosition, stockAnalyses []model.StockAnalysis, summary model.PositionAnalysisSummary) error {
 
 	marketPrice := stockAnalyses[0].MarketPrice
 	for _, stockPosition := range stockPositions {
@@ -228,9 +231,12 @@ func (s *StockPositionMonitoringStrategy) SendMessageUser(ctx context.Context, s
 		sb.WriteString(fmt.Sprintf("<i>📅 Update :%s</i>\n", utils.PrettyDate(utils.TimeNowWIB())))
 		sb.WriteString(fmt.Sprintf(`
 <b>📊 Evaluasi Terbaru:</b>
- - Skor Total : %d
- - Status: %s		
-`, summary.TechnicalScore, summary.TechnicalRecommendation))
+ - Skor Total : %.2f
+ - Status: %s
+ - Signal: %s
+ - Evaluation: %s	
+`, summary.TechnicalAnalysis.Score, dto.PositionStatus(summary.TechnicalAnalysis.Status), dto.Signal(summary.TechnicalAnalysis.Signal), dto.Evaluation(summary.TechnicalAnalysis.SignalEvaluation)))
+
 		sb.WriteString(fmt.Sprintf(`
 🎯 <b>Target Price:</b> %d (%s)
 🛡 <b>Stop Loss:</b> %d (%s)
@@ -244,10 +250,10 @@ func (s *StockPositionMonitoringStrategy) SendMessageUser(ctx context.Context, s
 			utils.FormatChange(float64(stockPosition.BuyPrice),
 				float64(marketPrice))))
 
-		sb.WriteString(`
-🧠 <b>Rekomendasi:</b>
-Segera pantau pergerakan harga.
-Pertimbangkan exit jika sinyal memburuk lebih lanjut.`)
+		sb.WriteString("\n<b>🧠 Insight:</b>\n")
+		for _, insight := range summary.TechnicalAnalysis.Insight {
+			sb.WriteString(fmt.Sprintf("- %s\n", insight))
+		}
 
 		menu := &telebot.ReplyMarkup{}
 		menu.Inline(

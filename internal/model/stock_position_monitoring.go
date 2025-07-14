@@ -41,9 +41,16 @@ func (StockPositionMonitoringAnalysisRef) TableName() string {
 	return "stock_position_monitoring_analysis_refs"
 }
 
-type EvaluationSummaryData struct {
-	TechnicalRecommendation string `json:"technical_recommendation"`
-	TechnicalScore          int    `json:"technical_score"`
+type PositionAnalysisSummary struct {
+	TechnicalAnalysis PositionTechnicalAnalysisSummary `json:"technical_analysis_summary"`
+}
+
+type PositionTechnicalAnalysisSummary struct {
+	Signal           string   `json:"signal"`
+	Status           string   `json:"status"`
+	Score            float64  `json:"score"`
+	Insight          []string `json:"insight"`
+	SignalEvaluation string   `json:"signal_evaluation"`
 }
 
 type StockPositionMonitoringQueryParam struct {

@@ -24,6 +24,23 @@ func (d *DataTimeframe) ToTradingViewScreenersInterval() string {
 	}
 }
 
+func TradingViewIntervalToDataTimeframe(interval string) string {
+	switch interval {
+	case TradingViewInterval30Min:
+		return Interval30Min
+	case TradingViewInterval1Hour:
+		return Interval1Hour
+	case TradingViewInterval4Hour:
+		return Interval4Hour
+	case TradingViewInterval1Day:
+		return Interval1Day
+	case TradingViewInterval1Week:
+		return Interval1Week
+	default:
+		return Interval1Day
+	}
+}
+
 func MapTradingViewScreenerRecommend(val int) string {
 	switch val {
 	case TradingViewSignalStrongBuy:

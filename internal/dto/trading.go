@@ -66,3 +66,25 @@ type PriceBucket struct {
 	Bucket float64 `json:"bucket"`
 	Count  int     `json:"count"`
 }
+
+type PositionAnalysis struct {
+	Ticker           string
+	EntryPrice       float64
+	LastPrice        float64
+	TakeProfitPrice  float64
+	StopLossPrice    float64
+	Status           PositionStatus
+	Signal           Signal
+	Insight          []string
+	Score            float64
+	SignalEvaluation Evaluation
+}
+
+type MainAnalysisData struct {
+	MainTA             *TradingViewScanner
+	MainOHLCV          []StockOHLCV
+	MainTimeframe      string
+	SecondaryTA        *TradingViewScanner
+	SecondaryOHLCV     []StockOHLCV
+	SecondaryTimeframe string
+}
