@@ -100,7 +100,7 @@ func (t *TelegramBotHandler) showMyPosition(ctx context.Context, c telebot.Conte
 	var tempRow []telebot.Btn
 
 	for _, position := range positions {
-		btn := menu.Data(position.StockCode, btnToDetailStockPosition.Unique, fmt.Sprintf("%d", position.ID))
+		btn := menu.Data(position.Exchange+":"+position.StockCode, btnToDetailStockPosition.Unique, fmt.Sprintf("%d", position.ID))
 		tempRow = append(tempRow, btn)
 		if len(tempRow) == 2 {
 			rows = append(rows, menu.Row(tempRow...))

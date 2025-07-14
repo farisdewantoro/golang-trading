@@ -215,7 +215,7 @@ func FormatChangeWithIcon(open, close float64) string {
 	case chg > 0:
 		return fmt.Sprintf("🟢(+%.2f%%)", chg)
 	case chg < 0:
-		return fmt.Sprintf("🔴(-%.2f%%)", chg)
+		return fmt.Sprintf("🔴(-%.2f%%)", -chg)
 	default:
 		return fmt.Sprintf("⚪️(±%.2f%%)", chg)
 	}
