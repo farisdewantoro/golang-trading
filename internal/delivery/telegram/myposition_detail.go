@@ -39,6 +39,8 @@ func (t *TelegramBotHandler) handleBtnToDetailStockPosition(ctx context.Context,
 
 func (t *TelegramBotHandler) showMyPositionDetail(ctx context.Context, c telebot.Context, stockPosition *model.StockPosition) error {
 	sb := strings.Builder{}
+	msgRoot := c.Message()
+	shouldSendNewMessage := msgRoot == nil || msgRoot.Sender == nil || !msgRoot.Sender.IsBot
 
 	isHasMonitoring := len(stockPosition.StockPositionMonitorings) > 0
 
@@ -68,8 +70,13 @@ func (t *TelegramBotHandler) showMyPositionDetail(ctx context.Context, c telebot
 
 	if !isHasMonitoring {
 		sb.WriteString("\n\n<i>⚠️ Belum ada monitoring</i>")
-		_, err := t.telegram.Send(ctx, c, sb.String(), menu, telebot.ModeHTML)
-		return err
+		if shouldSendNewMessage {
+			_, err := t.telegram.Send(ctx, c, sb.String(), menu, telebot.ModeHTML)
+			return err
+		} else {
+			_, err := t.telegram.Edit(ctx, c, msgRoot, sb.String(), menu, telebot.ModeHTML)
+			return err
+		}
 	}
 
 	lastMonitoring := stockPosition.StockPositionMonitorings[len(stockPosition.StockPositionMonitorings)-1]
@@ -103,6 +110,11 @@ func (t *TelegramBotHandler) showMyPositionDetail(ctx context.Context, c telebot
 	lastUpdate := lastMonitoring.Timestamp
 	sb.WriteString(fmt.Sprintf("\n\n📅 Update Terakhir: %s", utils.PrettyDate(lastUpdate)))
 
-	_, err = t.telegram.Send(ctx, c, sb.String(), menu, telebot.ModeHTML)
-	return err
+	if shouldSendNewMessage {
+		_, err = t.telegram.Send(ctx, c, sb.String(), menu, telebot.ModeHTML)
+		return err
+	} else {
+		_, err = t.telegram.Edit(ctx, c, msgRoot, sb.String(), menu, telebot.ModeHTML)
+		return err
+	}
 }

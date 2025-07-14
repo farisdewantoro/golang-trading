@@ -26,7 +26,7 @@ func NewService(
 	analyzerStrategy := strategy.NewStockAnalyzerStrategy(cfg, log, inmemoryCache, repo.StockPositionsRepo, repo.TradingViewScreenersRepo, repo.YahooFinanceRepo, repo.StockAnalysisRepo, repo.SystemParamRepo)
 	stockPositionMonitoringStrategy := strategy.NewStockPositionMonitoringStrategy(log, inmemoryCache, repo.TradingViewScreenersRepo, telegram, repo.StockPositionsRepo, analyzerStrategy, repo.StockPositionMonitoringRepo, repo.SystemParamRepo)
 	executorStrategies := make(map[strategy.JobType]strategy.JobExecutionStrategy)
-	executorStrategies[strategy.JobTypeStockPriceAlert] = strategy.NewStockPriceAlertStrategy(log, inmemoryCache, repo.TradingViewScreenersRepo, telegram, repo.StockPositionsRepo)
+	executorStrategies[strategy.JobTypeStockPriceAlert] = strategy.NewStockPriceAlertStrategy(cfg, log, inmemoryCache, repo.TradingViewScreenersRepo, telegram, repo.StockPositionsRepo, repo.YahooFinanceRepo)
 	executorStrategies[strategy.JobTypeStockAnalyzer] = analyzerStrategy
 	executorStrategies[strategy.JobTypeStockPositionMonitor] = stockPositionMonitoringStrategy
 

@@ -208,6 +208,19 @@ func CalculateChangePercent(open, close float64) float64 {
 	return ((close - open) / open) * 100
 }
 
+func FormatChangeWithIcon(open, close float64) string {
+	chg := CalculateChangePercent(open, close)
+
+	switch {
+	case chg > 0:
+		return fmt.Sprintf("🟢(+%.2f%%)", chg)
+	case chg < 0:
+		return fmt.Sprintf("🔴(-%.2f%%)", chg)
+	default:
+		return fmt.Sprintf("⚪️(±%.2f%%)", chg)
+	}
+}
+
 func FormatChange(open, close float64) string {
 	chg := CalculateChangePercent(open, close)
 	sign := "+"

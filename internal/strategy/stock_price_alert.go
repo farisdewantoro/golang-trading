@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"golang-trading/config"
 	"golang-trading/internal/dto"
 	"golang-trading/internal/model"
 	"golang-trading/internal/repository"
@@ -23,6 +24,7 @@ type StockPriceAlertStrategy struct {
 	tradingViewScreenersRepository repository.TradingViewScreenersRepository
 	telegram                       *telegram.TelegramRateLimiter
 	stockPositionsRepository       repository.StockPositionsRepository
+	yahooFinanceRepository         repository.YahooFinanceRepository
 }
 
 // StockPriceAlertPayload defines the payload for stock price alert.
@@ -40,13 +42,21 @@ type StockPriceAlertResult struct {
 }
 
 // NewStockPriceAlertStrategy creates a new instance of StockPriceAlertStrategy.
-func NewStockPriceAlertStrategy(logger *logger.Logger, inmemoryCache cache.Cache, tradingViewScreenersRepository repository.TradingViewScreenersRepository, telegram *telegram.TelegramRateLimiter, stockPositionsRepository repository.StockPositionsRepository) JobExecutionStrategy {
+func NewStockPriceAlertStrategy(
+	cfg *config.Config,
+	logger *logger.Logger,
+	inmemoryCache cache.Cache,
+	tradingViewScreenersRepository repository.TradingViewScreenersRepository,
+	telegram *telegram.TelegramRateLimiter,
+	stockPositionsRepository repository.StockPositionsRepository,
+	yahooFinanceRepository repository.YahooFinanceRepository) JobExecutionStrategy {
 	return &StockPriceAlertStrategy{
 		logger:                         logger,
 		inmemoryCache:                  inmemoryCache,
 		tradingViewScreenersRepository: tradingViewScreenersRepository,
 		telegram:                       telegram,
 		stockPositionsRepository:       stockPositionsRepository,
+		yahooFinanceRepository:         yahooFinanceRepository,
 	}
 }
 
@@ -89,7 +99,12 @@ func (s *StockPriceAlertStrategy) Execute(ctx context.Context, job *model.Job) (
 		}
 
 		s.logger.DebugContext(ctx, "Processing stock alert", logger.StringField("stock_code", stockPosition.StockCode))
-		stockData, err := s.tradingViewScreenersRepository.Get(ctx, stockPosition.StockCode, stockPosition.Exchange, payload.DataInterval)
+		stockData, err := s.yahooFinanceRepository.Get(ctx, dto.GetStockDataParam{
+			StockCode: stockPosition.StockCode,
+			Range:     payload.DataRange,
+			Interval:  payload.DataInterval,
+			Exchange:  stockPosition.Exchange,
+		})
 		if err != nil {
 			s.logger.Error("Failed to get stock data", logger.ErrorField(err), logger.StringField("stock_code", stockPosition.StockCode))
 			resultData.Errors = err.Error()
@@ -100,30 +115,30 @@ func (s *StockPriceAlertStrategy) Execute(ctx context.Context, job *model.Job) (
 		// set last price in Redis
 		stockCodeWithExchange := stockPosition.Exchange + ":" + stockPosition.StockCode
 		key := fmt.Sprintf(common.KEY_LAST_PRICE, stockCodeWithExchange)
-		s.inmemoryCache.Set(key, stockData.Value.Prices.Close, alertCacheDuration)
+		s.inmemoryCache.Set(key, stockData.MarketPrice, alertCacheDuration)
 
 		isSendAlert := false
 		// check if market price already reach take profit or stop loss
-		if stockData.Value.Prices.Close >= stockPosition.TakeProfitPrice {
+		if stockData.MarketPrice >= stockPosition.TakeProfitPrice {
 			isSendAlert = true
 			err = s.sendTelegramMessageAlert(
 				ctx,
 				&stockPosition,
 				telegram.TakeProfit,
-				stockData.Value.Prices.Close,
+				stockData.MarketPrice,
 				stockPosition.TakeProfitPrice,
 				utils.TimeNowWIB().Unix(),
 				alertCacheDuration,
 				payload.AlertResendThresholdPercent,
 			)
 		}
-		if stockData.Value.Prices.Close <= stockPosition.StopLossPrice {
+		if stockData.MarketPrice <= stockPosition.StopLossPrice {
 			isSendAlert = true
 			err = s.sendTelegramMessageAlert(
 				ctx,
 				&stockPosition,
 				telegram.StopLoss,
-				stockData.Value.Prices.Close,
+				stockData.MarketPrice,
 				stockPosition.StopLossPrice,
 				utils.TimeNowWIB().Unix(),
 				alertCacheDuration,

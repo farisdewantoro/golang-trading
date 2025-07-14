@@ -70,9 +70,9 @@ func (t *TelegramBotHandler) showMyPosition(ctx context.Context, c telebot.Conte
 
 		pnl = "N/A"
 		if marketPrice > 0 {
-			pnl = utils.FormatChange(position.BuyPrice, marketPrice)
+			pnl = utils.FormatChangeWithIcon(position.BuyPrice, marketPrice)
 		}
-		sb.WriteString(fmt.Sprintf("  • Last Price: %.2f | PnL: (%s)\n", marketPrice, pnl))
+		sb.WriteString(fmt.Sprintf("  • Last Price: %.2f | PnL: %s\n", marketPrice, pnl))
 
 		if !isHasMonitoring {
 			techScore = "N/A"
@@ -118,11 +118,15 @@ func (t *TelegramBotHandler) showMyPosition(ctx context.Context, c telebot.Conte
 	}
 
 	menu.Inline(rows...)
-	_, err := t.telegram.Send(ctx, c, sb.String(), menu, telebot.ModeHTML)
-	if err != nil {
+
+	msgRoot := c.Message()
+	if msgRoot == nil || msgRoot.Sender == nil || !msgRoot.Sender.IsBot {
+		_, err := t.telegram.Send(ctx, c, sb.String(), menu, telebot.ModeHTML)
+		return err
+	} else {
+		_, err := t.telegram.Edit(ctx, c, msgRoot, sb.String(), menu, telebot.ModeHTML)
 		return err
 	}
-	return nil
 }
 
 func (t *TelegramBotHandler) handleBtnBackStockPosition(ctx context.Context, c telebot.Context) error {
