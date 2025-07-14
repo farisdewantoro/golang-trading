@@ -93,6 +93,9 @@ func (s *schedulerService) executeJob(ctx context.Context, task model.TaskSchedu
 		logger.StringField("job_name", task.Job.Name),
 		logger.StringField("job_type", string(task.Job.Type)),
 		logger.IntField("timeout", task.Job.Timeout),
+		logger.IntField("active_concurrency", len(semaphore)),
+		logger.IntField("max_concurrency", cap(semaphore)),
+		logger.IntField("remaining_concurrency", cap(semaphore)-len(semaphore)),
 	)
 
 	now := utils.TimeNowWIB()

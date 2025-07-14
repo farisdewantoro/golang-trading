@@ -120,9 +120,10 @@ func (s *StockAnalyzerStrategy) Execute(ctx context.Context, job *model.Job) (Jo
 			s.logger.Info("Received stop signal, Stock analyzer execution stopped")
 			break
 		}
-		wg.Add(1)
-		semaphore <- struct{}{}
+
 		utils.GoSafe(func() {
+			wg.Add(1)
+			semaphore <- struct{}{}
 			defer func() {
 				<-semaphore
 				wg.Done()
