@@ -1,6 +1,7 @@
 package decoder
 
 import (
+	"golang-trading/config"
 	"golang-trading/pkg/logger"
 	"net/http"
 	"testing"
@@ -80,7 +81,8 @@ func TestGoogleDecoder_DecodeGoogleNewsURL(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			log, _ := logger.New("debug", "console")
+			cfg := &config.Config{}
+			log, _ := logger.New(cfg)
 			g := &GoogleDecoder{
 				Client: tt.fields.Client,
 				Logger: log,

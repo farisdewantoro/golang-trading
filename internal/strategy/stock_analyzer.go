@@ -263,7 +263,7 @@ func (s *StockAnalyzerStrategy) AnalyzeStock(ctx context.Context, stock dto.Stoc
 	}
 
 	if err := g.Wait(); err != nil {
-		s.logger.Error("Failed to analyze stock", logger.ErrorField(err), logger.StringField("stock_code", stock.StockCode))
+		s.logger.ErrorContextWithAlert(ctx, "Failed to analyze stock", logger.ErrorField(err), logger.StringField("stock_code", stock.StockCode))
 		return nil, err
 	}
 

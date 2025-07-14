@@ -69,10 +69,12 @@ func (s *schedulerService) Execute(ctx context.Context) error {
 
 		err := s.executeJob(ctx, job, s.semaphore)
 		if err != nil {
-			s.log.ErrorContext(ctx, "Failed to execute job",
+			s.log.ErrorContextWithAlert(ctx, "Failed to execute job",
 				logger.ErrorField(err),
 				logger.IntField("job_id", int(job.JobID)),
 				logger.IntField("schedule_id", int(job.ID)),
+				logger.StringField("job_name", job.Job.Name),
+				logger.StringField("job_type", string(job.Job.Type)),
 			)
 		}
 
@@ -121,7 +123,7 @@ func (s *schedulerService) executeJob(ctx context.Context, task model.TaskSchedu
 		defer cancel()
 
 		if err := s.taskExecutor.Execute(newCtx, history); err != nil {
-			s.log.ErrorContext(newCtx, "Failed to execute task", logger.ErrorField(err), logger.IntField("schedule_id", int(task.ID)))
+			s.log.ErrorContextWithAlert(newCtx, "Failed to execute task", logger.ErrorField(err), logger.IntField("schedule_id", int(task.ID)))
 		}
 	}).Run()
 

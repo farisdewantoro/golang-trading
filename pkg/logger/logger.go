@@ -3,6 +3,8 @@ package logger
 import (
 	"context"
 	"fmt"
+	"golang-trading/config"
+	"golang-trading/pkg/common"
 
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -14,39 +16,45 @@ type Logger struct {
 }
 
 // New creates a new logger instance
-func New(level, encoding string) (*Logger, error) {
+func New(cfg *config.Config) (*Logger, error) {
 	var config zap.Config
 
-	if encoding == "console" {
+	if cfg.Log.Encoding == "console" {
 		config = zap.NewDevelopmentConfig()
 		config.EncoderConfig.EncodeLevel = zapcore.CapitalColorLevelEncoder
 		config.EncoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
-	} else { // default to json
+	} else {
 		config = zap.NewProductionConfig()
-		// Use ISO8601 time format as it's more human-readable and parsed by Railway.
 		config.EncoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
-		// Use Zap's default keys ("ts", "level", "msg") which are common standards
-		// that log aggregators like Railway are more likely to parse correctly.
-		config.EncoderConfig.TimeKey = "ts"
-		config.EncoderConfig.LevelKey = "level"
-		config.EncoderConfig.MessageKey = "msg"
-		config.EncoderConfig.CallerKey = "caller"
-		config.EncoderConfig.StacktraceKey = "stacktrace"
-		config.EncoderConfig.NameKey = "logger"
 	}
 
 	logLevel := zap.NewAtomicLevel()
-	if err := logLevel.UnmarshalText([]byte(level)); err != nil {
+	if err := logLevel.UnmarshalText([]byte(cfg.Log.Level)); err != nil {
 		return nil, fmt.Errorf("invalid log level: %w", err)
 	}
 	config.Level = logLevel
 
-	logger, err := config.Build(zap.AddCallerSkip(1))
+	baseLogger, err := config.Build(zap.AddCallerSkip(1))
 	if err != nil {
 		return nil, err
 	}
 
-	return &Logger{logger}, nil
+	// Custom AlertCore
+	alertCore := &AlertCore{
+		core:     baseLogger.Core(),
+		minLevel: zapcore.ErrorLevel,
+		cfg:      cfg,
+	}
+
+	// Combine original core with alerting core
+	tee := zapcore.NewTee(
+		baseLogger.Core(), // original core
+		alertCore,         // alerting core
+	)
+
+	finalLogger := zap.New(tee, zap.AddCaller(), zap.AddCallerSkip(1))
+
+	return &Logger{finalLogger}, nil
 }
 
 // With creates a child logger with the given fields
@@ -106,6 +114,11 @@ func (l *Logger) Error(msg string, fields ...zap.Field) {
 // ErrorContext logs an error message with context
 func (l *Logger) ErrorContext(ctx context.Context, msg string, fields ...zap.Field) {
 	l.FromContext(ctx).Error(msg, fields...)
+}
+
+// ErrorContext logs an error message with context
+func (l *Logger) ErrorContextWithAlert(ctx context.Context, msg string, fields ...zap.Field) {
+	l.FromContext(ctx).Error(msg, append(fields, zap.Bool(common.KEY_LOG_HOOK_SEND_ALERT, true))...)
 }
 
 // Fatal logs a fatal message and then calls os.Exit(1)

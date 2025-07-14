@@ -144,7 +144,7 @@ func (s *StockPositionMonitoringStrategy) EvaluateStockPosition(ctx context.Cont
 			}
 			positionAnalysis, err := s.tradingPositionService.EvaluatePositionMonitoring(ctx, &stockPosition, stockAnalyses)
 			if err != nil {
-				s.logger.ErrorContext(ctx, "Failed to evaluate signal", logger.ErrorField(err), logger.StringField("stock_code", stockPosition.StockCode))
+				s.logger.ErrorContextWithAlert(ctx, "Failed to evaluate signal", logger.ErrorField(err), logger.StringField("stock_code", stockPosition.StockCode))
 				resultData.Errors = err.Error()
 				return
 			}
@@ -161,7 +161,7 @@ func (s *StockPositionMonitoringStrategy) EvaluateStockPosition(ctx context.Cont
 
 			jsonSummary, err := json.Marshal(summary)
 			if err != nil {
-				s.logger.Error("Failed to marshal summary", logger.ErrorField(err), logger.StringField("stock_code", stockPosition.StockCode))
+				s.logger.ErrorContextWithAlert(ctx, "Failed to marshal summary", logger.ErrorField(err), logger.StringField("stock_code", stockPosition.StockCode))
 				resultData.Errors = err.Error()
 				return
 			}
@@ -191,7 +191,7 @@ func (s *StockPositionMonitoringStrategy) EvaluateStockPosition(ctx context.Cont
 			}
 			err = s.stockPositionMonitoringRepo.CreateBulk(ctx, stockPositionMonitorings)
 			if err != nil {
-				s.logger.Error("Failed to create stock position monitoring", logger.ErrorField(err))
+				s.logger.ErrorContextWithAlert(ctx, "Failed to create stock position monitoring", logger.ErrorField(err))
 				resultData.Errors = err.Error()
 				return
 			}

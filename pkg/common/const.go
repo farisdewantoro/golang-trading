@@ -20,3 +20,7 @@ func GetExchangeList() []string {
 		EXCHANGE_NASDAQ,
 	}
 }
+
+const (
+	KEY_LOG_HOOK_SEND_ALERT = "send_alert"
+)

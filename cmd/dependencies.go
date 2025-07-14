@@ -32,7 +32,7 @@ func NewAppDependency(ctx context.Context) (*AppDependency, error) {
 		return nil, err
 	}
 
-	log, err := logger.New(cfg.Log.Level, cfg.Log.Encoding)
+	log, err := logger.New(cfg)
 	if err != nil {
 		return nil, err
 	}

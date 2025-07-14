@@ -49,7 +49,7 @@ func (t *taskExecutor) Execute(ctx context.Context, taskHistory *model.TaskExecu
 	} else {
 		result, err := strategy.Execute(ctx, job)
 		if err != nil {
-			t.log.ErrorContext(ctx, "Failed to execute job", logger.ErrorField(err), logger.IntField("job_id", int(taskHistory.JobID)))
+			t.log.ErrorContextWithAlert(ctx, "Failed to execute job", logger.ErrorField(err), logger.IntField("job_id", int(taskHistory.JobID)))
 			taskHistory.Status = model.StatusFailed
 			taskHistory.ErrorMessage = sql.NullString{String: err.Error(), Valid: true}
 		} else {
