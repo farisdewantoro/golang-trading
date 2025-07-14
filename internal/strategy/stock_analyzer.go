@@ -121,9 +121,10 @@ func (s *StockAnalyzerStrategy) Execute(ctx context.Context, job *model.Job) (Jo
 			break
 		}
 
+		wg.Add(1)
+		semaphore <- struct{}{}
+
 		utils.GoSafe(func() {
-			wg.Add(1)
-			semaphore <- struct{}{}
 			defer func() {
 				<-semaphore
 				wg.Done()

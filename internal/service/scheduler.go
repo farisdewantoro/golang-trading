@@ -113,8 +113,9 @@ func (s *schedulerService) executeJob(ctx context.Context, task model.TaskSchedu
 		return fmt.Errorf("failed to create task history: %w", err)
 	}
 
+	semaphore <- struct{}{}
 	utils.GoSafe(func() {
-		semaphore <- struct{}{}
+
 		defer func() {
 			<-semaphore
 		}()
