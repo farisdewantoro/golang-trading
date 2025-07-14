@@ -57,16 +57,17 @@ func NewTradingViewScreenersRepository(cfg *config.Config, log *logger.Logger) *
 //
 //	error - returns an error if the request fails or the symbol/interval is invalid.
 func (t *tradingViewScreenersRepository) Get(ctx context.Context, symbol string, exchange string, interval string) (*dto.TradingViewScanner, error) {
-	t.mu.Lock()
 	if !t.requestLimiter.Allow() {
 		t.log.WarnContext(ctx, "TradingView Screeners API request limit exceeded",
 			logger.IntField("max_request_per_minute", t.cfg.TradingView.MaxRequestPerMin),
 		)
 	}
-	if err := t.requestLimiter.Wait(ctx); err != nil {
+	t.mu.Lock()
+	err := t.requestLimiter.Wait(ctx)
+	t.mu.Unlock()
+	if err != nil {
 		return nil, err
 	}
-	t.mu.Unlock()
 
 	symbol = exchange + ":" + symbol
 
