@@ -87,6 +87,14 @@ func (s *schedulerService) Execute(ctx context.Context) error {
 }
 
 func (s *schedulerService) executeJob(ctx context.Context, task model.TaskSchedule, semaphore chan struct{}) error {
+	s.log.DebugContext(ctx, "Executing job",
+		logger.IntField("job_id", int(task.JobID)),
+		logger.IntField("schedule_id", int(task.ID)),
+		logger.StringField("job_name", task.Job.Name),
+		logger.StringField("job_type", string(task.Job.Type)),
+		logger.IntField("timeout", task.Job.Timeout),
+	)
+
 	now := utils.TimeNowWIB()
 	history := &model.TaskExecutionHistory{
 		JobID:      task.JobID,
@@ -99,15 +107,16 @@ func (s *schedulerService) executeJob(ctx context.Context, task model.TaskSchedu
 		s.log.ErrorContext(ctx, "Failed to create task history", logger.ErrorField(err), logger.IntField("schedule_id", int(task.ID)))
 		return fmt.Errorf("failed to create task history: %w", err)
 	}
-	semaphore <- struct{}{}
 
 	utils.GoSafe(func() {
+		semaphore <- struct{}{}
 		defer func() {
 			<-semaphore
 		}()
 
 		newCtx, cancel := context.WithTimeout(context.Background(), time.Duration(task.Job.Timeout)*time.Second)
 		defer cancel()
+
 		if err := s.taskExecutor.Execute(newCtx, history); err != nil {
 			s.log.ErrorContext(newCtx, "Failed to execute task", logger.ErrorField(err), logger.IntField("schedule_id", int(task.ID)))
 		}
