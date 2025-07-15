@@ -126,7 +126,7 @@ func (t *TelegramBotHandler) handleBtnDetailJob(ctx context.Context, c telebot.C
 			continue
 		}
 		duration := history.CompletedAt.Time.Sub(history.StartedAt)
-		msg.WriteString(fmt.Sprintf("%d. %s %s - %s (%.1fs)\n", idx+1, icon, utils.TimeToWIB(history.CreatedAt).Format("01/02 15:04"), strings.ToUpper(string(history.Status)), duration.Seconds()))
+		msg.WriteString(fmt.Sprintf("%d. %s %s - %d | %s (%.1fs)\n", idx+1, icon, utils.TimeToWIB(history.CreatedAt).Format("01/02 15:04"), history.ExitCode.Int32, strings.ToUpper(string(history.Status)), duration.Seconds()))
 	}
 
 	menu := &telebot.ReplyMarkup{}
