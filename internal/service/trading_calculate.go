@@ -214,7 +214,7 @@ func (s *tradingService) CalculateSummary(ctx context.Context, dtf []dto.DataTim
 		}
 
 		score := technicalData.Recommend.Global.Summary
-		totalScore += float64(weight) * (float64(score) + 0.0005)
+		totalScore += float64(weight) * (float64(score) + 0.05)
 
 		if analysis.Timeframe == mainTrend {
 			mainTrendScore = score

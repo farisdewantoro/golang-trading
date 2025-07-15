@@ -53,7 +53,7 @@ func (s *tradingService) EvaluatePositionMonitoring(
 		result.Status = dto.Dangerous
 		result.Signal = dto.CutLoss
 		result.Insight = append(result.Insight, fmt.Sprintf("SINYAL CUT LOSS: Harga (%.2f) telah menyentuh Stop Loss (%.2f).", result.LastPrice, result.StopLossPrice))
-		return result, nil
+		// return result, nil
 	}
 
 	if result.LastPrice >= result.TakeProfitPrice {
@@ -73,7 +73,7 @@ func (s *tradingService) EvaluatePositionMonitoring(
 			result.Status = dto.Safe
 			result.Signal = dto.TakeProfit
 			result.Insight = append(result.Insight, fmt.Sprintf("SINYAL TAKE PROFIT: Harga (%.2f) telah mencapai Target Profit (%.2f) tanpa momentum lanjutan yang kuat.", result.LastPrice, result.TakeProfitPrice))
-			return result, nil
+			// return result, nil
 		}
 	}
 
