@@ -9,17 +9,18 @@ import (
 )
 
 type RequestSetPositionData struct {
-	StockCode    string
-	Exchange     string
-	BuyPrice     float64
-	BuyDate      string
-	TakeProfit   float64
-	StopLoss     float64
-	MaxHolding   int
-	AlertPrice   bool
-	AlertMonitor bool
-	UserTelegram *RequestUserTelegram
-	SourceType   string
+	StockCode     string
+	Exchange      string
+	BuyPrice      float64
+	BuyDate       string
+	TakeProfit    float64
+	StopLoss      float64
+	MaxHolding    int
+	AlertPrice    bool
+	AlertMonitor  bool
+	UserTelegram  *RequestUserTelegram
+	SourceType    string
+	IsMessageEdit bool
 }
 
 func (r *RequestSetPositionData) ToStockPositionEntity() *model.StockPosition {

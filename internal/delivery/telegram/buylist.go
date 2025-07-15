@@ -3,6 +3,7 @@ package telegram
 import (
 	"context"
 	"fmt"
+	"golang-trading/internal/dto"
 	"golang-trading/internal/model"
 	"golang-trading/pkg/common"
 	"golang-trading/pkg/logger"
@@ -89,6 +90,23 @@ Coba lagi nanti atau gunakan filter /analyze untuk menemukan peluang baru.`
 
 		msg := t.showLoadingGeneral(newCtx, c, stopChan)
 
+		positions, err := t.service.TelegramBotService.GetStockPositions(newCtx, dto.GetStockPositionsParam{
+			TelegramID: &c.Sender().ID,
+			IsActive:   utils.ToPointer(true),
+		})
+		if err != nil {
+			_, errSend := t.telegram.Send(ctx, c, commonErrorInternal)
+			if errSend != nil {
+				t.log.ErrorContext(ctx, "Failed to send internal error message", logger.ErrorField(errSend))
+			}
+			return
+		}
+
+		positionsMap := make(map[string]model.StockPosition)
+		for _, position := range positions {
+			positionsMap[position.Exchange+":"+position.StockCode] = position
+		}
+
 		for _, analisis := range latestAnalyses {
 			symbolWithExchange := analisis.Exchange + ":" + analisis.StockCode
 			mapSymbolExchangeAnalysis[symbolWithExchange] = append(mapSymbolExchangeAnalysis[symbolWithExchange], analisis)
@@ -116,8 +134,15 @@ Coba lagi nanti atau gunakan filter /analyze untuk menemukan peluang baru.`
 			}
 
 			buyCount++
+
+			if _, ok := positionsMap[tradePlan.Symbol]; ok {
+				buyListResultMsg.WriteString("\n")
+				buyListResultMsg.WriteString(fmt.Sprintf("<b>%d. %s - [OWNED ✅]</b>\n", buyCount, tradePlan.Symbol))
+				buyListResultMsg.WriteString(fmt.Sprintf("%s | Score: %.2f\n", tradePlan.Status, tradePlan.Score))
+				continue
+			}
+
 			buySymbols = append(buySymbols, tradePlan.Symbol)
-			buyListResultMsg.WriteString("\n")
 			buyListResultMsg.WriteString("\n")
 			buyListResultMsg.WriteString(fmt.Sprintf("<b>%d. %s</b>\n", buyCount, tradePlan.Symbol))
 			buyListResultMsg.WriteString(fmt.Sprintf("Buy: %.2f | RR: %.2f\n", tradePlan.Entry, tradePlan.RiskReward))
@@ -143,7 +168,7 @@ Coba lagi nanti atau gunakan filter /analyze untuk menemukan peluang baru.`
 		}
 
 		msgHeader.Reset()
-		msgHeader.WriteString(fmt.Sprintf("📈 Berikut %d %s yang direkomendasikan untuk BUY:", len(buySymbols), exchange))
+		msgHeader.WriteString(fmt.Sprintf("📈 Berikut %d %s yang direkomendasikan untuk BUY:\n", len(buySymbols), exchange))
 		msgFooter := "\n\n<i>🔍 Pilih saham di bawah untuk melihat detail analisa:</i>"
 		buyListResultMsg.WriteString(msgFooter)
 

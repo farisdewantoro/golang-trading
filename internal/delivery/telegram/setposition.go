@@ -290,6 +290,13 @@ func (t *TelegramBotHandler) showSetPositionSuccess(ctx context.Context, c teleb
 		sb.WriteString("🧠 Monitoring *OFF*.\n")
 	}
 
+	if data.IsMessageEdit {
+		_, err := t.telegram.Edit(ctx, c, c.Message(), sb.String(), telebot.ModeMarkdown)
+		if err != nil {
+			return err
+		}
+		return nil
+	}
 	_, err := t.telegram.Send(ctx, c, sb.String(), telebot.ModeMarkdown)
 	if err != nil {
 		return err
@@ -322,17 +329,18 @@ func (t *TelegramBotHandler) handleBtnSetPositionByTechnical(ctx context.Context
 	}
 
 	data := &dto.RequestSetPositionData{
-		UserTelegram: userTelegram,
-		StockCode:    stockCode,
-		Exchange:     exchange,
-		BuyPrice:     tradePlanResult.Entry,
-		TakeProfit:   tradePlanResult.TakeProfit,
-		StopLoss:     tradePlanResult.StopLoss,
-		BuyDate:      utils.TimeNowWIB().Format("2006-01-02"),
-		MaxHolding:   5,
-		AlertPrice:   true,
-		AlertMonitor: true,
-		SourceType:   model.StockPositionSourceTypeTechnical,
+		UserTelegram:  userTelegram,
+		StockCode:     stockCode,
+		Exchange:      exchange,
+		BuyPrice:      tradePlanResult.Entry,
+		TakeProfit:    tradePlanResult.TakeProfit,
+		StopLoss:      tradePlanResult.StopLoss,
+		BuyDate:       utils.TimeNowWIB().Format("2006-01-02"),
+		MaxHolding:    5,
+		AlertPrice:    true,
+		AlertMonitor:  true,
+		SourceType:    model.StockPositionSourceTypeTechnical,
+		IsMessageEdit: true,
 	}
 
 	if err := t.service.TelegramBotService.SetStockPosition(ctx, data); err != nil {
@@ -362,17 +370,18 @@ func (t *TelegramBotHandler) handleBtnSetPositionByAI(ctx context.Context, c tel
 	}
 
 	data := &dto.RequestSetPositionData{
-		UserTelegram: userTelegram,
-		StockCode:    stockCode,
-		Exchange:     exchange,
-		BuyPrice:     analysis.MarketPrice,
-		TakeProfit:   analysis.TargetPrice,
-		StopLoss:     analysis.StopLoss,
-		BuyDate:      utils.TimeNowWIB().Format("2006-01-02"),
-		MaxHolding:   5,
-		AlertPrice:   true,
-		AlertMonitor: true,
-		SourceType:   model.StockPositionSourceTypeAI,
+		UserTelegram:  userTelegram,
+		StockCode:     stockCode,
+		Exchange:      exchange,
+		BuyPrice:      analysis.MarketPrice,
+		TakeProfit:    analysis.TargetPrice,
+		StopLoss:      analysis.StopLoss,
+		BuyDate:       utils.TimeNowWIB().Format("2006-01-02"),
+		MaxHolding:    5,
+		AlertPrice:    true,
+		AlertMonitor:  true,
+		SourceType:    model.StockPositionSourceTypeAI,
+		IsMessageEdit: true,
 	}
 
 	if err := t.service.TelegramBotService.SetStockPosition(ctx, data); err != nil {
