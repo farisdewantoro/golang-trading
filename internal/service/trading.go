@@ -166,8 +166,11 @@ func (s *tradingService) BuyListTradePlan(ctx context.Context, mapSymbolExchange
 
 	// add sort by score to return buylistresult
 	sort.Slice(listTradePlan, func(i, j int) bool {
-		scoreI := listTradePlan[i].Score * listTradePlan[i].RiskReward
-		scoreJ := listTradePlan[j].Score * listTradePlan[j].RiskReward
+		scoreWeight := 0.75
+		riskRewardWeight := 0.25
+
+		scoreI := (listTradePlan[i].Score * scoreWeight) + (listTradePlan[i].RiskReward * riskRewardWeight)
+		scoreJ := (listTradePlan[j].Score * scoreWeight) + (listTradePlan[j].RiskReward * riskRewardWeight)
 		return scoreI > scoreJ
 	})
 
