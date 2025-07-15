@@ -240,8 +240,9 @@ func (s *telegramBotService) GetDetailStockPosition(ctx context.Context, telegra
 	}
 
 	monitorings, err := s.stockPositionMonitoringRepository.GetRecentDistinctMonitorings(ctx, model.StockPositionMonitoringQueryParam{
-		StockPositionID: positions[0].ID,
-		Limit:           utils.ToPointer(10),
+		StockPositionID:   positions[0].ID,
+		Limit:             utils.ToPointer(10),
+		WithStockAnalysis: utils.ToPointer(true),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to get stock position monitorings: %w", err)

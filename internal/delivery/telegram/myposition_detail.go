@@ -101,6 +101,52 @@ func (t *TelegramBotHandler) showMyPositionDetail(ctx context.Context, c telebot
 		sb.WriteString(fmt.Sprintf("- %s\n", utils.EscapeHTMLForTelegram(insight)))
 	}
 
+	if len(stockPosition.StockPositionMonitorings) > 0 && len(stockPosition.StockPositionMonitorings[0].StockPositionMonitoringAnalysisRefs) > 0 {
+		sb.WriteString("\n")
+		sb.WriteString("📊 <b><i>Rangkuman Analisis (Multi-Timeframe)</i></b>\n")
+
+		latestAnalyses := stockPosition.StockPositionMonitorings[0].StockPositionMonitoringAnalysisRefs
+		for _, refAnalysis := range latestAnalyses {
+			analysis := refAnalysis.StockAnalysis
+			var (
+				technicalData dto.TradingViewScanner
+				ohclv         []dto.StockOHLCV
+			)
+			if err := json.Unmarshal([]byte(analysis.TechnicalData), &technicalData); err != nil {
+				return err
+			}
+
+			if err := json.Unmarshal([]byte(analysis.OHLCV), &ohclv); err != nil {
+				return err
+			}
+
+			if len(ohclv) == 0 {
+				_, err := t.telegram.Send(ctx, c, "❌ Tidak ada data harga")
+				return err
+			}
+			valTimeframeSummary := "??"
+			switch technicalData.Recommend.Global.Summary {
+			case dto.TradingViewSignalStrongBuy:
+				valTimeframeSummary = fmt.Sprintf("🟢 Timeframe %s - Strong Buy", analysis.Timeframe)
+			case dto.TradingViewSignalBuy:
+				valTimeframeSummary = fmt.Sprintf("🟢 Timeframe %s - Buy", analysis.Timeframe)
+			case dto.TradingViewSignalNeutral:
+				valTimeframeSummary = fmt.Sprintf("🟡 Timeframe %s - Neutral", analysis.Timeframe)
+			case dto.TradingViewSignalSell:
+				valTimeframeSummary = fmt.Sprintf("🔴 Timeframe %s - Sell", analysis.Timeframe)
+			case dto.TradingViewSignalStrongSell:
+				valTimeframeSummary = fmt.Sprintf("🔴 Timeframe %s - Strong Sell", analysis.Timeframe)
+			}
+
+			sb.WriteString("\n")
+			sb.WriteString(fmt.Sprintf("<b>%s</b>\n", valTimeframeSummary))
+			sb.WriteString(fmt.Sprintf("- <b>Close</b>: %.2f (%s) | <b>Vol</b>: %s\n", ohclv[len(ohclv)-1].Close, utils.FormatChange(ohclv[len(ohclv)-1].Open, ohclv[len(ohclv)-1].Close), utils.FormatVolume(ohclv[len(ohclv)-1].Volume)))
+			sb.WriteString(fmt.Sprintf("- <b>MACD</b>: %s | <b>RSI</b>: %d - %s\n", technicalData.GetTrendMACD(), int(technicalData.Value.Oscillators.RSI), dto.GetRSIStatus(int(technicalData.Value.Oscillators.RSI))))
+			sb.WriteString(fmt.Sprintf("- <b>MA</b>: %s | <b>Osc</b>: %s \n", dto.GetSignalText(technicalData.Recommend.Global.MA), dto.GetSignalText(technicalData.Recommend.Global.Oscillators)))
+
+		}
+	}
+
 	sb.WriteString("\n")
 	sb.WriteString("<b>📜 Riwayat Evaluasi</b>\n")
 	for _, stockPositionMonitoring := range stockPosition.StockPositionMonitorings {

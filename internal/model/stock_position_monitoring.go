@@ -35,6 +35,7 @@ type StockPositionMonitoringAnalysisRef struct {
 	CreatedAt                 time.Time `gorm:"autoCreateTime"`
 	UpdatedAt                 time.Time `gorm:"autoUpdateTime"`
 	DeletedAt                 gorm.DeletedAt
+	StockAnalysis             StockAnalysis `gorm:"foreignKey:StockAnalysisID;references:ID"`
 }
 
 func (StockPositionMonitoringAnalysisRef) TableName() string {
@@ -54,6 +55,7 @@ type PositionTechnicalAnalysisSummary struct {
 }
 
 type StockPositionMonitoringQueryParam struct {
-	Limit           *int `json:"limit"`
-	StockPositionID uint `json:"stock_position_id"`
+	Limit             *int  `json:"limit"`
+	StockPositionID   uint  `json:"stock_position_id"`
+	WithStockAnalysis *bool `json:"with_stock_analysis"`
 }

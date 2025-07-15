@@ -8,7 +8,6 @@ import (
 	"golang-trading/pkg/logger"
 	"golang-trading/pkg/utils"
 	"strings"
-	"sync"
 	"time"
 
 	"gopkg.in/telebot.v3"
@@ -75,65 +74,38 @@ Coba lagi nanti atau gunakan filter /analyze untuk menemukan peluang baru.`
 		return errSend
 	}
 
-	var (
-		lastStockCode string
-		msgRoot       = c.Message()
-	)
-
 	utils.GoSafe(func() {
 		newCtx, cancel := context.WithTimeout(t.ctx, t.cfg.Telegram.TimeoutAsyncDuration)
 		defer cancel()
 
-		if msgRoot == nil {
-			msgRoot, err = t.telegram.Send(newCtx, c, fmt.Sprintf("<i>👍 Memulai menganalisis %s terbaik untuk di beli.....</i>", exchange), telebot.ModeHTML)
-			if err != nil {
-				t.log.ErrorContext(newCtx, "Failed to send message", logger.ErrorField(err))
-				return
-			}
-		}
-
 		var (
-			buyListResultMsg = strings.Builder{}
-			msgHeader        = &strings.Builder{}
-			counter          = 0
-			buySymbols       []string
+			mapSymbolExchangeAnalysis = make(map[string][]model.StockAnalysis)
+			buyListResultMsg          = strings.Builder{}
+			msgHeader                 = &strings.Builder{}
+			buySymbols                []string
+			buyCount                  int
+			stopChan                  = make(chan struct{})
 		)
 
-		msgHeader.WriteString(fmt.Sprintf("\n 📊 Analisis %s Sedang Berlangsung...", exchange))
-
-		mapSymbolExchangeAnalysis := make(map[string][]model.StockAnalysis)
+		msg := t.showLoadingGeneral(newCtx, c, stopChan)
 
 		for _, analisis := range latestAnalyses {
-			if !utils.ShouldContinue(newCtx, t.log) {
-				t.log.ErrorContext(newCtx, "Stop signal received", logger.ErrorField(ctx.Err()))
-				return
-			}
 			symbolWithExchange := analisis.Exchange + ":" + analisis.StockCode
 			mapSymbolExchangeAnalysis[symbolWithExchange] = append(mapSymbolExchangeAnalysis[symbolWithExchange], analisis)
 		}
 
-		wg := &sync.WaitGroup{}
-		defer wg.Wait()
-
-		progressCh := make(chan Progress, len(mapSymbolExchangeAnalysis)+1)
-		defer close(progressCh)
-
-		wg.Add(1)
-		t.showProgressBarWithChannel(newCtx, c, msgRoot, progressCh, len(mapSymbolExchangeAnalysis), wg)
-
-		progressCh <- Progress{Index: 0, StockCode: "initial", Header: msgHeader.String()}
 		buyListResult, err := t.service.TradingService.BuyListTradePlan(newCtx, mapSymbolExchangeAnalysis)
+
+		time.Sleep(300 * time.Millisecond)
+		close(stopChan)
+
 		if err != nil {
 			t.log.ErrorContext(newCtx, "Failed to get buy list trade plan", logger.ErrorField(err))
 			return
 		}
-
 		for _, tradePlan := range buyListResult {
 			tradePlan := tradePlan
 
-			time.Sleep(200 * time.Millisecond)
-			counter++
-			lastStockCode = tradePlan.Symbol
 			if !utils.ShouldContinue(newCtx, t.log) {
 				t.log.ErrorContext(newCtx, "Stop signal received", logger.ErrorField(ctx.Err()))
 				return
@@ -143,26 +115,27 @@ Coba lagi nanti atau gunakan filter /analyze untuk menemukan peluang baru.`
 				continue
 			}
 
+			buyCount++
 			buySymbols = append(buySymbols, tradePlan.Symbol)
 			buyListResultMsg.WriteString("\n")
-			buyListResultMsg.WriteString(fmt.Sprintf("<b>%s</b>\n", tradePlan.Symbol))
+			buyListResultMsg.WriteString("\n")
+			buyListResultMsg.WriteString(fmt.Sprintf("<b>%d. %s</b>\n", buyCount, tradePlan.Symbol))
 			buyListResultMsg.WriteString(fmt.Sprintf("Buy: %.2f | RR: %.2f\n", tradePlan.Entry, tradePlan.RiskReward))
 			buyListResultMsg.WriteString(fmt.Sprintf("TP: %.2f (%s)\n", tradePlan.TakeProfit, utils.FormatChange(tradePlan.Entry, tradePlan.TakeProfit)))
 			buyListResultMsg.WriteString(fmt.Sprintf("SL: %.2f (%s)\n", tradePlan.StopLoss, utils.FormatChange(tradePlan.Entry, tradePlan.StopLoss)))
 			buyListResultMsg.WriteString(fmt.Sprintf("%s | Score: %.2f\n", tradePlan.Status, tradePlan.Score))
 
-			progressCh <- Progress{Index: counter, StockCode: tradePlan.Symbol, Header: msgHeader.String(), Content: buyListResultMsg.String()}
-
 			if len(buySymbols) >= t.cfg.Trading.MaxBuyList {
 				break
 			}
+
 		}
 
 		if len(buySymbols) == 0 {
 			msgNoExist := `❌ Tidak ditemukan sinyal BUY hari ini.
 
 Coba lagi nanti atau gunakan filter /analyze untuk menemukan peluang baru.`
-			_, errSend := t.telegram.Edit(ctx, c, msgRoot, msgNoExist)
+			_, errSend := t.telegram.Edit(ctx, c, msg, msgNoExist)
 			if errSend != nil {
 				t.log.ErrorContext(ctx, "Failed to send internal error message", logger.ErrorField(errSend))
 			}
@@ -195,8 +168,10 @@ Coba lagi nanti atau gunakan filter /analyze untuk menemukan peluang baru.`
 
 		menu.Inline(rows...)
 
-		progressCh <- Progress{Index: len(mapSymbolExchangeAnalysis), StockCode: lastStockCode, Content: buyListResultMsg.String(), Header: msgHeader.String(), Menu: menu}
-		t.log.InfoContext(newCtx, "Buy list analysis completed", logger.IntField("buyCount", len(buySymbols)), logger.IntField("maxBuyList", t.cfg.Trading.MaxBuyList))
+		_, errSend := t.telegram.Edit(newCtx, c, msg, msgHeader.String()+buyListResultMsg.String(), menu, telebot.ModeHTML)
+		if errSend != nil {
+			t.log.ErrorContext(newCtx, "Failed to send internal error message", logger.ErrorField(errSend))
+		}
 	}).Run()
 
 	return nil

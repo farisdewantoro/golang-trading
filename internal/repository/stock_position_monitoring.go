@@ -66,5 +66,34 @@ func (r *stockPositionMonitoringRepository) GetRecentDistinctMonitorings(ctx con
 	`
 
 	err := utils.ApplyOptions(r.db.WithContext(ctx), opts...).Raw(query, param.StockPositionID, param.Limit).Scan(&results).Error
+
+	if err != nil {
+		return nil, err
+	}
+
+	stockMonitoringIds := make([]uint, len(results))
+	stockMonitoringMapIdx := make(map[uint]int)
+	for i, result := range results {
+		stockMonitoringIds[i] = result.ID
+		stockMonitoringMapIdx[result.ID] = i
+	}
+
+	if param.WithStockAnalysis != nil && *param.WithStockAnalysis {
+		var stockAnalysesRef []model.StockPositionMonitoringAnalysisRef
+		err = utils.ApplyOptions(r.db.WithContext(ctx), opts...).Preload("StockAnalysis").Where("stock_position_monitoring_id IN (?)", stockMonitoringIds).Find(&stockAnalysesRef).Error
+		if err != nil {
+			return nil, err
+		}
+
+		for _, stockAnalysisRef := range stockAnalysesRef {
+			stockMonitoringIdx, ok := stockMonitoringMapIdx[stockAnalysisRef.StockPositionMonitoringID]
+			if !ok {
+				continue
+			}
+
+			results[stockMonitoringIdx].StockPositionMonitoringAnalysisRefs = append(results[stockMonitoringIdx].StockPositionMonitoringAnalysisRefs, stockAnalysisRef)
+		}
+
+	}
 	return results, err
 }
