@@ -79,6 +79,7 @@ type TelegramConfig struct {
 	RateLimitCleanupDuration  time.Duration
 
 	FeatureStockAnalyze TelegramFeatureStockAnalyze
+	FeatureMyPosition   TelegramFeatureMyPosition
 }
 
 type YahooFinance struct {
@@ -90,6 +91,10 @@ type YahooFinance struct {
 type TelegramFeatureStockAnalyze struct {
 	AfterTimestampDuration time.Duration
 	ExpectedTFCount        int
+}
+
+type TelegramFeatureMyPosition struct {
+	LimitRecentMonitoring int
 }
 
 type Gemini struct {
@@ -178,6 +183,9 @@ func Load() (*Config, error) {
 				ExpectedTFCount:        viper.GetInt("TELEGRAM_FEATURE_STOCK_ANALYZE_EXPECTED_TF_COUNT"),
 			},
 			TimeoutAsyncDuration: viper.GetDuration("TELEGRAM_TIMEOUT_ASYNC_DURATION"),
+			FeatureMyPosition: TelegramFeatureMyPosition{
+				LimitRecentMonitoring: viper.GetInt("TELEGRAM_FEATURE_MY_POSITION_LIMIT_RECENT_MONITORING"),
+			},
 		},
 		YahooFinance: YahooFinance{
 			BaseURL:             viper.GetString("YAHOO_FINANCE_BASE_URL"),
