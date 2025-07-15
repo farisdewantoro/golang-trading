@@ -124,6 +124,9 @@ func (s *tradingService) CreateTradePlan(ctx context.Context, latestAnalyses []m
 		return nil, err
 	}
 
+	signalScore := float64(score) * 0.75
+	planScore := float64(plan.Score) * 0.25
+
 	result = &dto.TradePlanResult{
 		CurrentMarketPrice: float64(marketPrice),
 		Symbol:             stockCodeWithExchange,
@@ -132,7 +135,7 @@ func (s *tradingService) CreateTradePlan(ctx context.Context, latestAnalyses []m
 		TakeProfit:         plan.TakeProfit,
 		RiskReward:         plan.RiskReward,
 		Status:             signal,
-		Score:              float64(score),
+		Score:              signalScore + planScore,
 		IsBuySignal:        signal == dto.SignalStrongBuy || signal == dto.SignalBuy,
 		SLReason:           plan.SLReason,
 		TPReason:           plan.TPReason,
@@ -166,12 +169,7 @@ func (s *tradingService) BuyListTradePlan(ctx context.Context, mapSymbolExchange
 
 	// add sort by score to return buylistresult
 	sort.Slice(listTradePlan, func(i, j int) bool {
-		scoreWeight := 0.75
-		riskRewardWeight := 0.25
-
-		scoreI := (listTradePlan[i].Score * scoreWeight) + (listTradePlan[i].RiskReward * riskRewardWeight)
-		scoreJ := (listTradePlan[j].Score * scoreWeight) + (listTradePlan[j].RiskReward * riskRewardWeight)
-		return scoreI > scoreJ
+		return listTradePlan[i].Score > listTradePlan[j].Score
 	})
 
 	return listTradePlan, nil
