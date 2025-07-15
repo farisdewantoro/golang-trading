@@ -258,6 +258,7 @@ func (s *StockPositionMonitoringStrategy) SendMessageUser(ctx context.Context, s
 		menu := &telebot.ReplyMarkup{}
 		menu.Inline(
 			menu.Row(menu.Data("🤖 Analisa oleh AI", "btn_position_ask_ai_analyzer", fmt.Sprintf("%d", stockPosition.ID))),
+			menu.Row(menu.Data("📤 Keluar dari Posisi", "btn_exit_stock_position", fmt.Sprintf("%s|%d", stockPosition.Exchange+":"+stockPosition.StockCode, stockPosition.ID))),
 		)
 
 		err := s.telegram.SendMessageUser(ctx, sb.String(), stockPosition.User.TelegramID, menu, telebot.ModeHTML)

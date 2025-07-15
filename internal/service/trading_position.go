@@ -83,7 +83,7 @@ func (s *tradingService) EvaluatePositionMonitoring(
 		s.log.ErrorContext(ctx, "Failed to get baseline evaluation", logger.ErrorField(err))
 		return nil, err
 	}
-	result.Score = float64(score)
+	result.Score = score
 	result.SignalEvaluation = evaluation
 
 	if mainData.MainTA == nil {
@@ -217,7 +217,7 @@ func (s *tradingService) findMainAnalysisData(analyses []model.StockAnalysis, ti
 		result dto.MainAnalysisData
 	)
 	sort.Slice(timeframes, func(i, j int) bool {
-		return timeframes[i].Weight < timeframes[j].Weight
+		return timeframes[i].Weight > timeframes[j].Weight
 	})
 
 	if len(timeframes) < 2 {

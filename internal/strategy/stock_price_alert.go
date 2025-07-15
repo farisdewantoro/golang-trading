@@ -15,6 +15,8 @@ import (
 	"golang-trading/pkg/utils"
 	"math"
 	"time"
+
+	"gopkg.in/telebot.v3"
 )
 
 // StockPriceAlertStrategy defines the strategy for scraping stock news.
@@ -194,7 +196,13 @@ func (s *StockPriceAlertStrategy) sendTelegramMessageAlert(ctx context.Context,
 	}
 
 	message := telegram.FormatStockAlertResultForTelegram(alertType, stockPosition.StockCode, triggerPrice, targetPrice, timestamp)
-	err = s.telegram.SendMessageUser(ctx, message, stockPosition.User.TelegramID)
+
+	menu := &telebot.ReplyMarkup{}
+	menu.Inline(
+		menu.Row(menu.Data("📤 Keluar dari Posisi", "btn_exit_stock_position", fmt.Sprintf("%s|%d", stockPosition.Exchange+":"+stockPosition.StockCode, stockPosition.ID))),
+	)
+
+	err = s.telegram.SendMessageUser(ctx, message, stockPosition.User.TelegramID, menu, telebot.ModeHTML)
 	if err != nil {
 		s.logger.Error("Failed to send alert", logger.ErrorField(err), logger.StringField("stock_code", stockPosition.StockCode))
 	}

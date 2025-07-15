@@ -183,8 +183,8 @@ func (s *tradingService) calculatePlan(
 	return bestPlan
 }
 
-func (s *tradingService) CalculateSummary(ctx context.Context, dtf []dto.DataTimeframe, latestAnalyses []model.StockAnalysis) (int, int, error) {
-	var totalScore int
+func (s *tradingService) CalculateSummary(ctx context.Context, dtf []dto.DataTimeframe, latestAnalyses []model.StockAnalysis) (float64, int, error) {
+	var totalScore float64
 
 	mapWeight := make(map[string]int)
 	mainTrend := ""
@@ -214,7 +214,7 @@ func (s *tradingService) CalculateSummary(ctx context.Context, dtf []dto.DataTim
 		}
 
 		score := technicalData.Recommend.Global.Summary
-		totalScore += weight * score
+		totalScore += float64(weight) * (float64(score) + 0.0005)
 
 		if analysis.Timeframe == mainTrend {
 			mainTrendScore = score
@@ -230,7 +230,7 @@ func (s *tradingService) CalculateSummary(ctx context.Context, dtf []dto.DataTim
 	return totalScore, mainTrendScore, nil
 }
 
-func (s *tradingService) evaluateSignal(ctx context.Context, dtf []dto.DataTimeframe, latestAnalyses []model.StockAnalysis) (score int, signal string, err error) {
+func (s *tradingService) evaluateSignal(ctx context.Context, dtf []dto.DataTimeframe, latestAnalyses []model.StockAnalysis) (score float64, signal string, err error) {
 
 	totalScore, mainTrendScore, err := s.CalculateSummary(ctx, dtf, latestAnalyses)
 	if err != nil {
@@ -250,7 +250,7 @@ func (s *tradingService) evaluateSignal(ctx context.Context, dtf []dto.DataTimef
 	}
 }
 
-func (s *tradingService) EvaluatePosition(ctx context.Context, dtf []dto.DataTimeframe, latestAnalyses []model.StockAnalysis) (int, dto.Evaluation, error) {
+func (s *tradingService) EvaluatePosition(ctx context.Context, dtf []dto.DataTimeframe, latestAnalyses []model.StockAnalysis) (float64, dto.Evaluation, error) {
 
 	totalScore, mainTrendScore, err := s.CalculateSummary(ctx, dtf, latestAnalyses)
 	if err != nil {

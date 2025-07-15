@@ -64,7 +64,7 @@ func (t *TelegramBotHandler) showMyPositionDetail(ctx context.Context, c telebot
 	menu := &telebot.ReplyMarkup{}
 
 	btnBack := menu.Data(btnBackStockPosition.Text, btnBackStockPosition.Unique)
-	btnExit := menu.Data("🚪 Exit dari Posisi", btnExitStockPosition.Unique, fmt.Sprintf("%s|%d", stockCodeWithExchange, stockPosition.ID))
+	btnExit := menu.Data("📤 Keluar dari Posisi", btnExitStockPosition.Unique, fmt.Sprintf("%s|%d", stockCodeWithExchange, stockPosition.ID))
 	btnDelete := menu.Data("🗑 Hapus Posisi", btnDeleteStockPosition.Unique, fmt.Sprintf("%d", stockPosition.ID))
 
 	menu.Inline(menu.Row(btnExit, btnDelete), menu.Row(btnBack))
@@ -125,7 +125,6 @@ func (t *TelegramBotHandler) showMyPositionDetail(ctx context.Context, c telebot
 		_, err = t.telegram.Send(ctx, c, sb.String(), menu, telebot.ModeHTML)
 		return err
 	} else {
-		fmt.Println(sb.String())
 		_, err = t.telegram.Edit(ctx, c, msgRoot, sb.String(), menu, telebot.ModeHTML)
 		return err
 	}
