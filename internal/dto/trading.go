@@ -11,6 +11,7 @@ type TradePlanResult struct {
 	Status             string
 	IsBuySignal        bool
 	Symbol             string
+	TechnicalSignal    string
 
 	SLType   string // jenis SL: support / ema-adjust
 	SLReason string // alasan SL
@@ -68,16 +69,16 @@ type PriceBucket struct {
 }
 
 type PositionAnalysis struct {
-	Ticker           string
-	EntryPrice       float64
-	LastPrice        float64
-	TakeProfitPrice  float64
-	StopLossPrice    float64
-	Status           PositionStatus
-	Signal           Signal
-	Insight          []string
-	Score            float64
-	SignalEvaluation Evaluation
+	Ticker          string
+	EntryPrice      float64
+	LastPrice       float64
+	TakeProfitPrice float64
+	StopLossPrice   float64
+	Status          PositionStatus
+	Signal          Signal
+	Insight         []string
+	Score           float64
+	TechnicalSignal string
 }
 
 type MainAnalysisData struct {

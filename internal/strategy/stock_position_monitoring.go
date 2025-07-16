@@ -151,11 +151,11 @@ func (s *StockPositionMonitoringStrategy) EvaluateStockPosition(ctx context.Cont
 
 			summary := model.PositionAnalysisSummary{
 				TechnicalAnalysis: model.PositionTechnicalAnalysisSummary{
-					Signal:           string(positionAnalysis.Signal),
-					Score:            positionAnalysis.Score,
-					Insight:          positionAnalysis.Insight,
-					Status:           string(positionAnalysis.Status),
-					SignalEvaluation: string(positionAnalysis.SignalEvaluation),
+					Signal:         string(positionAnalysis.Signal),
+					Score:          positionAnalysis.Score,
+					Insight:        positionAnalysis.Insight,
+					Status:         string(positionAnalysis.Status),
+					Recommendation: string(positionAnalysis.TechnicalSignal),
 				},
 			}
 
@@ -234,8 +234,8 @@ func (s *StockPositionMonitoringStrategy) SendMessageUser(ctx context.Context, s
  - Skor Total : %.2f
  - Status: %s
  - Signal: %s
- - Evaluation: %s	
-`, summary.TechnicalAnalysis.Score, dto.PositionStatus(summary.TechnicalAnalysis.Status), dto.Signal(summary.TechnicalAnalysis.Signal), dto.Evaluation(summary.TechnicalAnalysis.SignalEvaluation)))
+ - Recommendation: %s	
+`, summary.TechnicalAnalysis.Score, dto.PositionStatus(summary.TechnicalAnalysis.Status), dto.Signal(summary.TechnicalAnalysis.Signal), dto.Evaluation(summary.TechnicalAnalysis.Recommendation)))
 
 		sb.WriteString(fmt.Sprintf(`
 🎯 <b>Target Price:</b> %d (%s)

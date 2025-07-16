@@ -118,13 +118,20 @@ func (s *tradingService) CreateTradePlan(ctx context.Context, latestAnalyses []m
 
 	plan := s.calculatePlan(float64(marketPrice), supports, resistances, emaData, priceBuckets, atr14)
 
-	score, signal, err := s.evaluateSignal(ctx, timeframes, latestAnalyses)
+	positionAnalysis, err := s.EvaluatePositionMonitoring(ctx, &model.StockPosition{
+		StockCode:       lastAnalysis.StockCode,
+		Exchange:        lastAnalysis.Exchange,
+		BuyPrice:        plan.Entry,
+		TakeProfitPrice: plan.TakeProfit,
+		StopLossPrice:   plan.StopLoss,
+	}, latestAnalyses)
+
 	if err != nil {
-		s.log.ErrorContext(ctx, "Failed to evaluate signal", logger.ErrorField(err))
+		s.log.ErrorContext(ctx, "Failed to evaluate position monitoring when create trade plan", logger.ErrorField(err))
 		return nil, err
 	}
 
-	signalScore := float64(score) * 0.75
+	signalScore := float64(positionAnalysis.Score) * 0.75
 	planScore := float64(plan.Score) * 0.25
 
 	result = &dto.TradePlanResult{
@@ -134,9 +141,10 @@ func (s *tradingService) CreateTradePlan(ctx context.Context, latestAnalyses []m
 		StopLoss:           plan.StopLoss,
 		TakeProfit:         plan.TakeProfit,
 		RiskReward:         plan.RiskReward,
-		Status:             signal,
+		Status:             string(positionAnalysis.Status),
+		TechnicalSignal:    string(positionAnalysis.TechnicalSignal),
 		Score:              signalScore + planScore,
-		IsBuySignal:        signal == dto.SignalStrongBuy || signal == dto.SignalBuy,
+		IsBuySignal:        positionAnalysis.Status == dto.Safe && (positionAnalysis.TechnicalSignal == dto.SignalBuy || positionAnalysis.TechnicalSignal == dto.SignalStrongBuy),
 		SLReason:           plan.SLReason,
 		TPReason:           plan.TPReason,
 	}

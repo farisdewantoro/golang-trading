@@ -47,11 +47,11 @@ type PositionAnalysisSummary struct {
 }
 
 type PositionTechnicalAnalysisSummary struct {
-	Signal           string   `json:"signal"`
-	Status           string   `json:"status"`
-	Score            float64  `json:"score"`
-	Insight          []string `json:"insight"`
-	SignalEvaluation string   `json:"signal_evaluation"`
+	Signal         string   `json:"signal"`
+	Status         string   `json:"status"`
+	Score          float64  `json:"score"`
+	Insight        []string `json:"insight"`
+	Recommendation string   `json:"recommendation"`
 }
 
 type StockPositionMonitoringQueryParam struct {

@@ -78,13 +78,13 @@ func (s *tradingService) EvaluatePositionMonitoring(
 	}
 
 	// --- Dapatkan Evaluasi Baseline ---
-	score, evaluation, err := s.EvaluatePosition(ctx, timeframes, analyses)
+	score, techSignal, err := s.evaluateSignal(ctx, timeframes, analyses)
 	if err != nil {
 		s.log.ErrorContext(ctx, "Failed to get baseline evaluation", logger.ErrorField(err))
 		return nil, err
 	}
 	result.Score = score
-	result.SignalEvaluation = evaluation
+	result.TechnicalSignal = techSignal
 
 	if mainData.MainTA == nil {
 		return result, fmt.Errorf("no main technical analysis data found")
@@ -102,9 +102,9 @@ func (s *tradingService) EvaluatePositionMonitoring(
 	s.analyzePriceActionAndVolume(result, mainData.MainOHLCV, mainData.MainTA)
 
 	// Tentukan sinyal aksi (Trailing Stop/Hold)
-	s.evaluateTrailingStop(result, mainData.MainTA, mainData.SecondaryTA, evaluation, mainData.MainOHLCV)
+	s.evaluateTrailingStop(result, mainData.MainTA, mainData.SecondaryTA, techSignal, mainData.MainOHLCV)
 	// Tentukan status akhir berdasarkan semua data
-	s.determineFinalStatus(result, mainData.MainTA, evaluation)
+	s.determineFinalStatus(result, mainData.MainTA, techSignal)
 
 	// Pastikan sinyal terisi (default ke Hold)
 	if result.Signal == "" {
@@ -161,7 +161,7 @@ func (s *tradingService) analyzePriceActionAndVolume(result *dto.PositionAnalysi
 	}
 }
 
-func (s *tradingService) determineFinalStatus(result *dto.PositionAnalysis, ta *dto.TradingViewScanner, evaluation dto.Evaluation) {
+func (s *tradingService) determineFinalStatus(result *dto.PositionAnalysis, ta *dto.TradingViewScanner, technicalSignal string) {
 	riskRange := result.LastPrice - result.StopLossPrice
 	entryToSLRange := result.EntryPrice - result.StopLossPrice
 
@@ -174,17 +174,17 @@ func (s *tradingService) determineFinalStatus(result *dto.PositionAnalysis, ta *
 		return
 	}
 
-	switch evaluation {
-	case dto.EvalVeryStrong, dto.EvalStrong:
+	switch technicalSignal {
+	case dto.SignalStrongBuy, dto.SignalBuy:
 		result.Status = dto.Safe
-	case dto.EvalNeutral:
+	case dto.SignalNeutral:
 		if ta.Value.Oscillators.ADX.Value < 20 {
 			result.Status = dto.Warning
 			result.Insight = append(result.Insight, "[Kondisi Waspada]: Pasar ranging (ADX < 20), kekuatan tren lemah.")
 		} else {
 			result.Status = dto.Safe
 		}
-	case dto.EvalWeak, dto.EvalVeryWeak:
+	case dto.SignalSell, dto.SignalStrongSell:
 		result.Status = dto.Warning
 		result.Insight = append(result.Insight, "[Kondisi Waspada]: Evaluasi umum menunjukkan kelemahan.")
 	default:
@@ -295,14 +295,14 @@ func (s *tradingService) analyzeMultiTimeframeConditions(result *dto.PositionAna
 }
 
 // evaluateTrailingStop diperbarui untuk mempertimbangkan breakout di 4H
-func (s *tradingService) evaluateTrailingStop(result *dto.PositionAnalysis, mainTA, secondaryTA *dto.TradingViewScanner, evaluation dto.Evaluation, mainOHLCV []dto.StockOHLCV) {
+func (s *tradingService) evaluateTrailingStop(result *dto.PositionAnalysis, mainTA, secondaryTA *dto.TradingViewScanner, technicalSignal string, mainOHLCV []dto.StockOHLCV) {
 	totalProfitRange := result.TakeProfitPrice - result.EntryPrice
 	currentProfit := result.LastPrice - result.EntryPrice
 
 	// Aturan 1: Kuat & Profit Signifikan (dari evaluasi umum)
-	if (evaluation == dto.EvalStrong || evaluation == dto.EvalVeryStrong) && totalProfitRange > 0 && (currentProfit/totalProfitRange) > 0.6 {
+	if (technicalSignal == dto.SignalStrongBuy || technicalSignal == dto.SignalBuy) && totalProfitRange > 0 && (currentProfit/totalProfitRange) > 0.6 {
 		result.Signal = dto.TrailingStop
-		result.Insight = append(result.Insight, fmt.Sprintf("SINYAL TRAILING STOP: Posisi kuat (eval: %s) & profit signifikan.", string(evaluation)))
+		result.Insight = append(result.Insight, fmt.Sprintf("SINYAL TRAILING STOP: Posisi kuat (technical signal: %s) & profit signifikan.", technicalSignal))
 	}
 
 	// Aturan 2 (BARU): Breakout di timeframe 4H

@@ -93,7 +93,7 @@ func (t *TelegramBotHandler) showMyPositionDetail(ctx context.Context, c telebot
 	sb.WriteString(fmt.Sprintf("  • Score: %.2f (TA)\n", evalSummary.TechnicalAnalysis.Score))
 	sb.WriteString(fmt.Sprintf("  • Signal: %s (TA)\n", dto.Signal(evalSummary.TechnicalAnalysis.Signal).String()))
 	sb.WriteString(fmt.Sprintf("  • Status: %s (TA)\n", dto.PositionStatus(evalSummary.TechnicalAnalysis.Status).String()))
-	sb.WriteString(fmt.Sprintf("  • Note: %s\n", evalSummary.TechnicalAnalysis.SignalEvaluation))
+	sb.WriteString(fmt.Sprintf("  • TA Recommendation: %s\n", evalSummary.TechnicalAnalysis.Recommendation))
 
 	sb.WriteString("\n")
 	sb.WriteString("<b>🧠 Insight</b>\n")
@@ -160,7 +160,7 @@ func (t *TelegramBotHandler) showMyPositionDetail(ctx context.Context, c telebot
 			stockPositionMonitoring.Timestamp.Format("02 Jan 15:04"),
 			dto.Signal(evalSummary.TechnicalAnalysis.Signal).String()))
 		sb.WriteString(fmt.Sprintf("  ↳ Price: %.2f (%s)\n", stockPositionMonitoring.MarketPrice, utils.FormatChange(stockPosition.BuyPrice, float64(stockPositionMonitoring.MarketPrice))))
-		sb.WriteString(fmt.Sprintf("  ↳ %s\n", evalSummary.TechnicalAnalysis.SignalEvaluation))
+		sb.WriteString(fmt.Sprintf("  ↳ %s\n", evalSummary.TechnicalAnalysis.Recommendation))
 
 	}
 
