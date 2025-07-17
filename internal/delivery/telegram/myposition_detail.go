@@ -172,7 +172,7 @@ func (t *TelegramBotHandler) showMyPositionDetail(ctx context.Context, c telebot
 			stockPositionMonitoring.MarketPrice,
 			utils.FormatChangeWithIcon(stockPosition.BuyPrice, float64(stockPositionMonitoring.MarketPrice)),
 		))
-		sb.WriteString(fmt.Sprintf("Signal: %s\n", dto.Signal(evalSummary.PositionSignal)))
+		sb.WriteString(fmt.Sprintf("Signal: %s | %s\n", dto.Signal(evalSummary.PositionSignal), dto.PositionStatus(evalSummary.TechnicalAnalysis.Status)))
 
 		if evalSummary.PositionSignal == string(dto.TrailingStop) {
 			sb.WriteString(fmt.Sprintf("Chg: %.2f ➡️ %.2f\n", stockPosition.StopLossPrice, stockPosition.TrailingStopPrice))
@@ -180,11 +180,10 @@ func (t *TelegramBotHandler) showMyPositionDetail(ctx context.Context, c telebot
 		} else if evalSummary.PositionSignal == string(dto.TrailingProfit) {
 			sb.WriteString(fmt.Sprintf("Chg: %.2f ➡️ %.2f\n", stockPosition.TakeProfitPrice, stockPosition.TrailingProfitPrice))
 		}
-		sb.WriteString(fmt.Sprintf("Status: %s\n", dto.PositionStatus(evalSummary.TechnicalAnalysis.Status)))
 
 		sb.WriteString(fmt.Sprintf("Osc: %s | RSI: %s\n", evalSummary.TechnicalAnalysis.IndicatorSummary.Osc, evalSummary.TechnicalAnalysis.IndicatorSummary.RSI))
 		sb.WriteString(fmt.Sprintf("MA: %s | MACD: %s\n", evalSummary.TechnicalAnalysis.IndicatorSummary.MA, evalSummary.TechnicalAnalysis.IndicatorSummary.MACD))
-		sb.WriteString(fmt.Sprintf("Vol: %s | Score: %.2f (%s)\n", evalSummary.TechnicalAnalysis.IndicatorSummary.Volume, evalSummary.TechnicalAnalysis.Score, evalSummary.TechnicalAnalysis.Signal))
+		sb.WriteString(fmt.Sprintf("Vol: %s | Skor: %.2f - %s\n", evalSummary.TechnicalAnalysis.IndicatorSummary.Volume, evalSummary.TechnicalAnalysis.Score, evalSummary.TechnicalAnalysis.Signal))
 
 	}
 	lastUpdate := lastMonitoring.Timestamp
