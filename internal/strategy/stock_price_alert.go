@@ -121,27 +121,35 @@ func (s *StockPriceAlertStrategy) Execute(ctx context.Context, job *model.Job) (
 
 		isSendAlert := false
 		// check if market price already reach take profit or stop loss
-		if stockData.MarketPrice >= stockPosition.TakeProfitPrice {
+		targetTP := stockPosition.TakeProfitPrice
+		if stockPosition.TrailingProfitPrice > 0 {
+			targetTP = stockPosition.TrailingProfitPrice
+		}
+		if stockData.MarketPrice >= targetTP {
 			isSendAlert = true
 			err = s.sendTelegramMessageAlert(
 				ctx,
 				&stockPosition,
 				telegram.TakeProfit,
 				stockData.MarketPrice,
-				stockPosition.TakeProfitPrice,
+				targetTP,
 				utils.TimeNowWIB().Unix(),
 				alertCacheDuration,
 				payload.AlertResendThresholdPercent,
 			)
 		}
-		if stockData.MarketPrice <= stockPosition.StopLossPrice {
+		targetSL := stockPosition.StopLossPrice
+		if stockPosition.TrailingStopPrice > 0 {
+			targetSL = stockPosition.TrailingStopPrice
+		}
+		if stockData.MarketPrice <= targetSL {
 			isSendAlert = true
 			err = s.sendTelegramMessageAlert(
 				ctx,
 				&stockPosition,
 				telegram.StopLoss,
 				stockData.MarketPrice,
-				stockPosition.StopLossPrice,
+				targetSL,
 				utils.TimeNowWIB().Unix(),
 				alertCacheDuration,
 				payload.AlertResendThresholdPercent,
