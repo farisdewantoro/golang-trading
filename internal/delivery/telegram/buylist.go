@@ -140,6 +140,14 @@ Coba lagi nanti atau gunakan filter /analyze untuk menemukan peluang baru.`
 				continue
 			}
 
+			if tradePlan.RiskReward == 0 {
+				buyListResultMsg.WriteString("\n")
+				buyListResultMsg.WriteString(fmt.Sprintf("<b>%d. %s</b> - [RR NOT FOUND ❌]\n", buyCount, tradePlan.Symbol))
+				buyListResultMsg.WriteString(fmt.Sprintf("%s | Score: %.2f\n", tradePlan.TechnicalSignal, tradePlan.Score))
+
+				continue
+			}
+
 			buySymbols = append(buySymbols, tradePlan.Symbol)
 			buyListResultMsg.WriteString("\n")
 			buyListResultMsg.WriteString(fmt.Sprintf("<b>%d. %s</b>\n", buyCount, tradePlan.Symbol))
