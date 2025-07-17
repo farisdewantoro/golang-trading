@@ -13,8 +13,9 @@ var (
 
 	btnDeleteMessage telebot.Btn = telebot.Btn{Text: "🗑️ Hapus Pesan", Unique: "btn_delete_message"}
 
-	btnDeleteStockPosition   telebot.Btn = telebot.Btn{Text: "🗑️ Hapus Posisi", Unique: "btn_delete_stock_position"}
-	btnToDetailStockPosition telebot.Btn = telebot.Btn{Unique: "btn_detail_stock_position"}
+	btnDeleteStockPosition        telebot.Btn = telebot.Btn{Text: "🗑️ Hapus Posisi", Unique: "btn_delete_stock_position"}
+	btnConfirmDeleteStockPosition telebot.Btn = telebot.Btn{Unique: "btn_confirm_delete_stock_position"}
+	btnToDetailStockPosition      telebot.Btn = telebot.Btn{Unique: "btn_detail_stock_position"}
 
 	btnSaveExitPosition  telebot.Btn = telebot.Btn{Text: "💾 Simpan", Unique: "btn_save_exit_position"}
 	btnCancelGeneral     telebot.Btn = telebot.Btn{Text: "❌ Batal", Unique: "btn_cancel_general"}

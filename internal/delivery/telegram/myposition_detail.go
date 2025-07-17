@@ -57,7 +57,7 @@ func (t *TelegramBotHandler) showMyPositionDetail(ctx context.Context, c telebot
 	sb.WriteString(fmt.Sprintf("<b>📌 Detail Posisi Saham %s</b>\n", stockCodeWithExchange))
 	sb.WriteString("\n")
 	sb.WriteString("<b>🧾 Informasi Posisi:</b>\n")
-	sb.WriteString(fmt.Sprintf("  • Buy: %s (%d Hari)\n", stockPosition.BuyDate.Format("02/01 15:04"), ageDays))
+	sb.WriteString(fmt.Sprintf("  • Buy: %s (%d Hari)\n", stockPosition.BuyDate.Format("2006-01-02"), ageDays))
 	sb.WriteString(fmt.Sprintf("  • Entry: %.2f \n", stockPosition.BuyPrice))
 	sb.WriteString(fmt.Sprintf("  • Last Price: %.2f\n", marketPrice))
 	sb.WriteString(fmt.Sprintf("  • PnL: %s\n", utils.FormatChange(stockPosition.BuyPrice, marketPrice)))
@@ -76,7 +76,7 @@ func (t *TelegramBotHandler) showMyPositionDetail(ctx context.Context, c telebot
 
 	btnBack := menu.Data(btnBackStockPosition.Text, btnBackStockPosition.Unique)
 	btnExit := menu.Data("📤 Keluar dari Posisi", btnExitStockPosition.Unique, fmt.Sprintf("%s|%d", stockCodeWithExchange, stockPosition.ID))
-	btnDelete := menu.Data("🗑 Hapus Posisi", btnDeleteStockPosition.Unique, fmt.Sprintf("%d", stockPosition.ID))
+	btnDelete := menu.Data("🗑 Hapus Posisi", btnConfirmDeleteStockPosition.Unique, fmt.Sprintf("%d", stockPosition.ID))
 
 	menu.Inline(menu.Row(btnExit, btnDelete), menu.Row(btnBack))
 
