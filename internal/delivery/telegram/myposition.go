@@ -48,9 +48,16 @@ func (t *TelegramBotHandler) showMyPosition(ctx context.Context, c telebot.Conte
 		sb.WriteString(fmt.Sprintf("<b>%d. %s</b>\n", idx+1, stockWithExchange))
 
 		sb.WriteString(fmt.Sprintf("  • Entry: %.2f\n", position.BuyPrice))
-		sb.WriteString(fmt.Sprintf("  • TP: %.2f (%s)\n", position.TakeProfitPrice, utils.FormatChange(position.BuyPrice, position.TakeProfitPrice)))
-		sb.WriteString(fmt.Sprintf("  • SL: %.2f (%s)\n", position.StopLossPrice, utils.FormatChange(position.BuyPrice, position.StopLossPrice)))
-		// sb.WriteString(fmt.Sprintf("\n 🎯 Buy: %d | TP: %d | SL: %d\n", int(position.BuyPrice), int(position.TakeProfitPrice), int(position.StopLossPrice)))
+		if position.TrailingProfitPrice > 0 {
+			sb.WriteString(fmt.Sprintf("  • TP: %.2f ➡️ %.2f (%s)\n", position.TakeProfitPrice, position.TrailingProfitPrice, utils.FormatChange(position.BuyPrice, position.TrailingProfitPrice)))
+		} else {
+			sb.WriteString(fmt.Sprintf("  • TP: %.2f (%s)\n", position.TakeProfitPrice, utils.FormatChange(position.BuyPrice, position.TakeProfitPrice)))
+		}
+		if position.TrailingStopPrice > 0 {
+			sb.WriteString(fmt.Sprintf("  • SL: %.2f ➡️ %.2f (%s)\n", position.StopLossPrice, position.TrailingStopPrice, utils.FormatChange(position.BuyPrice, position.TrailingStopPrice)))
+		} else {
+			sb.WriteString(fmt.Sprintf("  • SL: %.2f (%s)\n", position.StopLossPrice, utils.FormatChange(position.BuyPrice, position.StopLossPrice)))
+		}
 
 		var (
 			marketPrice float64

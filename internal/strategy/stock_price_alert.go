@@ -199,8 +199,7 @@ func (s *StockPriceAlertStrategy) sendTelegramMessageAlert(ctx context.Context,
 
 	menu := &telebot.ReplyMarkup{}
 	menu.Inline(
-		menu.Row(menu.Data("🔍 Detail Posisi", "btn_detail_stock_position", fmt.Sprintf("%d", stockPosition.ID))),
-		menu.Row(menu.Data("📤 Keluar dari Posisi", "btn_exit_stock_position", fmt.Sprintf("%s|%d", stockPosition.Exchange+":"+stockPosition.StockCode, stockPosition.ID))),
+		menu.Row(menu.Data("🔍 Detail Posisi", "btn_detail_stock_position", fmt.Sprintf("%d", stockPosition.ID)), menu.Data("📤 Keluar dari Posisi", "btn_exit_stock_position", fmt.Sprintf("%s|%d", stockPosition.Exchange+":"+stockPosition.StockCode, stockPosition.ID))),
 		menu.Row(menu.Data("🗑️ Hapus Pesan", "btn_delete_message")),
 	)
 

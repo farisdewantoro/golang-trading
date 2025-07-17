@@ -211,11 +211,20 @@ func (t *TelegramBotHandler) msgCurrentPosition(stockPosition *model.StockPositi
 		return ""
 	}
 
-	return fmt.Sprintf(`
-<b>Informasi Posisi Saat Ini:</b>
-• Entry: %.2f
-• Target Price (TP): %.2f
-• Stop Loss (SL): %.2f
-• Buy Date: %s
-`, stockPosition.BuyPrice, stockPosition.TakeProfitPrice, stockPosition.StopLossPrice, stockPosition.BuyDate.Format("2006-01-02"))
+	sb := strings.Builder{}
+	sb.WriteString("\n<b>Informasi Posisi Saat Ini:</b>\n")
+	sb.WriteString(fmt.Sprintf("• Entry: %.2f\n", stockPosition.BuyPrice))
+	if stockPosition.TrailingProfitPrice > 0 {
+		sb.WriteString(fmt.Sprintf("• TP: %.2f ➡️ %.2f (%s)\n", stockPosition.TakeProfitPrice, stockPosition.TrailingProfitPrice, utils.FormatChange(stockPosition.BuyPrice, stockPosition.TrailingProfitPrice)))
+	} else {
+		sb.WriteString(fmt.Sprintf("• TP: %.2f (%s)\n", stockPosition.TakeProfitPrice, utils.FormatChange(stockPosition.BuyPrice, stockPosition.TakeProfitPrice)))
+	}
+	if stockPosition.TrailingStopPrice > 0 {
+		sb.WriteString(fmt.Sprintf("• SL: %.2f ➡️ %.2f (%s)\n", stockPosition.StopLossPrice, stockPosition.TrailingStopPrice, utils.FormatChange(stockPosition.BuyPrice, stockPosition.TrailingStopPrice)))
+	} else {
+		sb.WriteString(fmt.Sprintf("• SL: %.2f (%s)\n", stockPosition.StopLossPrice, utils.FormatChange(stockPosition.BuyPrice, stockPosition.StopLossPrice)))
+	}
+	sb.WriteString(fmt.Sprintf("• Buy Date: %s\n", stockPosition.BuyDate.Format("2006-01-02")))
+	return sb.String()
+
 }

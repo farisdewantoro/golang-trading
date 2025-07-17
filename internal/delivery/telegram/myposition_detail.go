@@ -57,12 +57,20 @@ func (t *TelegramBotHandler) showMyPositionDetail(ctx context.Context, c telebot
 	sb.WriteString(fmt.Sprintf("<b>📌 Detail Posisi Saham %s</b>\n", stockCodeWithExchange))
 	sb.WriteString("\n")
 	sb.WriteString("<b>🧾 Informasi Posisi:</b>\n")
-	sb.WriteString(fmt.Sprintf("  • Age: %d Hari\n", ageDays))
+	sb.WriteString(fmt.Sprintf("  • Buy: %s (%d Hari)\n", stockPosition.BuyDate.Format("02/01 15:04"), ageDays))
 	sb.WriteString(fmt.Sprintf("  • Entry: %.2f \n", stockPosition.BuyPrice))
 	sb.WriteString(fmt.Sprintf("  • Last Price: %.2f\n", marketPrice))
 	sb.WriteString(fmt.Sprintf("  • PnL: %s\n", utils.FormatChange(stockPosition.BuyPrice, marketPrice)))
-	sb.WriteString(fmt.Sprintf("  • TP: %.2f (%s)\n", stockPosition.TakeProfitPrice, utils.FormatChange(stockPosition.BuyPrice, stockPosition.TakeProfitPrice)))
-	sb.WriteString(fmt.Sprintf("  • SL: %.2f (%s)\n", stockPosition.StopLossPrice, utils.FormatChange(stockPosition.BuyPrice, stockPosition.StopLossPrice)))
+	if stockPosition.TrailingProfitPrice > 0 {
+		sb.WriteString(fmt.Sprintf("  • TP: %.2f ➡️ %.2f (%s)\n", stockPosition.TakeProfitPrice, stockPosition.TrailingProfitPrice, utils.FormatChange(stockPosition.BuyPrice, stockPosition.TrailingProfitPrice)))
+	} else {
+		sb.WriteString(fmt.Sprintf("  • TP: %.2f (%s)\n", stockPosition.TakeProfitPrice, utils.FormatChange(stockPosition.BuyPrice, stockPosition.TakeProfitPrice)))
+	}
+	if stockPosition.TrailingStopPrice > 0 {
+		sb.WriteString(fmt.Sprintf("  • SL: %.2f ➡️ %.2f (%s)\n", stockPosition.StopLossPrice, stockPosition.TrailingStopPrice, utils.FormatChange(stockPosition.BuyPrice, stockPosition.TrailingStopPrice)))
+	} else {
+		sb.WriteString(fmt.Sprintf("  • SL: %.2f (%s)\n", stockPosition.StopLossPrice, utils.FormatChange(stockPosition.BuyPrice, stockPosition.StopLossPrice)))
+	}
 
 	menu := &telebot.ReplyMarkup{}
 
@@ -168,7 +176,6 @@ func (t *TelegramBotHandler) showMyPositionDetail(ctx context.Context, c telebot
 
 		if evalSummary.PositionSignal == string(dto.TrailingStop) {
 			sb.WriteString(fmt.Sprintf("Chg: %.2f ➡️ %.2f\n", stockPosition.StopLossPrice, stockPosition.TrailingStopPrice))
-			sb.WriteString(fmt.Sprintf("Status: %s\n", dto.PositionStatus(evalSummary.TechnicalAnalysis.Status)))
 
 		} else if evalSummary.PositionSignal == string(dto.TrailingProfit) {
 			sb.WriteString(fmt.Sprintf("Chg: %.2f ➡️ %.2f\n", stockPosition.TakeProfitPrice, stockPosition.TrailingProfitPrice))
