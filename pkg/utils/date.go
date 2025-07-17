@@ -72,3 +72,12 @@ func RemainingDays(maxHoldingDays int, buyTime time.Time) int {
 
 	return remaining
 }
+
+func DaysSince(date time.Time) int {
+	// Normalisasi waktu ke 00:00 UTC
+	normalizedDate := time.Date(date.Year(), date.Month(), date.Day(), 0, 0, 0, 0, time.UTC)
+	now := time.Now().UTC()
+
+	duration := now.Sub(normalizedDate)
+	return int(duration.Hours() / 24)
+}

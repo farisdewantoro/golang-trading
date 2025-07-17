@@ -151,12 +151,24 @@ func (s *StockPositionMonitoringStrategy) EvaluateStockPosition(ctx context.Cont
 
 			summary := model.PositionAnalysisSummary{
 				TechnicalAnalysis: model.PositionTechnicalAnalysisSummary{
-					Signal:         string(positionAnalysis.Signal),
-					Score:          positionAnalysis.Score,
-					Insight:        positionAnalysis.Insight,
-					Status:         string(positionAnalysis.Status),
-					Recommendation: string(positionAnalysis.TechnicalSignal),
+					Signal:           string(positionAnalysis.TechnicalSignal),
+					Score:            positionAnalysis.Score,
+					Insight:          positionAnalysis.Insight,
+					Status:           string(positionAnalysis.Status),
+					IndicatorSummary: positionAnalysis.IndicatorSummary,
 				},
+				PositionSignal: string(positionAnalysis.Signal),
+			}
+			if positionAnalysis.HighestPriceSinceTTP > stockPosition.HighestPriceSinceTTP {
+				stockPosition.HighestPriceSinceTTP = positionAnalysis.HighestPriceSinceTTP
+			}
+			stockPosition.TrailingProfitPrice = positionAnalysis.TrailingProfitPrice
+			stockPosition.TrailingStopPrice = positionAnalysis.TrailingStopPrice
+			errUpdate := s.stockPositionsRepo.Update(ctx, stockPosition)
+			if errUpdate != nil {
+				s.logger.ErrorContextWithAlert(ctx, "Failed to update stock position", logger.ErrorField(errUpdate), logger.StringField("stock_code", stockPosition.StockCode))
+				resultData.Errors = errUpdate.Error()
+				return
 			}
 
 			jsonSummary, err := json.Marshal(summary)
@@ -184,7 +196,7 @@ func (s *StockPositionMonitoringStrategy) EvaluateStockPosition(ctx context.Cont
 					})
 				}
 				stockPositionMonitorings = append(stockPositionMonitorings, stockPositionMonitoring)
-				shouldSendTelegram := summary.TechnicalAnalysis.Status != string(dto.Safe)
+				shouldSendTelegram := summary.TechnicalAnalysis.Status != string(dto.Safe) || summary.PositionSignal == string(dto.TrailingStop)
 				if shouldSendTelegram {
 					sendTelegramToUsers = append(sendTelegramToUsers, stockPosition)
 				}
@@ -227,28 +239,49 @@ func (s *StockPositionMonitoringStrategy) SendMessageUser(ctx context.Context, s
 	marketPrice := stockAnalyses[0].MarketPrice
 	for _, stockPosition := range stockPositions {
 		sb := strings.Builder{}
-		sb.WriteString(fmt.Sprintf("<b>⚠️ Posisi Saham %s:%s mulai melemah!</b>\n", stockPosition.Exchange, stockPosition.StockCode))
+		if summary.PositionSignal == string(dto.TrailingStop) {
+			sb.WriteString(fmt.Sprintf("<b>💰 Posisi Saham %s:%s amankan profit!</b>\n", stockPosition.Exchange, stockPosition.StockCode))
+		} else if summary.PositionSignal == string(dto.TrailingProfit) {
+			sb.WriteString(fmt.Sprintf("<b>💰 Posisi Saham %s:%s naikkan profit!</b>\n", stockPosition.Exchange, stockPosition.StockCode))
+		} else {
+			sb.WriteString(fmt.Sprintf("<b>⚠️ Posisi Saham %s:%s mulai melemah!</b>\n", stockPosition.Exchange, stockPosition.StockCode))
+		}
 		sb.WriteString(fmt.Sprintf("<i>📅 Update :%s</i>\n", utils.PrettyDate(utils.TimeNowWIB())))
 		sb.WriteString(fmt.Sprintf(`
-<b>📊 Evaluasi Terbaru:</b>
- - Skor Total : %.2f
+<b>📊 Evaluasi Terbaru</b>
+ - Position Signal: %s	
+ - Score : %.2f (%s)
  - Status: %s
- - Signal: %s
- - Recommendation: %s	
-`, summary.TechnicalAnalysis.Score, dto.PositionStatus(summary.TechnicalAnalysis.Status), dto.Signal(summary.TechnicalAnalysis.Signal), dto.Evaluation(summary.TechnicalAnalysis.Recommendation)))
+`, dto.Signal(summary.PositionSignal), summary.TechnicalAnalysis.Score, summary.TechnicalAnalysis.Signal, dto.PositionStatus(summary.TechnicalAnalysis.Status)))
 
 		sb.WriteString(fmt.Sprintf(`
-🎯 <b>Target Price:</b> %d (%s)
-🛡 <b>Stop Loss:</b> %d (%s)
-💰 <b>PnL:</b> (%s)
-`, int(stockPosition.TakeProfitPrice),
+🧾 <b>Informasi Posisi</b>
+ - Current Price: %.2f
+ - Entry Price: %.2f
+ - Target Price: %.2f (%s)
+ - Stop Loss: %.2f (%s)
+ - PnL: %s`, marketPrice,
+			stockPosition.BuyPrice,
+			stockPosition.TakeProfitPrice,
 			utils.FormatChange(float64(stockPosition.BuyPrice),
 				float64(stockPosition.TakeProfitPrice)),
-			int(stockPosition.StopLossPrice),
+			stockPosition.StopLossPrice,
 			utils.FormatChange(float64(stockPosition.BuyPrice),
 				float64(stockPosition.StopLossPrice)),
-			utils.FormatChange(float64(stockPosition.BuyPrice),
+			utils.FormatChangeWithIcon(float64(stockPosition.BuyPrice),
 				float64(marketPrice))))
+
+		sb.WriteString("\n")
+
+		if summary.PositionSignal == string(dto.TrailingStop) {
+			sb.WriteString(fmt.Sprintf(" - Trailing Stop: %.2f (%s)\n", stockPosition.TrailingStopPrice, utils.FormatChange(float64(stockPosition.BuyPrice),
+				float64(stockPosition.TrailingStopPrice))))
+		}
+
+		if summary.PositionSignal == string(dto.TrailingProfit) {
+			sb.WriteString(fmt.Sprintf(" - Trailing Take Profit: %.2f (%s)\n", stockPosition.TrailingProfitPrice, utils.FormatChange(float64(stockPosition.BuyPrice),
+				float64(stockPosition.TrailingProfitPrice))))
+		}
 
 		sb.WriteString("\n<b>🧠 Insight:</b>\n")
 		for _, insight := range summary.TechnicalAnalysis.Insight {
@@ -256,9 +289,14 @@ func (s *StockPositionMonitoringStrategy) SendMessageUser(ctx context.Context, s
 		}
 
 		menu := &telebot.ReplyMarkup{}
+
+		btnDetail := menu.Data("🔍 Detail Posisi", "btn_detail_stock_position", fmt.Sprintf("%d", stockPosition.ID))
+		btnAskAI := menu.Data("🤖 Analisa oleh AI", "btn_position_ask_ai_analyzer", fmt.Sprintf("%d", stockPosition.ID))
+		btnExitPosition := menu.Data("📤 Keluar dari Posisi", "btn_exit_stock_position", fmt.Sprintf("%s|%d", stockPosition.Exchange+":"+stockPosition.StockCode, stockPosition.ID))
+		btnDeleteMessage := menu.Data("🗑️ Hapus Pesan", "btn_delete_message")
 		menu.Inline(
-			menu.Row(menu.Data("🤖 Analisa oleh AI", "btn_position_ask_ai_analyzer", fmt.Sprintf("%d", stockPosition.ID))),
-			menu.Row(menu.Data("📤 Keluar dari Posisi", "btn_exit_stock_position", fmt.Sprintf("%s|%d", stockPosition.Exchange+":"+stockPosition.StockCode, stockPosition.ID))),
+			menu.Row(btnDetail, btnAskAI),
+			menu.Row(btnExitPosition, btnDeleteMessage),
 		)
 
 		err := s.telegram.SendMessageUser(ctx, sb.String(), stockPosition.User.TelegramID, menu, telebot.ModeHTML)

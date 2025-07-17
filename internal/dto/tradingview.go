@@ -150,6 +150,23 @@ func (s *TradingViewScanner) GetTrendMACD() string {
 	return TrendNeutral
 }
 
+func GetTrendText(signal int) string {
+	switch signal {
+	case TradingViewSignalStrongBuy:
+		return TrendBullish
+	case TradingViewSignalBuy:
+		return TrendBullish
+	case TradingViewSignalSell:
+		return TrendBearish
+	case TradingViewSignalStrongSell:
+		return TrendBearish
+	case TradingViewSignalNeutral:
+		return TrendNeutral
+	default:
+		return "Unknown"
+	}
+}
+
 func GetSignalText(signal int) string {
 	switch signal {
 	case TradingViewSignalStrongBuy:

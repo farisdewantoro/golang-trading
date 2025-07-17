@@ -1,5 +1,7 @@
 package dto
 
+import "golang-trading/internal/model"
+
 type TradePlanResult struct {
 	CurrentMarketPrice float64
 	Entry              float64
@@ -16,8 +18,10 @@ type TradePlanResult struct {
 	SLType   string // jenis SL: support / ema-adjust
 	SLReason string // alasan SL
 
-	TPType   string // jenis TP: resistance / price-bucket / avg-resistance
-	TPReason string // alasan TP
+	TPType           string // jenis TP: resistance / price-bucket / avg-resistance
+	TPReason         string // alasan TP
+	IndicatorSummary model.IndicatorSummary
+	Insights         []string
 }
 
 type TradePlan struct {
@@ -69,16 +73,20 @@ type PriceBucket struct {
 }
 
 type PositionAnalysis struct {
-	Ticker          string
-	EntryPrice      float64
-	LastPrice       float64
-	TakeProfitPrice float64
-	StopLossPrice   float64
-	Status          PositionStatus
-	Signal          Signal
-	Insight         []string
-	Score           float64
-	TechnicalSignal string
+	Ticker               string
+	EntryPrice           float64
+	LastPrice            float64
+	TakeProfitPrice      float64
+	StopLossPrice        float64
+	Status               PositionStatus
+	Signal               Signal
+	Insight              []string
+	Score                float64
+	TechnicalSignal      string
+	IndicatorSummary     model.IndicatorSummary
+	TrailingStopPrice    float64
+	TrailingProfitPrice  float64
+	HighestPriceSinceTTP float64
 }
 
 type MainAnalysisData struct {

@@ -1,2 +1,0 @@
-ALTER TABLE stock_positions
-ADD COLUMN source_type VARCHAR(60) DEFAULT 'MANUAL';

@@ -37,7 +37,7 @@ func TradingViewIntervalToDataTimeframe(interval string) string {
 	case TradingViewInterval1Week:
 		return Interval1Week
 	default:
-		return Interval1Day
+		return "UNKNOWN"
 	}
 }
 

@@ -168,12 +168,7 @@ func (t *TelegramBotHandler) handleBtnActionRunJob(ctx context.Context, c telebo
 		_, err = t.telegram.Send(ctx, c, commonErrorInternalMyPosition)
 		return err
 	}
-	_, err = t.telegram.Edit(ctx, c, c.Message(), fmt.Sprintf(`🚀 Job “%s” berhasil dijalankan secara manual.
-
-<i>Silakan cek status job melalui command /scheduler untuk melihat detail eksekusi.</i>	
-`, job[0].Name), telebot.ModeHTML)
-
-	return err
+	return t.handleBtnActionBackToJobList(ctx, c)
 }
 
 func (t *TelegramBotHandler) handleBtnActionBackToJobList(ctx context.Context, c telebot.Context) error {

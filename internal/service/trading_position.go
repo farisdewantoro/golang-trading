@@ -10,6 +10,7 @@ import (
 	"golang-trading/pkg/common"
 	"golang-trading/pkg/logger"
 	"sort"
+	"strings"
 )
 
 func (s *tradingService) EvaluatePositionMonitoring(
@@ -18,12 +19,16 @@ func (s *tradingService) EvaluatePositionMonitoring(
 	analyses []model.StockAnalysis,
 ) (*dto.PositionAnalysis, error) {
 
+	// --- Inisialisasi dan Pengambilan Data ---
 	result := &dto.PositionAnalysis{
 		Ticker:          stockPosition.StockCode,
 		EntryPrice:      stockPosition.BuyPrice,
 		TakeProfitPrice: stockPosition.TakeProfitPrice,
 		StopLossPrice:   stockPosition.StopLossPrice,
 		Insight:         []string{},
+		// Inisialisasi dengan nilai LAMA dari database untuk dibaca oleh helper
+		TrailingProfitPrice:  stockPosition.TrailingProfitPrice,
+		HighestPriceSinceTTP: stockPosition.HighestPriceSinceTTP,
 	}
 
 	timeframes, err := s.systemParamRepository.GetDefaultAnalysisTimeframes(ctx)
@@ -33,6 +38,12 @@ func (s *tradingService) EvaluatePositionMonitoring(
 	mainData, err := s.findMainAnalysisData(analyses, timeframes)
 	if err != nil {
 		return nil, err
+	}
+	if mainData.MainTA == nil {
+		return result, fmt.Errorf("no main technical analysis data found for %s", stockPosition.StockCode)
+	}
+	if len(mainData.MainOHLCV) == 0 {
+		return result, fmt.Errorf("no main OHLCV data found for %s", stockPosition.StockCode)
 	}
 
 	symbolWithExchange := stockPosition.Exchange + ":" + stockPosition.StockCode
@@ -45,36 +56,16 @@ func (s *tradingService) EvaluatePositionMonitoring(
 	if len(mainData.MainOHLCV) > 0 && marketPrice == 0 {
 		marketPrice = mainData.MainOHLCV[len(mainData.MainOHLCV)-1].Close
 	}
-
 	result.LastPrice = marketPrice
 
-	// --- Prioritas #1: Hard Exits ---
+	// Variabel untuk menyimpan keputusan prioritas
+	var finalSignal dto.Signal = ""
+
+	// --- Prioritas #1: Cut Loss ---
 	if result.LastPrice <= result.StopLossPrice {
 		result.Status = dto.Dangerous
-		result.Signal = dto.CutLoss
+		finalSignal = dto.CutLoss
 		result.Insight = append(result.Insight, fmt.Sprintf("SINYAL CUT LOSS: Harga (%.2f) telah menyentuh Stop Loss (%.2f).", result.LastPrice, result.StopLossPrice))
-		// return result, nil
-	}
-
-	if result.LastPrice >= result.TakeProfitPrice {
-		// Panggil helper untuk menganalisis apakah ada potensi kenaikan lebih lanjut
-		hasPotential, explanation := s.evaluatePotentialAtTakeProfit(mainData.MainTA, mainData.MainOHLCV)
-
-		if hasPotential {
-			// Jika ada potensi, JANGAN keluar. Beri sinyal untuk Trailing Stop.
-			result.Status = dto.Safe
-			result.Signal = dto.TrailingStop
-			result.Insight = append(result.Insight, fmt.Sprintf("LEVEL TAKE PROFIT TERCAPAI (%.2f), NAMUN...", result.TakeProfitPrice))
-			result.Insight = append(result.Insight, explanation)
-			result.Insight = append(result.Insight, "AKSI: Pertimbangkan untuk take profit sebagian & naikkan Stop Loss secara agresif untuk mengikuti sisa tren.")
-			// Lanjutkan ke sisa analisis untuk penentuan status akhir
-		} else {
-			// Jika tidak ada potensi kuat, keluar sesuai rencana.
-			result.Status = dto.Safe
-			result.Signal = dto.TakeProfit
-			result.Insight = append(result.Insight, fmt.Sprintf("SINYAL TAKE PROFIT: Harga (%.2f) telah mencapai Target Profit (%.2f) tanpa momentum lanjutan yang kuat.", result.LastPrice, result.TakeProfitPrice))
-			// return result, nil
-		}
 	}
 
 	// --- Dapatkan Evaluasi Baseline ---
@@ -86,30 +77,32 @@ func (s *tradingService) EvaluatePositionMonitoring(
 	result.Score = score
 	result.TechnicalSignal = techSignal
 
-	if mainData.MainTA == nil {
-		return result, fmt.Errorf("no main technical analysis data found")
+	// Prioritas #2: Kelola Trailing Take Profit (TTP)
+	// Fungsi ini akan mengubah nilai TTP di dalam 'result' dan bisa menyarankan sinyal exit
+	s.evaluateTrailingTakeProfit(result, stockPosition, mainData.MainTA, mainData.MainOHLCV)
+	if result.Signal == dto.TakeProfit {
+		finalSignal = dto.TakeProfit
 	}
 
-	if len(mainData.MainOHLCV) == 0 {
-		return result, fmt.Errorf("no main OHLCV data found")
-	}
-
-	// --- Logika Analisis Mendalam ---
-	result.Insight = append(result.Insight, fmt.Sprintf("Analisis mendalam menggunakan data timeframe %s.", mainData.MainTimeframe))
-	// Analisis dari indikator (RSI, MACD, Pivot)
+	// Analisis kondisi pasar
 	s.analyzeMultiTimeframeConditions(result, mainData.MainTA, mainData.SecondaryTA)
-	// Analisis dari price action & volume menggunakan OHLCV dari timeframe utama
 	s.analyzePriceActionAndVolume(result, mainData.MainOHLCV, mainData.MainTA)
 
-	// Tentukan sinyal aksi (Trailing Stop/Hold)
+	// Evaluasi Trailing Stop Loss
 	s.evaluateTrailingStop(result, mainData.MainTA, mainData.SecondaryTA, techSignal, mainData.MainOHLCV)
-	// Tentukan status akhir berdasarkan semua data
+
+	// Tentukan status akhir
 	s.determineFinalStatus(result, mainData.MainTA, techSignal)
 
-	// Pastikan sinyal terisi (default ke Hold)
-	if result.Signal == "" {
+	// --- Bagian Akhir: Tentukan Sinyal Final ---
+	if finalSignal != "" {
+		result.Signal = finalSignal
+	} else if result.Signal == "" {
 		result.Signal = dto.Hold
 	}
+
+	// Isi sisa informasi
+	result.IndicatorSummary = s.CreateIndicatorSummary(mainData.MainTA, mainData.MainOHLCV)
 
 	return result, nil
 }
@@ -136,7 +129,6 @@ func (s *tradingService) analyzePriceActionAndVolume(result *dto.PositionAnalysi
 	}
 	lastCandle := ohlcv[len(ohlcv)-1]
 	prevCandle := ohlcv[len(ohlcv)-2]
-
 	if s.isBearishEngulfing(lastCandle, prevCandle) {
 		resistanceLevel := ta.Value.Pivots.Classic.R1
 		if resistanceLevel > 0 && lastCandle.High >= (resistanceLevel*0.99) {
@@ -147,14 +139,12 @@ func (s *tradingService) analyzePriceActionAndVolume(result *dto.PositionAnalysi
 			result.Insight = append(result.Insight, "[WASPADA] Price Action: Terbentuk pola Bearish Engulfing.")
 		}
 	}
-
 	avgVolume := s.calculateAverageVolume(ohlcv, 20)
 	if avgVolume == 0 {
 		return
 	}
 	isRedCandle := lastCandle.Close < lastCandle.Open
 	isHighVolume := float64(lastCandle.Volume) > (avgVolume * 2.0)
-
 	if isRedCandle && isHighVolume {
 		result.Status = dto.Dangerous
 		result.Insight = append(result.Insight, fmt.Sprintf("[BAHAYA] Volume: Tekanan jual masif (Volume %.0f vs rata-rata %.0f).", float64(lastCandle.Volume), avgVolume))
@@ -164,7 +154,6 @@ func (s *tradingService) analyzePriceActionAndVolume(result *dto.PositionAnalysi
 func (s *tradingService) determineFinalStatus(result *dto.PositionAnalysis, ta *dto.TradingViewScanner, technicalSignal string) {
 	riskRange := result.LastPrice - result.StopLossPrice
 	entryToSLRange := result.EntryPrice - result.StopLossPrice
-
 	if entryToSLRange > 0 && (riskRange/entryToSLRange) < 0.25 {
 		result.Status = dto.Dangerous
 		result.Insight = append(result.Insight, fmt.Sprintf("[Kondisi Bahaya]: Jarak ke Stop Loss < 25%% (Harga: %.2f, SL: %.2f).", result.LastPrice, result.StopLossPrice))
@@ -173,7 +162,6 @@ func (s *tradingService) determineFinalStatus(result *dto.PositionAnalysis, ta *
 	if result.Status == dto.Dangerous || result.Status == dto.Warning {
 		return
 	}
-
 	switch technicalSignal {
 	case dto.SignalStrongBuy, dto.SignalBuy:
 		result.Status = dto.Safe
@@ -212,30 +200,22 @@ func (s *tradingService) calculateAverageVolume(ohlcv []dto.StockOHLCV, period i
 }
 
 func (s *tradingService) findMainAnalysisData(analyses []model.StockAnalysis, timeframes []dto.DataTimeframe) (*dto.MainAnalysisData, error) {
-
-	var (
-		result dto.MainAnalysisData
-	)
-	sort.Slice(timeframes, func(i, j int) bool {
-		return timeframes[i].Weight > timeframes[j].Weight
-	})
-
-	if len(timeframes) < 2 {
-		return nil, fmt.Errorf("not enough timeframes")
+	var result dto.MainAnalysisData
+	sort.Slice(timeframes, func(i, j int) bool { return timeframes[i].Weight > timeframes[j].Weight })
+	if len(timeframes) < 1 {
+		return nil, fmt.Errorf("no timeframes configured")
 	}
-
 	mainTF := timeframes[0]
-	secondaryTF := timeframes[1]
-
+	var secondaryTF dto.DataTimeframe
+	if len(timeframes) >= 2 {
+		secondaryTF = timeframes[1]
+	}
 	for _, analysis := range analyses {
-		var (
-			ta     dto.TradingViewScanner
-			ohlcvs []dto.StockOHLCV
-		)
+		var ta dto.TradingViewScanner
+		var ohlcvs []dto.StockOHLCV
 		if err := json.Unmarshal([]byte(analysis.OHLCV), &ohlcvs); err != nil {
 			return nil, err
 		}
-		// Ekstrak data Indikator
 		if err := json.Unmarshal([]byte(analysis.TechnicalData), &ta); err != nil {
 			return nil, err
 		}
@@ -244,109 +224,118 @@ func (s *tradingService) findMainAnalysisData(analyses []model.StockAnalysis, ti
 			result.MainOHLCV = ohlcvs
 			result.MainTimeframe = analysis.Timeframe
 		}
-
-		if analysis.Timeframe == secondaryTF.Interval {
+		if secondaryTF.Interval != "" && analysis.Timeframe == secondaryTF.Interval {
 			result.SecondaryTA = &ta
 			result.SecondaryOHLCV = ohlcvs
 			result.SecondaryTimeframe = analysis.Timeframe
 		}
 	}
-	// Jika loop selesai tanpa menemukan apa pun
 	return &result, nil
 }
 
 func (s *tradingService) analyzeMultiTimeframeConditions(result *dto.PositionAnalysis, mainTA, secondaryTA *dto.TradingViewScanner) {
-	// Jika data 4H tidak ada, jalankan logika lama pada data 1D
 	if secondaryTA == nil {
-		s.log.WarnContext(context.Background(), fmt.Sprintf("Data teknikal secondary tidak tersedia, analisis hanya berdasarkan %s.", mainTA.Timeframe))
-		s.checkMomentumAndResistance(result, mainTA) // Panggil versi lama
+		s.checkMomentumAndResistance(result, mainTA)
+		result.Insight = append(result.Insight, fmt.Sprintf("Analisis mendalam menggunakan data timeframe %s tanpa secondary timeframe.", mainTA.Timeframe))
 		return
 	}
-
-	mainRSI := mainTA.Value.Oscillators.RSI
+	isMainBullish := mainTA.Recommend.Global.Summary == dto.TradingViewSignalBuy || mainTA.Recommend.Global.Summary == dto.TradingViewSignalStrongBuy
+	isSecondaryBullish := secondaryTA.Recommend.Global.Summary == dto.TradingViewSignalBuy || secondaryTA.Recommend.Global.Summary == dto.TradingViewSignalStrongBuy
 	secondaryRSI := secondaryTA.Value.Oscillators.RSI
-	isMainBullish := mainTA.Value.Global.Summary > 0.1 // Strong/Buy
-
-	// Skenario 1: Konfirmasi Kekuatan
-	// 1D bullish dan 4H juga bullish (RSI sehat, tidak overbought)
 	if isMainBullish && secondaryRSI > 50 && secondaryRSI < 70 {
-		result.Insight = append(result.Insight, fmt.Sprintf("[AMAN] Konfirmasi MTA: Tren utama %s (Bullish) dikonfirmasi oleh momentum kuat di timeframe %s.", mainTA.Timeframe, secondaryTA.Timeframe))
+		result.Insight = append(result.Insight, fmt.Sprintf("[AMAN] Konfirmasi MTA: Tren utama %s dikonfirmasi oleh momentum sehat di %s.", mainTA.Timeframe, secondaryTA.Timeframe))
+	} else if isMainBullish {
+		if isSecondaryBullish {
+			result.Insight = append(result.Insight, fmt.Sprintf("[AMAN] Tren pada %s dan %s bullish.", mainTA.Timeframe, secondaryTA.Timeframe))
+		} else {
+			result.Insight = append(result.Insight, fmt.Sprintf("[WASPADA] Tren utama %s bullish tanpa konfirmasi dari %s.", mainTA.Timeframe, secondaryTA.Timeframe))
+		}
 	}
-
-	// Skenario 2: Divergensi / Peringatan Kelelahan
-	// 1D masih bullish, tapi 4H sudah sangat overbought. Ini adalah sinyal `Warning` klasik.
 	if isMainBullish && secondaryRSI > 75 {
 		result.Status = dto.Warning
-		result.Insight = append(result.Insight, fmt.Sprintf("[WASPADA] Divergensi MTA: Tren %s kuat, namun timeframe %s menunjukkan kondisi sangat jenuh beli (RSI: %.2f). Waspada potensi pullback/koreksi jangka pendek.", mainTA.Timeframe, secondaryTA.Timeframe, secondaryRSI))
+		result.Insight = append(result.Insight, fmt.Sprintf("[WASPADA] Divergensi MTA: Tren %s kuat, namun %s jenuh beli (RSI: %.2f).", mainTA.Timeframe, secondaryTA.Timeframe, secondaryRSI))
 	}
-
-	// Skenario 3: Peringatan Momentum Lemah di Timeframe Bawah
-	// 1D bullish, tapi 4H MACD-nya bearish.
 	if isMainBullish && secondaryTA.Value.Oscillators.MACD.Macd < secondaryTA.Value.Oscillators.MACD.Signal {
 		result.Status = dto.Warning
-		result.Insight = append(result.Insight, fmt.Sprintf("[WASPADA] Pelemahan Momentum: Tren utama %s masih naik, namun MACD pada timeframe %s telah cross ke bawah, sinyal pelemahan momentum.", mainTA.Timeframe, secondaryTA.Timeframe))
+		result.Insight = append(result.Insight, fmt.Sprintf("[WASPADA] Pelemahan Momentum: Tren utama %s naik, namun MACD di %s cross ke bawah.", mainTA.Timeframe, secondaryTA.Timeframe))
 	}
-
-	// Periksa juga kondisi overbought pada timeframe utama
-	if mainRSI > 75 {
+	if mainTA.Value.Oscillators.RSI > 75 {
 		result.Status = dto.Warning
-		result.Insight = append(result.Insight, fmt.Sprintf("[WASPADA] Kondisi Jenuh Beli %s: Timeframe utama menunjukkan kondisi sangat jenuh beli (RSI: %.2f).", mainTA.Timeframe, mainRSI))
+		result.Insight = append(result.Insight, fmt.Sprintf("[WASPADA] Kondisi Jenuh Beli %s: Timeframe utama sangat jenuh beli (RSI: %.2f).", mainTA.Timeframe, mainTA.Value.Oscillators.RSI))
 	}
 }
 
-// evaluateTrailingStop diperbarui untuk mempertimbangkan breakout di 4H
+// evaluateTrailingStop menentukan apakah sinyal Trailing Stop harus diberikan dengan logika yang lebih cerdas.
 func (s *tradingService) evaluateTrailingStop(result *dto.PositionAnalysis, mainTA, secondaryTA *dto.TradingViewScanner, technicalSignal string, mainOHLCV []dto.StockOHLCV) {
 	totalProfitRange := result.TakeProfitPrice - result.EntryPrice
 	currentProfit := result.LastPrice - result.EntryPrice
-
-	// Aturan 1: Kuat & Profit Signifikan (dari evaluasi umum)
-	if (technicalSignal == dto.SignalStrongBuy || technicalSignal == dto.SignalBuy) && totalProfitRange > 0 && (currentProfit/totalProfitRange) > 0.6 {
-		result.Signal = dto.TrailingStop
-		result.Insight = append(result.Insight, fmt.Sprintf("SINYAL TRAILING STOP: Posisi kuat (technical signal: %s) & profit signifikan.", technicalSignal))
-	}
-
-	// Aturan 2 (BARU): Breakout di timeframe 4H
+	hasSignificantProfit := totalProfitRange > 0 && (currentProfit/totalProfitRange) > 0.6
+	isSignalStrong := (technicalSignal == dto.SignalStrongBuy || technicalSignal == dto.SignalBuy)
+	triggerA := isSignalStrong && hasSignificantProfit
+	var breakoutResistanceLevel float64
+	triggerB := false
 	if secondaryTA != nil {
 		resistanceR1_4H := secondaryTA.Value.Pivots.Classic.R1
-		// Jika harga menembus resistance R1 di 4H
 		if currentProfit > 0 && result.LastPrice > resistanceR1_4H && resistanceR1_4H > result.EntryPrice*1.01 {
-			result.Signal = dto.TrailingStop
-			result.Insight = append(result.Insight, fmt.Sprintf("SINYAL TRAILING STOP: Harga menembus resistance kunci di timeframe %s (R1 @ %.2f).", secondaryTA.Timeframe, resistanceR1_4H))
+			triggerB = true
+			breakoutResistanceLevel = resistanceR1_4H
 		}
 	}
-
-	if result.Signal == dto.TrailingStop && len(mainOHLCV) >= 2 {
+	if !triggerA && !triggerB {
+		return
+	}
+	bestProposedSL := 0.0
+	reasonForUpdate := ""
+	if result.EntryPrice > bestProposedSL {
+		bestProposedSL = result.EntryPrice
+		reasonForUpdate = "mengamankan posisi ke breakeven"
+	}
+	if breakoutResistanceLevel > bestProposedSL {
+		bestProposedSL = breakoutResistanceLevel
+		reasonForUpdate = fmt.Sprintf("resistance kunci di %s (%.2f) telah ditembus", secondaryTA.Timeframe, breakoutResistanceLevel)
+	}
+	if len(mainOHLCV) >= 2 {
 		dynamicSL := mainOHLCV[len(mainOHLCV)-2].Low
-		result.Insight = append(result.Insight, fmt.Sprintf("REKOMENDASI LEVEL SL: Naikkan Stop Loss ke support dinamis di %.2f (low candle %s sebelumnya).", dynamicSL, mainTA.Timeframe))
+		if dynamicSL > bestProposedSL {
+			bestProposedSL = dynamicSL
+			reasonForUpdate = fmt.Sprintf("mengikuti support dinamis dari low candle %s", mainTA.Timeframe)
+		}
+	}
+	if bestProposedSL > result.StopLossPrice {
+		if result.Signal == dto.Hold || result.Signal == "" {
+			result.Signal = dto.TrailingStop
+		}
+		triggerReason := ""
+		if triggerB {
+			triggerReason = fmt.Sprintf("karena harga menembus resistance kunci di %s", secondaryTA.Timeframe)
+		} else if triggerA {
+			triggerReason = fmt.Sprintf("karena posisi profit signifikan dgn sinyal kuat (%s)", technicalSignal)
+		}
+		insight := fmt.Sprintf("SINYAL TRAILING STOP: %s. Rekomendasi naikkan SL ke %.2f untuk %s.", triggerReason, bestProposedSL, reasonForUpdate)
+		result.Insight = append(result.Insight, insight)
+		result.TrailingStopPrice = bestProposedSL
 	}
 }
 
 // Helper untuk menganalisis potensi di level Take Profit.
-func (s *tradingService) evaluatePotentialAtTakeProfit(mainTA *dto.TradingViewScanner, mainOHLCV []dto.StockOHLCV) (bool, string) {
+func (s *tradingService) evaluatePotentialAtTakeProfit(mainTA *dto.TradingViewScanner, mainOHLCV []dto.StockOHLCV) (bool, string, float64) {
 	if mainTA == nil || len(mainOHLCV) == 0 {
-		return false, "" // Tidak bisa dianalisis jika data tidak ada
+		return false, "", 0
 	}
-
 	lastCandle := mainOHLCV[len(mainOHLCV)-1]
-
-	// Kondisi 1: Candle harus menunjukkan kekuatan (bukan penolakan/rejection)
 	isStrongCandle := s.isStrongBullishCandle(lastCandle)
-
-	// Kondisi 2: Volume harus mengkonfirmasi pergerakan
 	avgVolume := s.calculateAverageVolume(mainOHLCV, 20)
 	isHighVolume := avgVolume > 0 && float64(lastCandle.Volume) > (avgVolume*1.5)
-
-	// Kondisi 3: RSI belum 'terlalu panas' (memberi ruang untuk naik)
 	isRSIHealthy := mainTA.Value.Oscillators.RSI < 85
-
 	if isStrongCandle && isHighVolume && isRSIHealthy {
-		// Semua kondisi terpenuhi, ada potensi!
 		nextTarget := mainTA.Value.Pivots.Classic.R2
-		explanation := fmt.Sprintf("[POTENSI LANJUTAN] Harga menembus TP dengan candle kuat dan volume tinggi (%.0f vs avg %.0f). Target potensial berikutnya adalah R2 di %.2f.", float64(lastCandle.Volume), avgVolume, nextTarget)
-		return true, explanation
+		if nextTarget == 0 {
+			nextTarget = mainTA.Value.Pivots.Fibonacci.R2
+		}
+		explanation := fmt.Sprintf("[POTENSI LANJUTAN] Harga menembus TP dengan candle kuat dan volume tinggi (%.0f vs avg %.0f).", float64(lastCandle.Volume), avgVolume)
+		return true, explanation, nextTarget
 	}
-
-	return false, "Momentum tidak cukup kuat untuk melanjutkan kenaikan secara signifikan."
+	return false, "Momentum tidak cukup kuat untuk melanjutkan kenaikan secara signifikan.", 0
 }
 
 // Utility untuk memeriksa apakah sebuah candle bullish kuat.
@@ -366,4 +355,88 @@ func (s *tradingService) isStrongBullishCandle(candle dto.StockOHLCV) bool {
 
 	// Badan candle harus lebih dari 65% dari total range (artinya ekornya pendek)
 	return (bodySize / totalRange) > 0.65
+}
+
+func (s *tradingService) evaluateTrailingTakeProfit(
+	result *dto.PositionAnalysis, // Target DTO yang akan diisi dengan state baru.
+	pos *model.StockPosition, // State LAMA dari database (hanya untuk dibaca).
+	mainTA *dto.TradingViewScanner,
+	mainOHLCV []dto.StockOHLCV,
+) {
+	// Cek apakah TTP sudah aktif dengan membaca state LAMA dari database.
+	// Jika TrailingProfitPrice bukan 0, berarti TTP sudah pernah diaktifkan.
+	isTTPActive := pos.TrailingProfitPrice > 0
+
+	// --- FASE 1: Logika Aktivasi TTP ---
+	if !isTTPActive {
+		// Coba aktifkan hanya jika TP awal tercapai dengan momentum kuat.
+		isBeyondOriginalTP := result.LastPrice > pos.TakeProfitPrice
+		hasPotential, _, _ := s.evaluatePotentialAtTakeProfit(mainTA, mainOHLCV)
+
+		if isBeyondOriginalTP && hasPotential {
+			// --- AKTIVASI TTP ---
+			s.log.InfoContext(context.Background(), fmt.Sprintf("TTP Activation Triggered for %s", pos.StockCode))
+
+			// 1. Hitung nilai BARU dan tulis ke DTO 'result' untuk disimpan nanti.
+			result.HighestPriceSinceTTP = result.LastPrice
+			// Set harga trigger awal, misal, 3% di bawah puncak.
+			result.TrailingProfitPrice = result.HighestPriceSinceTTP * (1.0 - 0.03)
+
+			// 2. Set sinyal menjadi TrailingProfit untuk menunjukkan mode baru ini.
+			result.Signal = dto.TrailingProfit
+
+			// 3. Tambahkan insight aktivasi yang jelas.
+			result.Insight = append(result.Insight, fmt.Sprintf("MODE TTP AKTIF: Target profit awal tercapai dengan momentum kuat. Sistem kini akan memaksimalkan keuntungan."))
+		}
+		// Hentikan fungsi di sini, baik TTP baru aktif atau gagal aktif.
+		// Analisis eksekusi TTP akan terjadi pada pemanggilan berikutnya.
+		return
+	}
+
+	// --- FASE 2: Logika Eksekusi & Pembaruan TTP (jika sudah aktif) ---
+
+	// Inisialisasi nilai BARU dengan nilai LAMA sebagai dasar.
+	newHighestPrice := pos.HighestPriceSinceTTP
+	newTriggerPrice := pos.TrailingProfitPrice
+
+	// Perbarui harga puncak dan harga trigger jika rekor baru tercapai.
+	if result.LastPrice > newHighestPrice {
+		newHighestPrice = result.LastPrice
+		newTriggerPrice = newHighestPrice * (1.0 - 0.03) // Hitung ulang trigger.
+	}
+
+	// Tulis nilai BARU yang sudah dihitung ke DTO 'result' agar bisa disimpan nanti.
+	result.HighestPriceSinceTTP = newHighestPrice
+	result.TrailingProfitPrice = newTriggerPrice
+
+	// Aturan Eksekusi 1: Harga menyentuh trigger price BARU.
+	if result.LastPrice < newTriggerPrice {
+		result.Signal = dto.TakeProfit
+		result.Status = dto.Safe
+		result.Insight = append(result.Insight, fmt.Sprintf("SINYAL TAKE PROFIT (Trailing): Harga (%.2f) telah menyentuh trigger price (%.2f) dari puncaknya (%.2f).", result.LastPrice, newTriggerPrice, newHighestPrice))
+		return
+	}
+
+	// Aturan Eksekusi 2: Muncul pola candlestick pembalikan yang kuat.
+	if len(mainOHLCV) >= 2 && s.isBearishEngulfing(mainOHLCV[len(mainOHLCV)-1], mainOHLCV[len(mainOHLCV)-2]) {
+		result.Signal = dto.TakeProfit
+		result.Status = dto.Safe
+		result.Insight = append(result.Insight, "SINYAL TAKE PROFIT (Trailing): Terbentuk pola Bearish Engulfing, mengindikasikan pembalikan momentum.")
+		return
+	}
+
+	// Jika tidak ada sinyal eksekusi, maka set sinyal ke 'TrailingProfit'
+	// dan berikan insight status TTP saat ini.
+	result.Signal = dto.TrailingProfit // Menggunakan sinyal yang lebih deskriptif daripada 'Hold'.
+	insightTTPStatus := fmt.Sprintf("STATUS TTP: Mode aktif. Harga trigger keluar saat ini: %.2f (berdasarkan puncak %.2f).", newTriggerPrice, newHighestPrice)
+
+	// Hapus insight status TTP yang mungkin ada dari iterasi sebelumnya agar tidak menumpuk.
+	var newInsights []string
+	for _, insight := range result.Insight {
+		if !strings.Contains(insight, "STATUS TTP:") && !strings.Contains(insight, "MODE TTP AKTIF") {
+			newInsights = append(newInsights, insight)
+		}
+	}
+	result.Insight = newInsights
+	result.Insight = append(result.Insight, insightTTPStatus)
 }

@@ -52,9 +52,12 @@ func (t *TelegramBotHandler) showMyPositionDetail(ctx context.Context, c telebot
 		marketPrice = stockPosition.StockPositionMonitorings[0].MarketPrice
 	}
 
+	ageDays := utils.DaysSince(stockPosition.BuyDate)
+
 	sb.WriteString(fmt.Sprintf("<b>📌 Detail Posisi Saham %s</b>\n", stockCodeWithExchange))
 	sb.WriteString("\n")
 	sb.WriteString("<b>🧾 Informasi Posisi:</b>\n")
+	sb.WriteString(fmt.Sprintf("  • Age: %d Hari\n", ageDays))
 	sb.WriteString(fmt.Sprintf("  • Entry: %.2f \n", stockPosition.BuyPrice))
 	sb.WriteString(fmt.Sprintf("  • Last Price: %.2f\n", marketPrice))
 	sb.WriteString(fmt.Sprintf("  • PnL: %s\n", utils.FormatChange(stockPosition.BuyPrice, marketPrice)))
@@ -91,9 +94,9 @@ func (t *TelegramBotHandler) showMyPositionDetail(ctx context.Context, c telebot
 	sb.WriteString("\n")
 	sb.WriteString("<b>📊 Evaluasi Terbaru</b>\n")
 	sb.WriteString(fmt.Sprintf("  • Score: %.2f (TA)\n", evalSummary.TechnicalAnalysis.Score))
-	sb.WriteString(fmt.Sprintf("  • Signal: %s (TA)\n", dto.Signal(evalSummary.TechnicalAnalysis.Signal).String()))
+	sb.WriteString(fmt.Sprintf("  • Signal: %s (TA)\n", dto.Signal(evalSummary.PositionSignal).String()))
 	sb.WriteString(fmt.Sprintf("  • Status: %s (TA)\n", dto.PositionStatus(evalSummary.TechnicalAnalysis.Status).String()))
-	sb.WriteString(fmt.Sprintf("  • TA Recommendation: %s\n", evalSummary.TechnicalAnalysis.Recommendation))
+	sb.WriteString(fmt.Sprintf("  • TA Signal: %s\n", evalSummary.TechnicalAnalysis.Signal))
 
 	sb.WriteString("\n")
 	sb.WriteString("<b>🧠 Insight</b>\n")
@@ -156,14 +159,27 @@ func (t *TelegramBotHandler) showMyPositionDetail(ctx context.Context, c telebot
 			continue
 		}
 
-		sb.WriteString(fmt.Sprintf("  <b>• %s</b> %s\n",
-			stockPositionMonitoring.Timestamp.Format("02 Jan 15:04"),
-			dto.Signal(evalSummary.TechnicalAnalysis.Signal).String()))
-		sb.WriteString(fmt.Sprintf("  ↳ Price: %.2f (%s)\n", stockPositionMonitoring.MarketPrice, utils.FormatChange(stockPosition.BuyPrice, float64(stockPositionMonitoring.MarketPrice))))
-		sb.WriteString(fmt.Sprintf("  ↳ %s\n", evalSummary.TechnicalAnalysis.Recommendation))
+		sb.WriteString(fmt.Sprintf("\n<b>(%s) - %.2f %s</b>\n",
+			stockPositionMonitoring.Timestamp.Format("02/01 15:04"),
+			stockPositionMonitoring.MarketPrice,
+			utils.FormatChangeWithIcon(stockPosition.BuyPrice, float64(stockPositionMonitoring.MarketPrice)),
+		))
+		sb.WriteString(fmt.Sprintf("Signal: %s\n", dto.Signal(evalSummary.PositionSignal)))
+
+		if evalSummary.PositionSignal == string(dto.TrailingStop) {
+			sb.WriteString(fmt.Sprintf("Chg: %.2f ➡️ %.2f\n", stockPosition.StopLossPrice, stockPosition.TrailingStopPrice))
+			sb.WriteString(fmt.Sprintf("Status: %s\n", dto.PositionStatus(evalSummary.TechnicalAnalysis.Status)))
+
+		} else if evalSummary.PositionSignal == string(dto.TrailingProfit) {
+			sb.WriteString(fmt.Sprintf("Chg: %.2f ➡️ %.2f\n", stockPosition.TakeProfitPrice, stockPosition.TrailingProfitPrice))
+		}
+		sb.WriteString(fmt.Sprintf("Status: %s\n", dto.PositionStatus(evalSummary.TechnicalAnalysis.Status)))
+
+		sb.WriteString(fmt.Sprintf("Osc: %s | RSI: %s\n", evalSummary.TechnicalAnalysis.IndicatorSummary.Osc, evalSummary.TechnicalAnalysis.IndicatorSummary.RSI))
+		sb.WriteString(fmt.Sprintf("MA: %s | MACD: %s\n", evalSummary.TechnicalAnalysis.IndicatorSummary.MA, evalSummary.TechnicalAnalysis.IndicatorSummary.MACD))
+		sb.WriteString(fmt.Sprintf("Vol: %s | Score: %.2f (%s)\n", evalSummary.TechnicalAnalysis.IndicatorSummary.Volume, evalSummary.TechnicalAnalysis.Score, evalSummary.TechnicalAnalysis.Signal))
 
 	}
-
 	lastUpdate := lastMonitoring.Timestamp
 	sb.WriteString(fmt.Sprintf("\n\n📅 Update Terakhir: %s", utils.PrettyDate(lastUpdate)))
 

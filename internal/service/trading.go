@@ -12,6 +12,7 @@ import (
 	"golang-trading/pkg/cache"
 	"golang-trading/pkg/common"
 	"golang-trading/pkg/logger"
+	"golang-trading/pkg/utils"
 	"math"
 	"sort"
 )
@@ -43,14 +44,17 @@ func NewTradingService(
 
 func (s *tradingService) CreateTradePlan(ctx context.Context, latestAnalyses []model.StockAnalysis) (*dto.TradePlanResult, error) {
 	var (
-		supports      []dto.Level
-		resistances   []dto.Level
-		emaData       []dto.EMAData
-		priceBuckets  []dto.PriceBucket
-		mainTFCandles []dto.StockOHLCV
-		marketPrice   float64
-		result        *dto.TradePlanResult
-		tfMap         map[string]dto.DataTimeframe
+		supports               []dto.Level
+		resistances            []dto.Level
+		emaData                []dto.EMAData
+		priceBuckets           []dto.PriceBucket
+		mainTFCandles          []dto.StockOHLCV
+		marketPrice            float64
+		result                 *dto.TradePlanResult
+		tfMap                  map[string]dto.DataTimeframe
+		tfHighestTechnicalData dto.TradingViewScanner
+		highestWeightTF        string
+		highestWeightTFScore   int
 	)
 
 	if len(latestAnalyses) == 0 {
@@ -66,6 +70,10 @@ func (s *tradingService) CreateTradePlan(ctx context.Context, latestAnalyses []m
 	tfMap = make(map[string]dto.DataTimeframe)
 	for _, tf := range timeframes {
 		tfMap[tf.Interval] = tf
+		if tf.Weight > highestWeightTFScore {
+			highestWeightTF = tf.Interval
+			highestWeightTFScore = tf.Weight
+		}
 	}
 
 	lastAnalysis := latestAnalyses[len(latestAnalyses)-1]
@@ -92,7 +100,9 @@ func (s *tradingService) CreateTradePlan(ctx context.Context, latestAnalyses []m
 		}
 
 		isMainTF := tfMap[analysis.Timeframe].IsMain
-		if isMainTF {
+
+		if analysis.Timeframe == highestWeightTF {
+			tfHighestTechnicalData = technicalData
 			mainTFCandles = candles
 		}
 
@@ -147,6 +157,8 @@ func (s *tradingService) CreateTradePlan(ctx context.Context, latestAnalyses []m
 		IsBuySignal:        positionAnalysis.Status == dto.Safe && (positionAnalysis.TechnicalSignal == dto.SignalBuy || positionAnalysis.TechnicalSignal == dto.SignalStrongBuy),
 		SLReason:           plan.SLReason,
 		TPReason:           plan.TPReason,
+		IndicatorSummary:   s.CreateIndicatorSummary(&tfHighestTechnicalData, mainTFCandles),
+		Insights:           positionAnalysis.Insight,
 	}
 	s.log.DebugContext(ctx, "Finished create trade plan", logger.StringField("stock_code", stockCodeWithExchange))
 
@@ -416,4 +428,15 @@ func (s *tradingService) countTouches(candles []dto.StockOHLCV, level float64, i
 		}
 	}
 	return touches
+}
+
+func (s *tradingService) CreateIndicatorSummary(technicalData *dto.TradingViewScanner, candles []dto.StockOHLCV) model.IndicatorSummary {
+
+	return model.IndicatorSummary{
+		RSI:    dto.GetRSIStatus(int(technicalData.Value.Oscillators.RSI)),
+		Volume: utils.FormatVolume(candles[len(candles)-1].Volume),
+		MACD:   dto.GetTrendText(technicalData.Recommend.Oscillators.MACD),
+		MA:     dto.GetTrendText(technicalData.Recommend.Global.MA),
+		Osc:    dto.GetSignalText(technicalData.Recommend.Global.Oscillators),
+	}
 }

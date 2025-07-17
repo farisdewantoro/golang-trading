@@ -32,8 +32,6 @@ Pilih salah satu tombol di bawah untuk melihat daftar rekomendasi BUY dari masin
 
 	exchanges := common.GetExchangeList()
 
-	exchanges = append(exchanges, "SEMUA")
-
 	for _, exchange := range exchanges {
 		tempRow = append(tempRow, menu.Data(exchange, btnShowBuyListAnalysis.Unique, exchange))
 		if len(tempRow) == 2 {
@@ -138,7 +136,7 @@ Coba lagi nanti atau gunakan filter /analyze untuk menemukan peluang baru.`
 			if _, ok := positionsMap[tradePlan.Symbol]; ok {
 				buyListResultMsg.WriteString("\n")
 				buyListResultMsg.WriteString(fmt.Sprintf("<b>%d. %s - [OWNED ✅]</b>\n", buyCount, tradePlan.Symbol))
-				buyListResultMsg.WriteString(fmt.Sprintf("%s | Score: %.2f\n", tradePlan.Status, tradePlan.Score))
+				buyListResultMsg.WriteString(fmt.Sprintf("%s | Score: %.2f\n", tradePlan.TechnicalSignal, tradePlan.Score))
 				continue
 			}
 
@@ -148,7 +146,7 @@ Coba lagi nanti atau gunakan filter /analyze untuk menemukan peluang baru.`
 			buyListResultMsg.WriteString(fmt.Sprintf("Buy: %.2f | RR: %.2f\n", tradePlan.Entry, tradePlan.RiskReward))
 			buyListResultMsg.WriteString(fmt.Sprintf("TP: %.2f (%s)\n", tradePlan.TakeProfit, utils.FormatChange(tradePlan.Entry, tradePlan.TakeProfit)))
 			buyListResultMsg.WriteString(fmt.Sprintf("SL: %.2f (%s)\n", tradePlan.StopLoss, utils.FormatChange(tradePlan.Entry, tradePlan.StopLoss)))
-			buyListResultMsg.WriteString(fmt.Sprintf("%s | Score: %.2f\n", tradePlan.Status, tradePlan.Score))
+			buyListResultMsg.WriteString(fmt.Sprintf("%s | Score: %.2f\n", tradePlan.TechnicalSignal, tradePlan.Score))
 
 			if len(buySymbols) >= t.cfg.Trading.MaxBuyList {
 				break

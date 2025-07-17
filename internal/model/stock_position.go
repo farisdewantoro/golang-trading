@@ -16,6 +16,9 @@ type StockPosition struct {
 	BuyPrice              float64    `gorm:"not null" json:"buy_price"`
 	TakeProfitPrice       float64    `gorm:"not null" json:"take_profit_price"`
 	StopLossPrice         float64    `gorm:"not null" json:"stop_loss_price"`
+	HighestPriceSinceTTP  float64    `gorm:"default:0" json:"highest_price_since_ttp"`
+	TrailingProfitPrice   float64    `gorm:"not null" json:"trailing_profit_price"`
+	TrailingStopPrice     float64    `gorm:"not null" json:"trailing_stop_price"`
 	BuyDate               time.Time  `gorm:"not null" json:"buy_date"`
 	IsActive              *bool      `gorm:"not null" json:"is_active"`
 	ExitPrice             *float64   `json:"exit_price"`

@@ -77,10 +77,11 @@ func (p PositionStatus) String() string {
 type Signal string
 
 const (
-	TakeProfit   Signal = "take_profit"
-	CutLoss      Signal = "cut_loss"
-	TrailingStop Signal = "trailing_stop"
-	Hold         Signal = "hold"
+	TakeProfit     Signal = "take_profit"
+	CutLoss        Signal = "cut_loss"
+	TrailingStop   Signal = "trailing_stop"
+	TrailingProfit Signal = "trailing_profit"
+	Hold           Signal = "hold"
 )
 
 func (s Signal) String() string {

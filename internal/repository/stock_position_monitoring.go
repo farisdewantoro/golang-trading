@@ -36,33 +36,41 @@ func (r *stockPositionMonitoringRepository) GetRecentDistinctMonitorings(ctx con
 	var results []model.StockPositionMonitoring
 
 	query := `
-	WITH ranked AS (
-	  SELECT
-	    id,
-	    stock_position_id,
-	    evaluation_summary,
-	    "timestamp",
-	    created_at,
-	    market_price,
-	    evaluation_summary->>'technical_score' as technical_score,
-	    LAG(evaluation_summary->>'technical_score') OVER (PARTITION BY stock_position_id ORDER BY "timestamp" DESC) AS prev_tech_score,
-	    LAG(market_price) OVER (PARTITION BY stock_position_id ORDER BY "timestamp" DESC) AS prev_price
-
-	  FROM stock_position_monitorings
-	  WHERE stock_position_id = ? AND deleted_at IS NULL
-	),
-	filtered AS (
-	  SELECT *
-	  FROM ranked
-	  WHERE
-	    prev_tech_score IS NULL OR
-	    technical_score IS DISTINCT FROM prev_tech_score OR
-	    market_price IS DISTINCT FROM prev_price
-	)
-	SELECT *
-	FROM filtered
-	ORDER BY created_at DESC
-	LIMIT ?
+WITH base AS (
+  SELECT
+    *,
+    DATE_TRUNC('day', "timestamp") as day,
+    evaluation_summary->'technical_analysis_summary'->>'score' AS score,
+    evaluation_summary->'technical_analysis_summary'->>'technical_signal' AS technical_signal,
+    evaluation_summary->'technical_analysis_summary'->>'status' AS status,
+    evaluation_summary->'position_signal' AS position_signal,
+    LAG(evaluation_summary->'technical_analysis_summary'->>'score') OVER (PARTITION BY stock_position_id ORDER BY "timestamp" DESC) AS prev_score,
+    LAG(evaluation_summary->'technical_analysis_summary'->>'technical_signal') OVER (PARTITION BY stock_position_id ORDER BY "timestamp" DESC) AS prev_technical_signal,
+    LAG(evaluation_summary->'technical_analysis_summary'->>'status') OVER (PARTITION BY stock_position_id ORDER BY "timestamp" DESC) AS prev_status,
+    LAG(evaluation_summary->'position_signal') OVER (PARTITION BY stock_position_id ORDER BY "timestamp" DESC) AS prev_position_signal,
+    LAG(market_price) OVER (PARTITION BY stock_position_id ORDER BY "timestamp" DESC) AS prev_price
+  FROM stock_position_monitorings
+  WHERE stock_position_id = ? AND deleted_at IS NULL
+),
+ranked_per_day AS (
+  SELECT *,
+         ROW_NUMBER() OVER (PARTITION BY day ORDER BY "timestamp" DESC) AS rn,
+         CASE
+           WHEN prev_score IS NULL THEN true
+           WHEN score IS DISTINCT FROM prev_score THEN true
+           WHEN technical_signal IS DISTINCT FROM prev_technical_signal THEN true
+           WHEN status IS DISTINCT FROM prev_status THEN true
+           WHEN position_signal IS DISTINCT FROM prev_position_signal THEN true
+           WHEN market_price IS DISTINCT FROM prev_price THEN true
+           ELSE false
+         END AS is_changed
+  FROM base
+)
+SELECT *
+FROM ranked_per_day
+WHERE rn = 1
+ORDER BY created_at DESC
+LIMIT ?
 	`
 
 	err := utils.ApplyOptions(r.db.WithContext(ctx), opts...).Raw(query, param.StockPositionID, param.Limit).Scan(&results).Error

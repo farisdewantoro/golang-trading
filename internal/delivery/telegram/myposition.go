@@ -53,11 +53,11 @@ func (t *TelegramBotHandler) showMyPosition(ctx context.Context, c telebot.Conte
 		// sb.WriteString(fmt.Sprintf("\n 🎯 Buy: %d | TP: %d | SL: %d\n", int(position.BuyPrice), int(position.TakeProfitPrice), int(position.StopLossPrice)))
 
 		var (
-			marketPrice        float64
-			techScore          string
-			techRecommendation string
-			pnl                string
-			techSignal         string
+			marketPrice float64
+			techScore   string
+			techStatus  string
+			pnl         string
+			signal      string
 		)
 
 		isHasMonitoring := len(position.StockPositionMonitorings) > 0
@@ -73,13 +73,12 @@ func (t *TelegramBotHandler) showMyPosition(ctx context.Context, c telebot.Conte
 		if marketPrice > 0 {
 			pnl = utils.FormatChangeWithIcon(position.BuyPrice, marketPrice)
 		}
-		sb.WriteString(fmt.Sprintf("  • Last Price: %.2f\n", marketPrice))
-		sb.WriteString(fmt.Sprintf("  • PnL: %s\n", pnl))
+		sb.WriteString(fmt.Sprintf("  • Current: %.2f %s\n", marketPrice, pnl))
 
 		if !isHasMonitoring {
 			techScore = "N/A"
-			techRecommendation = "N/A"
-			techSignal = "N/A"
+			techStatus = "N/A"
+			signal = "N/A"
 		} else {
 
 			var evalSummary model.PositionAnalysisSummary
@@ -88,14 +87,14 @@ func (t *TelegramBotHandler) showMyPosition(ctx context.Context, c telebot.Conte
 			if err != nil {
 				continue
 			}
-			techScore = fmt.Sprintf("%.2f", evalSummary.TechnicalAnalysis.Score)
-			techRecommendation = dto.PositionStatus(evalSummary.TechnicalAnalysis.Status).String()
-			techSignal = dto.Signal(evalSummary.TechnicalAnalysis.Signal).String()
+			techScore = fmt.Sprintf("%.2f (%s)", evalSummary.TechnicalAnalysis.Score, evalSummary.TechnicalAnalysis.Signal)
+			techStatus = dto.PositionStatus(evalSummary.TechnicalAnalysis.Status).String()
+			signal = dto.Signal(evalSummary.PositionSignal).String()
 		}
 
-		sb.WriteString(fmt.Sprintf("  • Status: %s (TA)\n", techRecommendation))
-		sb.WriteString(fmt.Sprintf("  • Score: %s (TA)\n", techScore))
-		sb.WriteString(fmt.Sprintf("  • Signal: %s (TA)\n", techSignal))
+		sb.WriteString(fmt.Sprintf("  • Status: %s\n", techStatus))
+		sb.WriteString(fmt.Sprintf("  • Score: %s\n", techScore))
+		sb.WriteString(fmt.Sprintf("  • Signal: %s\n", signal))
 
 		sb.WriteString("\n")
 	}
