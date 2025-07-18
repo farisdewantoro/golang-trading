@@ -31,6 +31,14 @@ func (s *tradingService) EvaluatePositionMonitoring(
 		HighestPriceSinceTTP: stockPosition.HighestPriceSinceTTP,
 	}
 
+	if stockPosition.TrailingProfitPrice > stockPosition.TakeProfitPrice {
+		result.TakeProfitPrice = stockPosition.TrailingProfitPrice
+	}
+
+	if stockPosition.TrailingStopPrice > stockPosition.StopLossPrice {
+		result.StopLossPrice = stockPosition.TrailingStopPrice
+	}
+
 	timeframes, err := s.systemParamRepository.GetDefaultAnalysisTimeframes(ctx)
 	if err != nil {
 		return nil, err
@@ -375,6 +383,11 @@ func (s *tradingService) evaluateTrailingTakeProfit(
 
 		if explanation != "" {
 			result.Insight = append(result.Insight, explanation)
+		}
+
+		if isBeyondOriginalTP && !hasPotential {
+			result.Signal = dto.TakeProfit
+			return
 		}
 
 		if isBeyondOriginalTP && hasPotential {

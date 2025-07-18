@@ -101,9 +101,9 @@ func (t *TelegramBotHandler) showMyPositionDetail(ctx context.Context, c telebot
 	}
 	sb.WriteString("\n")
 	sb.WriteString("<b>📊 Evaluasi Terbaru</b>\n")
-	sb.WriteString(fmt.Sprintf("  • Score: %.2f (TA)\n", evalSummary.TechnicalAnalysis.Score))
-	sb.WriteString(fmt.Sprintf("  • Signal: %s (TA)\n", dto.Signal(evalSummary.PositionSignal).String()))
-	sb.WriteString(fmt.Sprintf("  • Status: %s (TA)\n", dto.PositionStatus(evalSummary.TechnicalAnalysis.Status).String()))
+	sb.WriteString(fmt.Sprintf("  • Score: %.2f\n", evalSummary.TechnicalAnalysis.Score))
+	sb.WriteString(fmt.Sprintf("  • Signal: %s\n", dto.Signal(evalSummary.PositionSignal).String()))
+	sb.WriteString(fmt.Sprintf("  • Status: %s\n", dto.PositionStatus(evalSummary.TechnicalAnalysis.Status).String()))
 	sb.WriteString(fmt.Sprintf("  • TA Signal: %s\n", evalSummary.TechnicalAnalysis.Signal))
 
 	sb.WriteString("\n")
