@@ -371,11 +371,15 @@ func (s *tradingService) evaluateTrailingTakeProfit(
 	if !isTTPActive {
 		// Coba aktifkan hanya jika TP awal tercapai dengan momentum kuat.
 		isBeyondOriginalTP := result.LastPrice > pos.TakeProfitPrice
-		hasPotential, _, _ := s.evaluatePotentialAtTakeProfit(mainTA, mainOHLCV)
+		hasPotential, explanation, _ := s.evaluatePotentialAtTakeProfit(mainTA, mainOHLCV)
+
+		if explanation != "" {
+			result.Insight = append(result.Insight, explanation)
+		}
 
 		if isBeyondOriginalTP && hasPotential {
 			// --- AKTIVASI TTP ---
-			s.log.InfoContext(context.Background(), fmt.Sprintf("TTP Activation Triggered for %s", pos.StockCode))
+			s.log.Info(fmt.Sprintf("TTP Activation Triggered for %s", pos.StockCode))
 
 			// 1. Hitung nilai BARU dan tulis ke DTO 'result' untuk disimpan nanti.
 			result.HighestPriceSinceTTP = result.LastPrice
