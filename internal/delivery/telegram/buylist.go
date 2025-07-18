@@ -93,9 +93,9 @@ Coba lagi nanti atau gunakan filter /analyze untuk menemukan peluang baru.`
 			IsActive:   utils.ToPointer(true),
 		})
 		if err != nil {
-			_, errSend := t.telegram.Send(ctx, c, commonErrorInternal)
+			_, errSend := t.telegram.Send(newCtx, c, commonErrorInternal)
 			if errSend != nil {
-				t.log.ErrorContext(ctx, "Failed to send internal error message", logger.ErrorField(errSend))
+				t.log.ErrorContext(newCtx, "Failed to send internal error message", logger.ErrorField(errSend))
 			}
 			return
 		}
@@ -166,9 +166,9 @@ Coba lagi nanti atau gunakan filter /analyze untuk menemukan peluang baru.`
 			msgNoExist := `❌ Tidak ditemukan sinyal BUY hari ini.
 
 Coba lagi nanti atau gunakan filter /analyze untuk menemukan peluang baru.`
-			_, errSend := t.telegram.Edit(ctx, c, msg, msgNoExist)
+			_, errSend := t.telegram.Edit(newCtx, c, msg, msgNoExist)
 			if errSend != nil {
-				t.log.ErrorContext(ctx, "Failed to send internal error message", logger.ErrorField(errSend))
+				t.log.ErrorContext(newCtx, "Failed to edit message", logger.ErrorField(errSend))
 			}
 			return
 		}

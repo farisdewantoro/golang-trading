@@ -174,15 +174,15 @@ func (r *TelegramRateLimiter) checkRateLimit(ctx context.Context, senderID int64
 	messageLimiter := r.getMessageLimiter(chatID)
 
 	if err := messageLimiter.limiter.Wait(ctx); err != nil {
-		r.log.ErrorContext(ctx, "Failed to wait for message rate limit", logger.ErrorField(err))
+		r.log.ErrorContextWithAlert(ctx, "Failed to wait for message rate limit telegram", logger.ErrorField(err))
 		return err
 	}
 	if err := r.globalLimiter.Wait(ctx); err != nil {
-		r.log.ErrorContext(ctx, "Failed to wait for global rate limit", logger.ErrorField(err))
+		r.log.ErrorContextWithAlert(ctx, "Failed to wait for global rate limit telegram", logger.ErrorField(err))
 		return err
 	}
 	if err := userLimiter.limiter.Wait(ctx); err != nil {
-		r.log.ErrorContext(ctx, "Failed to wait for user rate limit", logger.ErrorField(err))
+		r.log.ErrorContextWithAlert(ctx, "Failed to wait for user rate limit telegram", logger.ErrorField(err))
 		return err
 	}
 	return nil

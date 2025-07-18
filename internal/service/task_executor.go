@@ -57,6 +57,11 @@ func (t *taskExecutor) Execute(ctx context.Context, taskHistory *model.TaskExecu
 		}
 		taskHistory.ExitCode = sql.NullInt32{Int32: result.ExitCode, Valid: true}
 		taskHistory.Output = sql.NullString{String: result.Output, Valid: true}
+		t.log.DebugContext(ctx, "Finished execute job",
+			logger.IntField("job_id", int(taskHistory.JobID)),
+			logger.StringField("job_name", job.Name),
+			logger.StringField("output", result.Output),
+			logger.IntField("history_id", int(taskHistory.ID)))
 	}
 
 	taskHistory.CompletedAt = sql.NullTime{Time: utils.TimeNowWIB(), Valid: true}
