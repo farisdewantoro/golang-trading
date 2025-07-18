@@ -149,6 +149,9 @@ func (s *StockPositionMonitoringStrategy) EvaluateStockPosition(ctx context.Cont
 				return
 			}
 
+			isTrailing := positionAnalysis.TrailingProfitPrice > stockPosition.TrailingProfitPrice ||
+				positionAnalysis.TrailingStopPrice > stockPosition.TrailingStopPrice
+
 			summary := model.PositionAnalysisSummary{
 				TechnicalAnalysis: model.PositionTechnicalAnalysisSummary{
 					Signal:           string(positionAnalysis.TechnicalSignal),
@@ -196,7 +199,7 @@ func (s *StockPositionMonitoringStrategy) EvaluateStockPosition(ctx context.Cont
 					})
 				}
 				stockPositionMonitorings = append(stockPositionMonitorings, stockPositionMonitoring)
-				shouldSendTelegram := summary.TechnicalAnalysis.Status != string(dto.Safe) || summary.PositionSignal == string(dto.TrailingStop)
+				shouldSendTelegram := summary.TechnicalAnalysis.Status != string(dto.Safe) || isTrailing
 				if shouldSendTelegram {
 					sendTelegramToUsers = append(sendTelegramToUsers, stockPosition)
 				}
