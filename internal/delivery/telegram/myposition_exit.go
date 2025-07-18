@@ -6,6 +6,7 @@ import (
 	"golang-trading/internal/dto"
 	"golang-trading/internal/model"
 	"golang-trading/pkg/cache"
+	"golang-trading/pkg/common"
 	"golang-trading/pkg/logger"
 	"golang-trading/pkg/utils"
 	"strconv"
@@ -52,12 +53,19 @@ func (t *TelegramBotHandler) handleBtnExitStockPosition(ctx context.Context, c t
 		return err
 	}
 
+	stockCodeWithExchange := stockPosition[0].Exchange + ":" + stockPosition[0].StockCode
+	marketPrice, _ := cache.GetFromCache[float64](fmt.Sprintf(common.KEY_LAST_PRICE, stockCodeWithExchange))
+
+	if marketPrice == 0 && len(stockPosition[0].StockPositionMonitorings) > 0 {
+		marketPrice = stockPosition[0].StockPositionMonitorings[0].MarketPrice
+	}
+
 	msg := fmt.Sprintf(`🚀 Exit posisi saham <b>%s (1/2)</b>
 %s
 Masukkan <b>harga jual</b> kamu di bawah ini (dalam angka).  
-Contoh: 175
+Last Price: %.2f
 
-`, parts[0], t.msgCurrentPosition(&stockPosition[0]))
+`, parts[0], t.msgCurrentPosition(&stockPosition[0], marketPrice), marketPrice)
 
 	_, err = t.telegram.Edit(ctx, c, c.Message(), msg, &telebot.SendOptions{ParseMode: telebot.ModeHTML})
 	if err != nil {
@@ -106,6 +114,13 @@ func (t *TelegramBotHandler) handleExitPositionConversation(ctx context.Context,
 		return err
 	}
 
+	stockCodeWithExchange := stockPosition[0].Exchange + ":" + stockPosition[0].StockCode
+	marketPrice, _ := cache.GetFromCache[float64](fmt.Sprintf(common.KEY_LAST_PRICE, stockCodeWithExchange))
+
+	if marketPrice == 0 && len(stockPosition[0].StockPositionMonitorings) > 0 {
+		marketPrice = stockPosition[0].StockPositionMonitorings[0].MarketPrice
+	}
+
 	switch state {
 	case StateWaitingExitPositionInputExitPrice:
 		price, err := strconv.ParseFloat(text, 64)
@@ -114,10 +129,11 @@ func (t *TelegramBotHandler) handleExitPositionConversation(ctx context.Context,
 		}
 		data.ExitPrice = price
 		t.inmemoryCache.Set(fmt.Sprintf(UserDataKey, userID), data, t.cfg.Cache.TelegramStateExpDuration)
+
 		_, err = t.telegram.Send(ctx, c, fmt.Sprintf(`
 🚀 Exit posisi saham <b>%s (2/2)</b>
 %s
-📅 Kapan tanggal jualnya? (contoh: %s)`, data.Symbol, t.msgCurrentPosition(&stockPosition[0]), utils.TimeNowWIB().Format("2006-01-02")), &telebot.SendOptions{ParseMode: telebot.ModeHTML})
+📅 Kapan tanggal jualnya? (contoh: %s)`, data.Symbol, t.msgCurrentPosition(&stockPosition[0], marketPrice), utils.TimeNowWIB().Format("2006-01-02")), &telebot.SendOptions{ParseMode: telebot.ModeHTML})
 		if err != nil {
 			return err
 		}
@@ -134,9 +150,9 @@ func (t *TelegramBotHandler) handleExitPositionConversation(ctx context.Context,
 📌 Mohon cek kembali data yang kamu masukkan:
 
 • Kode Saham   : %s 
-• Harga Exit   : %.2f  
+• Harga Exit   : %.2f %s  
 • Tanggal Exit : %s  
-		`, data.Symbol, data.ExitPrice, data.ExitDate.Format("2006-01-02"))
+		`, data.Symbol, data.ExitPrice, utils.FormatChangeWithIcon(stockPosition[0].BuyPrice, data.ExitPrice), data.ExitDate.Format("2006-01-02"))
 		menu := &telebot.ReplyMarkup{}
 		btnSave := menu.Data(btnSaveExitPosition.Text, btnSaveExitPosition.Unique)
 		btnCancel := menu.Data(btnCancelGeneral.Text, btnCancelGeneral.Unique)
@@ -206,7 +222,7 @@ func (t *TelegramBotHandler) handleBtnSaveExitPosition(ctx context.Context, c te
 	return nil
 }
 
-func (t *TelegramBotHandler) msgCurrentPosition(stockPosition *model.StockPosition) string {
+func (t *TelegramBotHandler) msgCurrentPosition(stockPosition *model.StockPosition, marketPrice float64) string {
 	if stockPosition == nil {
 		return ""
 	}
@@ -225,6 +241,7 @@ func (t *TelegramBotHandler) msgCurrentPosition(stockPosition *model.StockPositi
 		sb.WriteString(fmt.Sprintf("• SL: %.2f (%s)\n", stockPosition.StopLossPrice, utils.FormatChange(stockPosition.BuyPrice, stockPosition.StopLossPrice)))
 	}
 	sb.WriteString(fmt.Sprintf("• Buy Date: %s\n", stockPosition.BuyDate.Format("2006-01-02")))
+	sb.WriteString(fmt.Sprintf("• PnL: %s\n", utils.FormatChangeWithIcon(stockPosition.BuyPrice, marketPrice)))
 	return sb.String()
 
 }

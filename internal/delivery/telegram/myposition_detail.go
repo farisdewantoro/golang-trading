@@ -60,7 +60,7 @@ func (t *TelegramBotHandler) showMyPositionDetail(ctx context.Context, c telebot
 	sb.WriteString(fmt.Sprintf("  • Buy: %s (%d Hari)\n", stockPosition.BuyDate.Format("2006-01-02"), ageDays))
 	sb.WriteString(fmt.Sprintf("  • Entry: %.2f \n", stockPosition.BuyPrice))
 	sb.WriteString(fmt.Sprintf("  • Last Price: %.2f\n", marketPrice))
-	sb.WriteString(fmt.Sprintf("  • PnL: %s\n", utils.FormatChange(stockPosition.BuyPrice, marketPrice)))
+	sb.WriteString(fmt.Sprintf("  • PnL: %s\n", utils.FormatChangeWithIcon(stockPosition.BuyPrice, marketPrice)))
 	if stockPosition.TrailingProfitPrice > 0 {
 		sb.WriteString(fmt.Sprintf("  • TP: %.2f ➡️ %.2f (%s)\n", stockPosition.TakeProfitPrice, stockPosition.TrailingProfitPrice, utils.FormatChange(stockPosition.BuyPrice, stockPosition.TrailingProfitPrice)))
 	} else {
