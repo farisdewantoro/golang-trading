@@ -92,6 +92,8 @@ func (s Signal) String() string {
 		return "🔴 Cut Loss"
 	case TrailingStop:
 		return "🟠 Trailing Stop"
+	case TrailingProfit:
+		return "🟠 Trailing Profit"
 	case Hold:
 		return "🟡 Hold"
 	default:

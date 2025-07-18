@@ -378,7 +378,7 @@ func (s *tradingService) evaluateTrailingTakeProfit(
 	// --- FASE 1: Logika Aktivasi TTP ---
 	if !isTTPActive {
 		// Coba aktifkan hanya jika TP awal tercapai dengan momentum kuat.
-		isBeyondOriginalTP := result.LastPrice > pos.TakeProfitPrice
+		isBeyondOriginalTP := result.LastPrice >= pos.TakeProfitPrice
 		hasPotential, explanation, _ := s.evaluatePotentialAtTakeProfit(mainTA, mainOHLCV)
 
 		if explanation != "" {
