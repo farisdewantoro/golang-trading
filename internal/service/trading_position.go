@@ -372,12 +372,10 @@ func (s *tradingService) evaluateTrailingTakeProfit(
 	mainOHLCV []dto.StockOHLCV,
 ) {
 	// Cek apakah TTP sudah aktif dengan membaca state LAMA dari database.
-	// Jika TrailingProfitPrice bukan 0, berarti TTP sudah pernah diaktifkan.
 	isTTPActive := pos.TrailingProfitPrice > 0
 
 	// --- FASE 1: Logika Aktivasi TTP ---
 	if !isTTPActive {
-		// Coba aktifkan hanya jika TP awal tercapai dengan momentum kuat.
 		isBeyondOriginalTP := result.LastPrice >= pos.TakeProfitPrice
 		hasPotential, explanation, _ := s.evaluatePotentialAtTakeProfit(mainTA, mainOHLCV)
 
@@ -394,32 +392,48 @@ func (s *tradingService) evaluateTrailingTakeProfit(
 			// --- AKTIVASI TTP ---
 			s.log.Info(fmt.Sprintf("TTP Activation Triggered for %s", pos.StockCode))
 
-			// 1. Hitung nilai BARU dan tulis ke DTO 'result' untuk disimpan nanti.
-			result.HighestPriceSinceTTP = result.LastPrice
-			// Set harga trigger awal, misal, 3% di bawah puncak.
-			result.TrailingProfitPrice = result.HighestPriceSinceTTP * (1.0 - 0.03)
+			// 1. Harga puncak awal adalah harga saat ini.
+			initialHighestPrice := result.LastPrice
+			result.HighestPriceSinceTTP = initialHighestPrice
 
-			// 2. Set sinyal menjadi TrailingProfit untuk menunjukkan mode baru ini.
+			// 2. Hitung kandidat trigger TTP (turun 3% dari puncak).
+			candidateTriggerPrice := initialHighestPrice * (1.0 - 0.03)
+
+			// 3. ATURAN EMAS: Trigger TTP tidak boleh lebih rendah dari TP awal.
+			//    Pilih mana yang lebih tinggi antara kandidat trigger dan TP awal.
+			//    Ini memastikan kita tidak pernah keluar di bawah target profit awal kita.
+			if candidateTriggerPrice > pos.TakeProfitPrice {
+				result.TrailingProfitPrice = candidateTriggerPrice
+			} else {
+				result.TrailingProfitPrice = pos.TakeProfitPrice
+			}
+
 			result.Signal = dto.TrailingProfit
-
-			// 3. Tambahkan insight aktivasi yang jelas.
-			result.Insight = append(result.Insight, fmt.Sprintf("MODE TTP AKTIF: Target profit awal tercapai dengan momentum kuat. Sistem kini akan memaksimalkan keuntungan."))
+			result.Insight = append(result.Insight, fmt.Sprintf("MODE TTP AKTIF: Target profit awal (%.2f) tercapai dengan momentum kuat. Jaring pengaman profit sekarang di %.2f.", pos.TakeProfitPrice, result.TrailingProfitPrice))
 		}
-		// Hentikan fungsi di sini, baik TTP baru aktif atau gagal aktif.
-		// Analisis eksekusi TTP akan terjadi pada pemanggilan berikutnya.
 		return
 	}
 
-	// --- FASE 2: Logika Eksekusi & Pembaruan TTP (jika sudah aktif) ---
-
 	// Inisialisasi nilai BARU dengan nilai LAMA sebagai dasar.
 	newHighestPrice := pos.HighestPriceSinceTTP
+	// Gunakan trigger lama sebagai dasar sementara
 	newTriggerPrice := pos.TrailingProfitPrice
 
 	// Perbarui harga puncak dan harga trigger jika rekor baru tercapai.
 	if result.LastPrice > newHighestPrice {
 		newHighestPrice = result.LastPrice
-		newTriggerPrice = newHighestPrice * (1.0 - 0.03) // Hitung ulang trigger.
+
+		// Hitung ulang kandidat trigger dinamis.
+		candidateTriggerPrice := newHighestPrice * (1.0 - 0.03)
+
+		// ATURAN EMAS: Trigger baru tidak boleh lebih rendah dari trigger LAMA.
+		// Ini memastikan jaring pengaman tidak pernah turun.
+		if candidateTriggerPrice > pos.TrailingProfitPrice {
+			newTriggerPrice = candidateTriggerPrice
+		}
+		// Jika kandidat baru lebih rendah (misal, karena koreksi kecil),
+		// kita tetap menggunakan trigger lama (pos.TrailingProfitPrice).
+		// Jadi, 'newTriggerPrice' akan sama dengan 'pos.TrailingProfitPrice'.
 	}
 
 	// Tulis nilai BARU yang sudah dihitung ke DTO 'result' agar bisa disimpan nanti.
