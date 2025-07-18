@@ -87,7 +87,7 @@ func (s *tradingService) EvaluatePositionMonitoring(
 
 	// Prioritas #2: Kelola Trailing Take Profit (TTP)
 	// Fungsi ini akan mengubah nilai TTP di dalam 'result' dan bisa menyarankan sinyal exit
-	s.evaluateTrailingTakeProfit(result, stockPosition, mainData.MainTA, mainData.MainOHLCV)
+	s.evaluateTrailingTakeProfit(result, stockPosition, mainData.MainTA, mainData.SecondaryTA, mainData.MainOHLCV)
 	if result.Signal == dto.TakeProfit {
 		finalSignal = dto.TakeProfit
 	}
@@ -369,6 +369,7 @@ func (s *tradingService) evaluateTrailingTakeProfit(
 	result *dto.PositionAnalysis, // Target DTO yang akan diisi dengan state baru.
 	pos *model.StockPosition, // State LAMA dari database (hanya untuk dibaca).
 	mainTA *dto.TradingViewScanner,
+	secondaryTA *dto.TradingViewScanner,
 	mainOHLCV []dto.StockOHLCV,
 ) {
 	// Cek apakah TTP sudah aktif dengan membaca state LAMA dari database.
@@ -453,6 +454,25 @@ func (s *tradingService) evaluateTrailingTakeProfit(
 		result.Signal = dto.TakeProfit
 		result.Status = dto.Safe
 		result.Insight = append(result.Insight, "SINYAL TAKE PROFIT (Trailing): Terbentuk pola Bearish Engulfing, mengindikasikan pembalikan momentum.")
+		return
+	}
+
+	// Aturan Eksekusi 3: Cross di Bawah MA Jangka Pendek
+	ema20 := mainTA.Value.MovingAverages.EMA20
+	if ema20 > 0 && result.LastPrice < ema20 {
+		result.Signal = dto.TakeProfit
+		result.Status = dto.Safe
+		result.Insight = append(result.Insight, fmt.Sprintf("SINYAL TP (Trailing): Harga cross ke bawah EMA20 (%.2f).", ema20))
+		return
+	}
+
+	// Aturan Eksekusi 4: Sinyal Teknikal Melemah
+	isWeakSignal := (mainTA.Recommend.Global.Summary != dto.TradingViewSignalBuy && mainTA.Recommend.Global.Summary != dto.TradingViewSignalStrongBuy) ||
+		(secondaryTA != nil && (secondaryTA.Recommend.Global.Summary != dto.TradingViewSignalBuy && secondaryTA.Recommend.Global.Summary != dto.TradingViewSignalStrongBuy))
+	if isWeakSignal {
+		result.Signal = dto.TakeProfit
+		result.Status = dto.Safe
+		result.Insight = append(result.Insight, "SINYAL TP (Trailing): Sinyal teknikal umum melemah.")
 		return
 	}
 
