@@ -242,9 +242,9 @@ func (s *StockPositionMonitoringStrategy) SendMessageUser(ctx context.Context, s
 	marketPrice := stockAnalyses[0].MarketPrice
 	for _, stockPosition := range stockPositions {
 		sb := strings.Builder{}
-		if summary.PositionSignal == string(dto.TrailingStop) {
+		if summary.PositionSignal == string(dto.TrailingStop) && summary.TechnicalAnalysis.Status == string(dto.Safe) {
 			sb.WriteString(fmt.Sprintf("<b>💰 Posisi Saham %s:%s amankan profit!</b>\n", stockPosition.Exchange, stockPosition.StockCode))
-		} else if summary.PositionSignal == string(dto.TrailingProfit) {
+		} else if summary.PositionSignal == string(dto.TrailingProfit) && summary.TechnicalAnalysis.Status == string(dto.Safe) {
 			sb.WriteString(fmt.Sprintf("<b>💰 Posisi Saham %s:%s naikkan profit!</b>\n", stockPosition.Exchange, stockPosition.StockCode))
 		} else {
 			sb.WriteString(fmt.Sprintf("<b>⚠️ Posisi Saham %s:%s mulai melemah!</b>\n", stockPosition.Exchange, stockPosition.StockCode))
