@@ -4,11 +4,13 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"golang-trading/pkg/common"
 	"golang-trading/pkg/logger"
 	"html"
 	"log"
 	"math"
 	"runtime"
+	"strconv"
 	"strings"
 	"time"
 	"unicode"
@@ -188,7 +190,7 @@ func ParseStockSymbol(symbol string) (stockCode string, exchange string, err err
 	return
 }
 
-func FormatVolume(volume int64) string {
+func FormatVolume(volume float64) string {
 	switch {
 	case volume >= 1_000_000_000:
 		return fmt.Sprintf("%.1fB", float64(volume)/1e9)
@@ -197,7 +199,7 @@ func FormatVolume(volume int64) string {
 	case volume >= 1_000:
 		return fmt.Sprintf("%.1fK", float64(volume)/1e3)
 	default:
-		return fmt.Sprintf("%d", volume)
+		return fmt.Sprintf("%.2f", volume)
 	}
 }
 
@@ -278,4 +280,38 @@ func EscapeHTMLForTelegram(s string) string {
 	s = strings.ReplaceAll(s, "<", "&lt;")
 	s = strings.ReplaceAll(s, ">", "&gt;")
 	return s
+}
+
+func FormatPrice(price float64, exchange string) string {
+	switch exchange {
+	case common.EXCHANGE_IDX:
+		// Saham Indonesia tanpa koma
+		return fmt.Sprintf("%.0f", price)
+
+	case common.EXCHANGE_NASDAQ:
+		// Saham US: 2–6 desimal tergantung nilai
+		switch {
+		case price >= 1:
+			return fmt.Sprintf("%.2f", price)
+		case price >= 0.01:
+			return fmt.Sprintf("%.4f", price)
+		default:
+			return fmt.Sprintf("%.6f", price)
+		}
+
+	case common.EXCHANGE_BINANCE:
+		switch {
+		case price >= 1000:
+			return fmt.Sprintf("%.2f", price)
+		case price >= 1:
+			return fmt.Sprintf("%.4f", price)
+		case price >= 0.01:
+			return fmt.Sprintf("%.6f", price)
+		default:
+			return fmt.Sprintf("%.8f", price)
+		}
+
+	default:
+		return strconv.FormatFloat(price, 'f', -1, 64)
+	}
 }

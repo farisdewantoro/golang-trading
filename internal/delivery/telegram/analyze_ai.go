@@ -92,9 +92,9 @@ func (t *TelegramBotHandler) showAnalysisAI(ctx context.Context, c telebot.Conte
 	sb.WriteString(fmt.Sprintf("<i>⏰ %s</i>\n", utils.PrettyDate(analysis.Timestamp)))
 	sb.WriteString("\n")
 
-	sb.WriteString(fmt.Sprintf("<b>💰 Harga: %.2f</b>\n", marketPrice))
-	sb.WriteString(fmt.Sprintf("<b>🎯 TP:</b> %.2f (%s)\n", analysis.TargetPrice, utils.FormatChange(marketPrice, analysis.TargetPrice)))
-	sb.WriteString(fmt.Sprintf("<b>🛡 SL:</b> %.2f (%s)\n", analysis.StopLoss, utils.FormatChange(marketPrice, analysis.StopLoss)))
+	sb.WriteString(fmt.Sprintf("<b>💰 Harga: %s</b>\n", utils.FormatPrice(marketPrice, analysis.Exchange)))
+	sb.WriteString(fmt.Sprintf("<b>🎯 TP:</b> %s (%s)\n", utils.FormatPrice(analysis.TargetPrice, analysis.Exchange), utils.FormatChange(marketPrice, analysis.TargetPrice)))
+	sb.WriteString(fmt.Sprintf("<b>🛡 SL:</b> %s (%s)\n", utils.FormatPrice(analysis.StopLoss, analysis.Exchange), utils.FormatChange(marketPrice, analysis.StopLoss)))
 	sb.WriteString(fmt.Sprintf("<b>📊 Score:</b> %d | <b>🤖 Confidence:</b> %d\n", int(analysis.TechnicalScore), int(analysis.Confidence)))
 
 	_, stringRatio, _ := utils.CalculateRiskRewardRatio(marketPrice, analysis.TargetPrice, analysis.StopLoss)

@@ -22,6 +22,7 @@ type Config struct {
 	Gemini        Gemini
 	Trading       Trading
 	StockAnalyzer StockAnalyzer
+	Binance       Binance
 }
 
 type Logger struct {
@@ -80,6 +81,12 @@ type TelegramConfig struct {
 
 	FeatureStockAnalyze TelegramFeatureStockAnalyze
 	FeatureMyPosition   TelegramFeatureMyPosition
+}
+
+type Binance struct {
+	BaseURL             string
+	Timeout             time.Duration
+	MaxRequestPerMinute int
 }
 
 type YahooFinance struct {
@@ -186,6 +193,11 @@ func Load() (*Config, error) {
 			FeatureMyPosition: TelegramFeatureMyPosition{
 				LimitRecentMonitoring: viper.GetInt("TELEGRAM_FEATURE_MY_POSITION_LIMIT_RECENT_MONITORING"),
 			},
+		},
+		Binance: Binance{
+			BaseURL:             viper.GetString("BINANCE_BASE_URL"),
+			Timeout:             viper.GetDuration("BINANCE_TIMEOUT"),
+			MaxRequestPerMinute: viper.GetInt("BINANCE_MAX_REQUEST_PER_MINUTE"),
 		},
 		YahooFinance: YahooFinance{
 			BaseURL:             viper.GetString("YAHOO_FINANCE_BASE_URL"),

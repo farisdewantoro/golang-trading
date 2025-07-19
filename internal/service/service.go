@@ -23,12 +23,12 @@ func NewService(
 	inmemoryCache cache.Cache,
 	telegram *telegram.TelegramRateLimiter,
 ) *Service {
-	analyzerStrategy := strategy.NewStockAnalyzerStrategy(cfg, log, inmemoryCache, repo.StockPositionsRepo, repo.TradingViewScreenersRepo, repo.YahooFinanceRepo, repo.StockAnalysisRepo, repo.SystemParamRepo)
+	analyzerStrategy := strategy.NewStockAnalyzerStrategy(cfg, log, inmemoryCache, repo.StockPositionsRepo, repo.TradingViewScreenersRepo, repo.CandleRepo, repo.StockAnalysisRepo, repo.SystemParamRepo)
 	tradingService := NewTradingService(cfg, log, repo.SystemParamRepo)
 
 	stockPositionMonitoringStrategy := strategy.NewStockPositionMonitoringStrategy(log, inmemoryCache, repo.TradingViewScreenersRepo, telegram, repo.StockPositionsRepo, analyzerStrategy, repo.StockPositionMonitoringRepo, repo.SystemParamRepo, tradingService)
 	executorStrategies := make(map[strategy.JobType]strategy.JobExecutionStrategy)
-	executorStrategies[strategy.JobTypeStockPriceAlert] = strategy.NewStockPriceAlertStrategy(cfg, log, inmemoryCache, repo.TradingViewScreenersRepo, telegram, repo.StockPositionsRepo, repo.YahooFinanceRepo)
+	executorStrategies[strategy.JobTypeStockPriceAlert] = strategy.NewStockPriceAlertStrategy(cfg, log, inmemoryCache, repo.TradingViewScreenersRepo, telegram, repo.StockPositionsRepo, repo.CandleRepo)
 	executorStrategies[strategy.JobTypeStockAnalyzer] = analyzerStrategy
 	executorStrategies[strategy.JobTypeStockPositionMonitor] = stockPositionMonitoringStrategy
 

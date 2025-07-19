@@ -26,7 +26,7 @@ type StockPriceAlertStrategy struct {
 	tradingViewScreenersRepository repository.TradingViewScreenersRepository
 	telegram                       *telegram.TelegramRateLimiter
 	stockPositionsRepository       repository.StockPositionsRepository
-	yahooFinanceRepository         repository.YahooFinanceRepository
+	candleRepository               repository.CandleRepository
 }
 
 // StockPriceAlertPayload defines the payload for stock price alert.
@@ -51,14 +51,14 @@ func NewStockPriceAlertStrategy(
 	tradingViewScreenersRepository repository.TradingViewScreenersRepository,
 	telegram *telegram.TelegramRateLimiter,
 	stockPositionsRepository repository.StockPositionsRepository,
-	yahooFinanceRepository repository.YahooFinanceRepository) JobExecutionStrategy {
+	candleRepository repository.CandleRepository) JobExecutionStrategy {
 	return &StockPriceAlertStrategy{
 		logger:                         logger,
 		inmemoryCache:                  inmemoryCache,
 		tradingViewScreenersRepository: tradingViewScreenersRepository,
 		telegram:                       telegram,
 		stockPositionsRepository:       stockPositionsRepository,
-		yahooFinanceRepository:         yahooFinanceRepository,
+		candleRepository:               candleRepository,
 	}
 }
 
@@ -101,7 +101,7 @@ func (s *StockPriceAlertStrategy) Execute(ctx context.Context, job *model.Job) (
 		}
 
 		s.logger.DebugContext(ctx, "Processing stock alert", logger.StringField("stock_code", stockPosition.StockCode))
-		stockData, err := s.yahooFinanceRepository.Get(ctx, dto.GetStockDataParam{
+		stockData, err := s.candleRepository.Get(ctx, dto.GetStockDataParam{
 			StockCode: stockPosition.StockCode,
 			Range:     payload.DataRange,
 			Interval:  payload.DataInterval,

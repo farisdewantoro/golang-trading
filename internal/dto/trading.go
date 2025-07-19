@@ -14,6 +14,7 @@ type TradePlanResult struct {
 	IsBuySignal        bool
 	Symbol             string
 	TechnicalSignal    string
+	Exchange           string
 
 	SLType   string // jenis SL: support / ema-adjust
 	SLReason string // alasan SL

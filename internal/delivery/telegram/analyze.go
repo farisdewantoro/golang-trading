@@ -132,7 +132,7 @@ func (t *TelegramBotHandler) showAnalysis(ctx context.Context, c telebot.Context
 		sbHeader    strings.Builder
 		sb          strings.Builder
 		// sbPivots    strings.Builder
-
+		exchange    string
 		pivotsLevel []dto.TimeframePivot
 	)
 
@@ -140,6 +140,8 @@ func (t *TelegramBotHandler) showAnalysis(ctx context.Context, c telebot.Context
 		_, err := t.telegram.Send(ctx, c, "❌ Tidak ada analisis")
 		return err
 	}
+
+	exchange = latestAnalyses[0].Exchange
 
 	symbolWithExchange := latestAnalyses[0].Exchange + ":" + latestAnalyses[0].StockCode
 
@@ -189,7 +191,7 @@ func (t *TelegramBotHandler) showAnalysis(ctx context.Context, c telebot.Context
 
 		sb.WriteString("\n")
 		sb.WriteString(fmt.Sprintf("<b>%s</b>\n", valTimeframeSummary))
-		sb.WriteString(fmt.Sprintf("- <b>Close</b>: %.2f (%s) | <b>Vol</b>: %s\n", ohclv[len(ohclv)-1].Close, utils.FormatChange(ohclv[len(ohclv)-1].Open, ohclv[len(ohclv)-1].Close), utils.FormatVolume(ohclv[len(ohclv)-1].Volume)))
+		sb.WriteString(fmt.Sprintf("- <b>Close</b>: %s (%s) | <b>Vol</b>: %s\n", utils.FormatPrice(ohclv[len(ohclv)-1].Close, exchange), utils.FormatChange(ohclv[len(ohclv)-1].Open, ohclv[len(ohclv)-1].Close), utils.FormatVolume(ohclv[len(ohclv)-1].Volume)))
 		sb.WriteString(fmt.Sprintf("- <b>MACD</b>: %s | <b>RSI</b>: %d - %s\n", technicalData.GetTrendMACD(), int(technicalData.Value.Oscillators.RSI), dto.GetRSIStatus(int(technicalData.Value.Oscillators.RSI))))
 		sb.WriteString(fmt.Sprintf("- <b>MA</b>: %s | <b>Osc</b>: %s \n", dto.GetSignalText(technicalData.Recommend.Global.MA), dto.GetSignalText(technicalData.Recommend.Global.Oscillators)))
 
@@ -258,7 +260,7 @@ func (t *TelegramBotHandler) showAnalysis(ctx context.Context, c telebot.Context
 	sbHeader.WriteString(fmt.Sprintf("<i><b>📅 Update: </b>%s</i>", utils.PrettyDate(latestAnalyses[0].Timestamp)))
 	sbHeader.WriteString("\n\n")
 
-	sbHeader.WriteString(fmt.Sprintf("<b>💰 Harga: %.2f</b>\n", marketPrice))
+	sbHeader.WriteString(fmt.Sprintf("<b>💰 Harga: %s</b>\n", utils.FormatPrice(marketPrice, exchange)))
 
 	menu := &telebot.ReplyMarkup{}
 	row := []telebot.Row{}
@@ -266,8 +268,8 @@ func (t *TelegramBotHandler) showAnalysis(ctx context.Context, c telebot.Context
 	row = append(row, menu.Row(btnAskAI))
 
 	if tradePlanResult.TechnicalSignal == dto.SignalStrongBuy || tradePlanResult.TechnicalSignal == dto.SignalBuy {
-		sbHeader.WriteString(fmt.Sprintf("🎯 <b>Take Profit</b>: %.2f (%s)\n", tradePlanResult.TakeProfit, utils.FormatChange(marketPrice, tradePlanResult.TakeProfit)))
-		sbHeader.WriteString(fmt.Sprintf("🛡️ <b>Stop Loss</b>: %.2f (%s)\n", tradePlanResult.StopLoss, utils.FormatChange(marketPrice, tradePlanResult.StopLoss)))
+		sbHeader.WriteString(fmt.Sprintf("🎯 <b>Take Profit</b>: %s (%s)\n", utils.FormatPrice(tradePlanResult.TakeProfit, exchange), utils.FormatChange(marketPrice, tradePlanResult.TakeProfit)))
+		sbHeader.WriteString(fmt.Sprintf("🛡️ <b>Stop Loss</b>: %s (%s)\n", utils.FormatPrice(tradePlanResult.StopLoss, exchange), utils.FormatChange(marketPrice, tradePlanResult.StopLoss)))
 		sbHeader.WriteString(fmt.Sprintf("🔁 <b>Risk Reward</b>: %.2f\n", tradePlanResult.RiskReward))
 		sbHeader.WriteString("\n<b>📝 Penjelasan SL & TP</b>\n")
 		sbHeader.WriteString(fmt.Sprintf("<i>🛡️ <b>Stop Loss</b> ditentukan berdasarkan %s</i>\n", tradePlanResult.SLReason))

@@ -63,9 +63,9 @@ func (t *TelegramBotHandler) handleBtnShowBuyListAnalysis(ctx context.Context, c
 	}
 
 	if len(latestAnalyses) == 0 {
-		msgNoExist := `❌ Tidak ditemukan sinyal BUY hari ini.
+		msgNoExist := `❌ Data Tidak Tersedia
 
-Coba lagi nanti atau gunakan filter /analyze untuk menemukan peluang baru.`
+Coba lagi nanti atau gunakan filter /analyze untuk menemukan peluang baru atau /scheduler untuk trigger data baru.`
 		_, errSend := t.telegram.Send(ctx, c, msgNoExist)
 		if errSend != nil {
 			t.log.ErrorContext(ctx, "Failed to send internal error message", logger.ErrorField(errSend))
@@ -151,9 +151,9 @@ Coba lagi nanti atau gunakan filter /analyze untuk menemukan peluang baru.`
 			buySymbols = append(buySymbols, tradePlan.Symbol)
 			buyListResultMsg.WriteString("\n")
 			buyListResultMsg.WriteString(fmt.Sprintf("<b>%d. %s</b>\n", buyCount, tradePlan.Symbol))
-			buyListResultMsg.WriteString(fmt.Sprintf("Buy: %.2f | RR: %.2f\n", tradePlan.Entry, tradePlan.RiskReward))
-			buyListResultMsg.WriteString(fmt.Sprintf("TP: %.2f (%s)\n", tradePlan.TakeProfit, utils.FormatChange(tradePlan.Entry, tradePlan.TakeProfit)))
-			buyListResultMsg.WriteString(fmt.Sprintf("SL: %.2f (%s)\n", tradePlan.StopLoss, utils.FormatChange(tradePlan.Entry, tradePlan.StopLoss)))
+			buyListResultMsg.WriteString(fmt.Sprintf("Buy: %s | RR: %.2f\n", utils.FormatPrice(tradePlan.Entry, tradePlan.Exchange), tradePlan.RiskReward))
+			buyListResultMsg.WriteString(fmt.Sprintf("TP: %s (%s)\n", utils.FormatPrice(tradePlan.TakeProfit, tradePlan.Exchange), utils.FormatChange(tradePlan.Entry, tradePlan.TakeProfit)))
+			buyListResultMsg.WriteString(fmt.Sprintf("SL: %s (%s)\n", utils.FormatPrice(tradePlan.StopLoss, tradePlan.Exchange), utils.FormatChange(tradePlan.Entry, tradePlan.StopLoss)))
 			buyListResultMsg.WriteString(fmt.Sprintf("%s | Score: %.2f\n", tradePlan.TechnicalSignal, tradePlan.Score))
 
 			if len(buySymbols) >= t.cfg.Trading.MaxBuyList {

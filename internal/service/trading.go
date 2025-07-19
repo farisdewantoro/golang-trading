@@ -159,6 +159,7 @@ func (s *tradingService) CreateTradePlan(ctx context.Context, latestAnalyses []m
 		TPReason:           plan.TPReason,
 		IndicatorSummary:   s.CreateIndicatorSummary(&tfHighestTechnicalData, mainTFCandles),
 		Insights:           positionAnalysis.Insight,
+		Exchange:           lastAnalysis.Exchange,
 	}
 	s.log.DebugContext(ctx, "Finished create trade plan", logger.StringField("stock_code", stockCodeWithExchange))
 

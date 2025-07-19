@@ -47,16 +47,16 @@ func (t *TelegramBotHandler) showMyPosition(ctx context.Context, c telebot.Conte
 		stockWithExchange := position.Exchange + ":" + position.StockCode
 		sb.WriteString(fmt.Sprintf("<b>%d. %s</b>\n", idx+1, stockWithExchange))
 
-		sb.WriteString(fmt.Sprintf("  • Entry: %.2f\n", position.BuyPrice))
+		sb.WriteString(fmt.Sprintf("  • Entry: %s\n", utils.FormatPrice(position.BuyPrice, position.Exchange)))
 		if position.TrailingProfitPrice > 0 {
-			sb.WriteString(fmt.Sprintf("  • TP: %.2f ➡️ %.2f (%s)\n", position.TakeProfitPrice, position.TrailingProfitPrice, utils.FormatChange(position.BuyPrice, position.TrailingProfitPrice)))
+			sb.WriteString(fmt.Sprintf("  • TP: %s ➡️ %s (%s)\n", utils.FormatPrice(position.TakeProfitPrice, position.Exchange), utils.FormatPrice(position.TrailingProfitPrice, position.Exchange), utils.FormatChange(position.BuyPrice, position.TrailingProfitPrice)))
 		} else {
-			sb.WriteString(fmt.Sprintf("  • TP: %.2f (%s)\n", position.TakeProfitPrice, utils.FormatChange(position.BuyPrice, position.TakeProfitPrice)))
+			sb.WriteString(fmt.Sprintf("  • TP: %s (%s)\n", utils.FormatPrice(position.TakeProfitPrice, position.Exchange), utils.FormatChange(position.BuyPrice, position.TakeProfitPrice)))
 		}
 		if position.TrailingStopPrice > 0 {
-			sb.WriteString(fmt.Sprintf("  • SL: %.2f ➡️ %.2f (%s)\n", position.StopLossPrice, position.TrailingStopPrice, utils.FormatChange(position.BuyPrice, position.TrailingStopPrice)))
+			sb.WriteString(fmt.Sprintf("  • SL: %s ➡️ %s (%s)\n", utils.FormatPrice(position.StopLossPrice, position.Exchange), utils.FormatPrice(position.TrailingStopPrice, position.Exchange), utils.FormatChange(position.BuyPrice, position.TrailingStopPrice)))
 		} else {
-			sb.WriteString(fmt.Sprintf("  • SL: %.2f (%s)\n", position.StopLossPrice, utils.FormatChange(position.BuyPrice, position.StopLossPrice)))
+			sb.WriteString(fmt.Sprintf("  • SL: %s (%s)\n", utils.FormatPrice(position.StopLossPrice, position.Exchange), utils.FormatChange(position.BuyPrice, position.StopLossPrice)))
 		}
 
 		var (
@@ -80,7 +80,7 @@ func (t *TelegramBotHandler) showMyPosition(ctx context.Context, c telebot.Conte
 		if marketPrice > 0 {
 			pnl = utils.FormatChangeWithIcon(position.BuyPrice, marketPrice)
 		}
-		sb.WriteString(fmt.Sprintf("  • Current: %.2f %s\n", marketPrice, pnl))
+		sb.WriteString(fmt.Sprintf("  • Current: %s %s\n", utils.FormatPrice(marketPrice, position.Exchange), pnl))
 
 		if !isHasMonitoring {
 			techScore = "N/A"

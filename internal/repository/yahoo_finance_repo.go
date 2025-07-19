@@ -69,7 +69,7 @@ func (r *yahooFinanceRepository) Get(ctx context.Context, param dto.GetStockData
 	// Build URL with query parameters
 	endpoint := "/" + param.StockCode
 
-	period1, period2 := r.MapPeriodeStringToUnix(param.Range)
+	period1, period2 := utils.MapPeriodeStringToUnix(param.Range)
 	if period1 == 0 || period2 == 0 {
 		return nil, fmt.Errorf("invalid period")
 	}
@@ -150,7 +150,7 @@ func (r *yahooFinanceRepository) Get(ctx context.Context, param dto.GetStockData
 			High:      quote.High[i],
 			Low:       quote.Low[i],
 			Close:     quote.Close[i],
-			Volume:    quote.Volume[i],
+			Volume:    float64(quote.Volume[i]),
 		})
 	}
 
@@ -170,32 +170,6 @@ func (r *yahooFinanceRepository) Get(ctx context.Context, param dto.GetStockData
 		Range:       param.Range,
 		Interval:    param.Interval,
 	}, nil
-}
-
-// MapPeriodeStringToUnix convert days to unix timestamp
-func (r *yahooFinanceRepository) MapPeriodeStringToUnix(periode string) (int64, int64) {
-
-	now := utils.TimeNowWIB()
-	switch periode {
-	case "1d":
-		return now.AddDate(0, 0, -1).Unix(), now.Unix()
-	case "14d":
-		return now.AddDate(0, 0, -14).Unix(), now.Unix()
-	case "1w":
-		return now.AddDate(0, 0, -7).Unix(), now.Unix()
-	case "1m":
-		return now.AddDate(0, 0, -30).Unix(), now.Unix()
-	case "2m":
-		return now.AddDate(0, 0, -60).Unix(), now.Unix()
-	case "3m":
-		return now.AddDate(0, 0, -90).Unix(), now.Unix()
-	case "6m":
-		return now.AddDate(0, 0, -180).Unix(), now.Unix()
-	case "1y":
-		return now.AddDate(0, 0, -365).Unix(), now.Unix()
-	default:
-		return 0, 0
-	}
 }
 
 func (r *yahooFinanceRepository) parseSymbol(symbol string, exchange string) (string, error) {

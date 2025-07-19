@@ -10,14 +10,16 @@ const (
 )
 
 const (
-	EXCHANGE_IDX    = "IDX"
-	EXCHANGE_NASDAQ = "NASDAQ"
+	EXCHANGE_IDX     = "IDX"
+	EXCHANGE_NASDAQ  = "NASDAQ"
+	EXCHANGE_BINANCE = "BINANCE"
 )
 
 func GetExchangeList() []string {
 	return []string{
 		EXCHANGE_IDX,
 		EXCHANGE_NASDAQ,
+		EXCHANGE_BINANCE,
 	}
 }
 

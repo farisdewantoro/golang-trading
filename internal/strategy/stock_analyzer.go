@@ -31,13 +31,14 @@ type StockAnalyzerStrategy struct {
 	cache                          cache.Cache
 	stockPositionRepo              repository.StockPositionsRepository
 	tradingViewScreenersRepository repository.TradingViewScreenersRepository
-	yahooFinanceRepository         repository.YahooFinanceRepository
+	candleRepository               repository.CandleRepository
 	stockAnalysisRepo              repository.StockAnalysisRepository
 	systemParamRepository          repository.SystemParamRepository
 }
 
 type StockAnalyzerPayload struct {
 	TradingViewBuyListParams []map[string]interface{} `json:"trading_view_buy_list_params"`
+	AdditionalStocks         []dto.StockInfo          `json:"additional_stocks"`
 }
 
 type StockAnalyzerResult struct {
@@ -51,7 +52,7 @@ func NewStockAnalyzerStrategy(
 	cache cache.Cache,
 	stockPositionsRepository repository.StockPositionsRepository,
 	tradingViewScreenersRepository repository.TradingViewScreenersRepository,
-	yahooFinanceRepository repository.YahooFinanceRepository,
+	candleRepository repository.CandleRepository,
 	stockAnalysisRepository repository.StockAnalysisRepository,
 	systemParamRepository repository.SystemParamRepository) StockAnalyzer {
 	return &StockAnalyzerStrategy{
@@ -60,7 +61,7 @@ func NewStockAnalyzerStrategy(
 		cache:                          cache,
 		stockPositionRepo:              stockPositionsRepository,
 		tradingViewScreenersRepository: tradingViewScreenersRepository,
-		yahooFinanceRepository:         yahooFinanceRepository,
+		candleRepository:               candleRepository,
 		stockAnalysisRepo:              stockAnalysisRepository,
 		systemParamRepository:          systemParamRepository,
 	}
@@ -90,6 +91,17 @@ func (s *StockAnalyzerStrategy) Execute(ctx context.Context, job *model.Job) (Jo
 		}
 
 		for _, stock := range buyList {
+			if _, ok := mapStockCode[stock.StockCode+":"+stock.Exchange]; ok {
+				continue
+			}
+
+			mapStockCode[stock.StockCode+":"+stock.Exchange] = true
+			stocks = append(stocks, stock)
+		}
+	}
+
+	if len(payload.AdditionalStocks) > 0 {
+		for _, stock := range payload.AdditionalStocks {
 			if _, ok := mapStockCode[stock.StockCode+":"+stock.Exchange]; ok {
 				continue
 			}
@@ -233,7 +245,7 @@ func (s *StockAnalyzerStrategy) AnalyzeStock(ctx context.Context, stock dto.Stoc
 					stockData.Recommend.Global.Summary),
 			}
 
-			stockDataOHCLV, err := s.yahooFinanceRepository.Get(ctx, dto.GetStockDataParam{
+			stockDataOHCLV, err := s.candleRepository.Get(ctx, dto.GetStockDataParam{
 				StockCode: stock.StockCode,
 				Exchange:  stock.Exchange,
 				Range:     tf.Range,

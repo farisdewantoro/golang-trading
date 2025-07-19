@@ -199,7 +199,7 @@ func (s *tradingService) calculateAverageVolume(ohlcv []dto.StockOHLCV, period i
 	if period == 0 {
 		return 0
 	}
-	var totalVolume int64
+	var totalVolume float64
 	startIndex := len(ohlcv) - period
 	for i := startIndex; i < len(ohlcv); i++ {
 		totalVolume += ohlcv[i].Volume

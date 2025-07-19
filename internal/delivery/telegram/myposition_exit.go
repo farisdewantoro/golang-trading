@@ -63,9 +63,9 @@ func (t *TelegramBotHandler) handleBtnExitStockPosition(ctx context.Context, c t
 	msg := fmt.Sprintf(`🚀 Exit posisi saham <b>%s (1/2)</b>
 %s
 Masukkan <b>harga jual</b> kamu di bawah ini (dalam angka).  
-Last Price: %.2f
+Last Price: %s
 
-`, parts[0], t.msgCurrentPosition(&stockPosition[0], marketPrice), marketPrice)
+`, parts[0], t.msgCurrentPosition(&stockPosition[0], marketPrice), utils.FormatPrice(marketPrice, stockPosition[0].Exchange))
 
 	_, err = t.telegram.Edit(ctx, c, c.Message(), msg, &telebot.SendOptions{ParseMode: telebot.ModeHTML})
 	if err != nil {
@@ -150,9 +150,9 @@ func (t *TelegramBotHandler) handleExitPositionConversation(ctx context.Context,
 📌 Mohon cek kembali data yang kamu masukkan:
 
 • Kode Saham   : %s 
-• Harga Exit   : %.2f %s  
+• Harga Exit   : %s %s  
 • Tanggal Exit : %s  
-		`, data.Symbol, data.ExitPrice, utils.FormatChangeWithIcon(stockPosition[0].BuyPrice, data.ExitPrice), data.ExitDate.Format("2006-01-02"))
+		`, data.Symbol, utils.FormatPrice(data.ExitPrice, stockPosition[0].Exchange), utils.FormatChangeWithIcon(stockPosition[0].BuyPrice, data.ExitPrice), data.ExitDate.Format("2006-01-02"))
 		menu := &telebot.ReplyMarkup{}
 		btnSave := menu.Data(btnSaveExitPosition.Text, btnSaveExitPosition.Unique)
 		btnCancel := menu.Data(btnCancelGeneral.Text, btnCancelGeneral.Unique)
@@ -229,16 +229,16 @@ func (t *TelegramBotHandler) msgCurrentPosition(stockPosition *model.StockPositi
 
 	sb := strings.Builder{}
 	sb.WriteString("\n<b>Informasi Posisi Saat Ini:</b>\n")
-	sb.WriteString(fmt.Sprintf("• Entry: %.2f\n", stockPosition.BuyPrice))
+	sb.WriteString(fmt.Sprintf("• Entry: %s\n", utils.FormatPrice(stockPosition.BuyPrice, stockPosition.Exchange)))
 	if stockPosition.TrailingProfitPrice > 0 {
-		sb.WriteString(fmt.Sprintf("• TP: %.2f ➡️ %.2f (%s)\n", stockPosition.TakeProfitPrice, stockPosition.TrailingProfitPrice, utils.FormatChange(stockPosition.BuyPrice, stockPosition.TrailingProfitPrice)))
+		sb.WriteString(fmt.Sprintf("• TP: %s ➡️ %s (%s)\n", utils.FormatPrice(stockPosition.TakeProfitPrice, stockPosition.Exchange), utils.FormatPrice(stockPosition.TrailingProfitPrice, stockPosition.Exchange), utils.FormatChange(stockPosition.BuyPrice, stockPosition.TrailingProfitPrice)))
 	} else {
-		sb.WriteString(fmt.Sprintf("• TP: %.2f (%s)\n", stockPosition.TakeProfitPrice, utils.FormatChange(stockPosition.BuyPrice, stockPosition.TakeProfitPrice)))
+		sb.WriteString(fmt.Sprintf("• TP: %s (%s)\n", utils.FormatPrice(stockPosition.TakeProfitPrice, stockPosition.Exchange), utils.FormatChange(stockPosition.BuyPrice, stockPosition.TakeProfitPrice)))
 	}
 	if stockPosition.TrailingStopPrice > 0 {
-		sb.WriteString(fmt.Sprintf("• SL: %.2f ➡️ %.2f (%s)\n", stockPosition.StopLossPrice, stockPosition.TrailingStopPrice, utils.FormatChange(stockPosition.BuyPrice, stockPosition.TrailingStopPrice)))
+		sb.WriteString(fmt.Sprintf("• SL: %s ➡️ %s (%s)\n", utils.FormatPrice(stockPosition.StopLossPrice, stockPosition.Exchange), utils.FormatPrice(stockPosition.TrailingStopPrice, stockPosition.Exchange), utils.FormatChange(stockPosition.BuyPrice, stockPosition.TrailingStopPrice)))
 	} else {
-		sb.WriteString(fmt.Sprintf("• SL: %.2f (%s)\n", stockPosition.StopLossPrice, utils.FormatChange(stockPosition.BuyPrice, stockPosition.StopLossPrice)))
+		sb.WriteString(fmt.Sprintf("• SL: %s (%s)\n", utils.FormatPrice(stockPosition.StopLossPrice, stockPosition.Exchange), utils.FormatChange(stockPosition.BuyPrice, stockPosition.StopLossPrice)))
 	}
 	sb.WriteString(fmt.Sprintf("• Buy Date: %s\n", stockPosition.BuyDate.Format("2006-01-02")))
 	sb.WriteString(fmt.Sprintf("• PnL: %s\n", utils.FormatChangeWithIcon(stockPosition.BuyPrice, marketPrice)))

@@ -81,3 +81,33 @@ func DaysSince(date time.Time) int {
 	duration := now.Sub(normalizedDate)
 	return int(duration.Hours() / 24)
 }
+
+func MapPeriodeStringToUnix(periode string) (int64, int64) {
+
+	now := TimeNowWIB()
+	switch periode {
+	case "1d":
+		return now.AddDate(0, 0, -1).Unix(), now.Unix()
+	case "14d":
+		return now.AddDate(0, 0, -14).Unix(), now.Unix()
+	case "1w":
+		return now.AddDate(0, 0, -7).Unix(), now.Unix()
+	case "1m":
+		return now.AddDate(0, 0, -30).Unix(), now.Unix()
+	case "2m":
+		return now.AddDate(0, 0, -60).Unix(), now.Unix()
+	case "3m":
+		return now.AddDate(0, 0, -90).Unix(), now.Unix()
+	case "6m":
+		return now.AddDate(0, 0, -180).Unix(), now.Unix()
+	case "1y":
+		return now.AddDate(0, 0, -365).Unix(), now.Unix()
+	default:
+		return 0, 0
+	}
+}
+
+func MapPeriodeStringToUnixMs(periode string) (int64, int64) {
+	startTime, endTime := MapPeriodeStringToUnix(periode)
+	return startTime * 1000, endTime * 1000
+}

@@ -5,7 +5,7 @@ type StockOHLCV struct {
 	High      float64 `json:"high"`
 	Low       float64 `json:"low"`
 	Close     float64 `json:"close"`
-	Volume    int64   `json:"volume"`
+	Volume    float64 `json:"volume"`
 	Timestamp int64   `json:"timestamp"`
 }
 

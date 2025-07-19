@@ -19,6 +19,8 @@ type Repository struct {
 	UnitOfWork                  UnitOfWork
 	UserRepo                    UserRepository
 	StockPositionMonitoringRepo StockPositionMonitoringRepository
+	BinanceRepo                 BinanceRepository
+	CandleRepo                  CandleRepository
 }
 
 func NewRepository(cfg *config.Config, inmemoryCache cache.Cache, db *gorm.DB, log *logger.Logger) (*Repository, error) {
@@ -29,16 +31,21 @@ func NewRepository(cfg *config.Config, inmemoryCache cache.Cache, db *gorm.DB, l
 	}
 	userRepo := NewUserRepository(db)
 	stockPositionMonitoringRepo := NewStockPositionMonitoringRepository(db)
+	binanceRepo := NewBinanceRepository(cfg, log)
+	yahooFinanceRepo := NewYahooFinanceRepository(cfg, log)
+	candleRepo := NewCandleRepository(binanceRepo, yahooFinanceRepo)
 	return &Repository{
 		JobRepo:                     NewJobRepository(db),
 		StockPositionsRepo:          NewStockPositionsRepository(db),
 		TradingViewScreenersRepo:    NewTradingViewScreenersRepository(cfg, log),
-		YahooFinanceRepo:            NewYahooFinanceRepository(cfg, log),
+		YahooFinanceRepo:            yahooFinanceRepo,
 		StockAnalysisRepo:           NewStockAnalysisRepository(db),
 		SystemParamRepo:             NewSystemParamRepository(cfg, inmemoryCache, db),
 		GeminiAIRepo:                geminiAIRepo,
 		UnitOfWork:                  uow,
 		UserRepo:                    userRepo,
 		StockPositionMonitoringRepo: stockPositionMonitoringRepo,
+		BinanceRepo:                 binanceRepo,
+		CandleRepo:                  candleRepo,
 	}, nil
 }
