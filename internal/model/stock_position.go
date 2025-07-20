@@ -31,6 +31,8 @@ type StockPosition struct {
 	User                  User       `gorm:"foreignKey:UserID;references:ID"`
 	CreatedAt             time.Time  `gorm:"autoCreateTime" json:"created_at"`
 	UpdatedAt             time.Time  `gorm:"autoUpdateTime" json:"updated_at"`
+	InitialScore          float64    `json:"initial_score"`
+	FinalScore            float64    `json:"final_score"`
 
 	StockPositionMonitorings []StockPositionMonitoring
 }

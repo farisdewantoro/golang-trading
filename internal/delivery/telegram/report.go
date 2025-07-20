@@ -67,20 +67,12 @@ func (t *TelegramBotHandler) showReport(ctx context.Context, c telebot.Context, 
 	countLose := 0
 	countPnL := 0.0
 	for _, position := range positions {
-		pnl := ((*position.ExitPrice - position.BuyPrice) / position.BuyPrice) * 100
-		icon := "🔴"
-		countPnL += pnl
-		if pnl > 0 {
-			icon = "🟢"
-			countWin++
-		} else {
-			countLose++
-		}
+
 		symbolWithExchange := fmt.Sprintf("%s:%s", position.Exchange, position.StockCode)
 		sbBody.WriteString(fmt.Sprintf("\n<b>───── %s ─────</b>\n", symbolWithExchange))
 		sbBody.WriteString(fmt.Sprintf("📅 %s - %s\n", position.BuyDate.Format("01/02"), position.ExitDate.Format("01/02")))
-		sbBody.WriteString(fmt.Sprintf("💰 %d ➜ %d\n", int(position.BuyPrice), int(*position.ExitPrice)))
-		sbBody.WriteString(fmt.Sprintf("📈 PnL: %s %+.2f%%\n", icon, pnl))
+		sbBody.WriteString(fmt.Sprintf("💰 %d ⮕ %d %s\n", int(position.BuyPrice), int(*position.ExitPrice), utils.FormatChangeWithIcon(position.BuyPrice, *position.ExitPrice)))
+		sbBody.WriteString(fmt.Sprintf("🧮 Score: %.2f ⮕ %.2f\n", position.InitialScore, position.FinalScore))
 	}
 
 	sbSummary := &strings.Builder{}

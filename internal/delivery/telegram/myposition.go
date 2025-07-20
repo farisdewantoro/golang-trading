@@ -45,30 +45,10 @@ func (t *TelegramBotHandler) showMyPosition(ctx context.Context, c telebot.Conte
 
 	for idx, position := range positions {
 		stockWithExchange := position.Exchange + ":" + position.StockCode
-		sb.WriteString(fmt.Sprintf("<b>%d. %s</b>\n", idx+1, stockWithExchange))
-
-		sb.WriteString(fmt.Sprintf("  • Entry: %s\n", utils.FormatPrice(position.BuyPrice, position.Exchange)))
-		if position.TrailingProfitPrice > 0 {
-			sb.WriteString(fmt.Sprintf("  • TP: %s ➡️ %s (%s)\n", utils.FormatPrice(position.TakeProfitPrice, position.Exchange), utils.FormatPrice(position.TrailingProfitPrice, position.Exchange), utils.FormatChange(position.BuyPrice, position.TrailingProfitPrice)))
-		} else {
-			sb.WriteString(fmt.Sprintf("  • TP: %s (%s)\n", utils.FormatPrice(position.TakeProfitPrice, position.Exchange), utils.FormatChange(position.BuyPrice, position.TakeProfitPrice)))
-		}
-		if position.TrailingStopPrice > 0 {
-			sb.WriteString(fmt.Sprintf("  • SL: %s ➡️ %s (%s)\n", utils.FormatPrice(position.StopLossPrice, position.Exchange), utils.FormatPrice(position.TrailingStopPrice, position.Exchange), utils.FormatChange(position.BuyPrice, position.TrailingStopPrice)))
-		} else {
-			sb.WriteString(fmt.Sprintf("  • SL: %s (%s)\n", utils.FormatPrice(position.StopLossPrice, position.Exchange), utils.FormatChange(position.BuyPrice, position.StopLossPrice)))
-		}
-
-		var (
-			marketPrice float64
-			techScore   string
-			techStatus  string
-			pnl         string
-			signal      string
-		)
+		pnl := "N/A"
+		marketPrice := float64(0)
 
 		isHasMonitoring := len(position.StockPositionMonitorings) > 0
-
 		stockCodeWithExchange := position.Exchange + ":" + position.StockCode
 		marketPrice, _ = cache.GetFromCache[float64](fmt.Sprintf(common.KEY_LAST_PRICE, stockCodeWithExchange))
 
@@ -76,11 +56,34 @@ func (t *TelegramBotHandler) showMyPosition(ctx context.Context, c telebot.Conte
 			marketPrice = position.StockPositionMonitorings[0].MarketPrice
 		}
 
-		pnl = "N/A"
 		if marketPrice > 0 {
-			pnl = utils.FormatChangeWithIcon(position.BuyPrice, marketPrice)
+			pnl = utils.FormatChange(position.BuyPrice, marketPrice)
 		}
-		sb.WriteString(fmt.Sprintf("  • Current: %s %s\n", utils.FormatPrice(marketPrice, position.Exchange), pnl))
+
+		iconTitle := "⚪️"
+		if marketPrice > position.BuyPrice {
+			iconTitle = "🟢"
+		} else if marketPrice < position.BuyPrice {
+			iconTitle = "🔴"
+		}
+		sb.WriteString(fmt.Sprintf("<b>%d. %s %s</b>\n", idx+1, iconTitle, stockWithExchange))
+		sb.WriteString(fmt.Sprintf("  • Buy: %s ⮕ %s (%s)\n", utils.FormatPrice(position.BuyPrice, position.Exchange), utils.FormatPrice(marketPrice, position.Exchange), pnl))
+		if position.TrailingProfitPrice > 0 {
+			sb.WriteString(fmt.Sprintf("  • TP: %s ⮕ %s (%s)\n", utils.FormatPrice(position.TakeProfitPrice, position.Exchange), utils.FormatPrice(position.TrailingProfitPrice, position.Exchange), utils.FormatChange(position.BuyPrice, position.TrailingProfitPrice)))
+		} else {
+			sb.WriteString(fmt.Sprintf("  • TP: %s (%s)\n", utils.FormatPrice(position.TakeProfitPrice, position.Exchange), utils.FormatChange(position.BuyPrice, position.TakeProfitPrice)))
+		}
+		if position.TrailingStopPrice > 0 {
+			sb.WriteString(fmt.Sprintf("  • SL: %s ⮕ %s (%s)\n", utils.FormatPrice(position.StopLossPrice, position.Exchange), utils.FormatPrice(position.TrailingStopPrice, position.Exchange), utils.FormatChange(position.BuyPrice, position.TrailingStopPrice)))
+		} else {
+			sb.WriteString(fmt.Sprintf("  • SL: %s (%s)\n", utils.FormatPrice(position.StopLossPrice, position.Exchange), utils.FormatChange(position.BuyPrice, position.StopLossPrice)))
+		}
+
+		var (
+			techScore  string
+			techStatus string
+			signal     string
+		)
 
 		if !isHasMonitoring {
 			techScore = "N/A"
@@ -94,14 +97,13 @@ func (t *TelegramBotHandler) showMyPosition(ctx context.Context, c telebot.Conte
 			if err != nil {
 				continue
 			}
-			techScore = fmt.Sprintf("%.2f (%s)", evalSummary.TechnicalAnalysis.Score, evalSummary.TechnicalAnalysis.Signal)
+			techScore = fmt.Sprintf("%.2f ⮕ %.2f (%s)", position.InitialScore, evalSummary.TechnicalAnalysis.Score, utils.FormatChange(position.InitialScore, evalSummary.TechnicalAnalysis.Score))
 			techStatus = dto.PositionStatus(evalSummary.TechnicalAnalysis.Status).String()
-			signal = dto.Signal(evalSummary.PositionSignal).String()
+			signal = fmt.Sprintf("%s", dto.Signal(evalSummary.PositionSignal).String())
 		}
-
-		sb.WriteString(fmt.Sprintf("  • Status: %s\n", techStatus))
 		sb.WriteString(fmt.Sprintf("  • Score: %s\n", techScore))
 		sb.WriteString(fmt.Sprintf("  • Signal: %s\n", signal))
+		sb.WriteString(fmt.Sprintf("  • Status: %s\n", techStatus))
 
 		sb.WriteString("\n")
 	}

@@ -81,7 +81,7 @@ Coba lagi nanti atau gunakan filter /analyze untuk menemukan peluang baru atau /
 			mapSymbolExchangeAnalysis = make(map[string][]model.StockAnalysis)
 			buyListResultMsg          = strings.Builder{}
 			msgHeader                 = &strings.Builder{}
-			buySymbols                []string
+			buySymbolMap              = make(map[string]string)
 			buyCount                  int
 			stopChan                  = make(chan struct{})
 		)
@@ -149,7 +149,7 @@ Coba lagi nanti atau gunakan filter /analyze untuk menemukan peluang baru atau /
 				continue
 			}
 
-			buySymbols = append(buySymbols, symbolWithExchange)
+			buySymbolMap[tradePlan.Symbol] = symbolWithExchange
 			buyListResultMsg.WriteString("\n")
 			buyListResultMsg.WriteString(fmt.Sprintf("<b>%d. %s <i>(Plan: %s)</i></b>\n", buyCount, tradePlan.Symbol, tradePlan.PlanType.String()))
 			buyListResultMsg.WriteString(fmt.Sprintf("- <b>Buy:</b> %s | RR: %.2f\n", utils.FormatPrice(tradePlan.Entry, tradePlan.Exchange), tradePlan.RiskReward))
@@ -158,13 +158,13 @@ Coba lagi nanti atau gunakan filter /analyze untuk menemukan peluang baru atau /
 			buyListResultMsg.WriteString(fmt.Sprintf("- <b>Signal:</b> %s | Score: %.2f\n", tradePlan.TechnicalSignal, tradePlan.Score))
 			buyListResultMsg.WriteString(fmt.Sprintf("- <b>Status:</b> %s\n", dto.PositionStatus(tradePlan.Status)))
 
-			if len(buySymbols) >= t.cfg.Trading.MaxBuyList {
+			if len(buySymbolMap) >= t.cfg.Trading.MaxBuyList {
 				break
 			}
 
 		}
 
-		if len(buySymbols) == 0 {
+		if len(buySymbolMap) == 0 {
 			msgNoExist := `❌ Tidak ditemukan sinyal BUY hari ini.
 
 Coba lagi nanti atau gunakan filter /analyze untuk menemukan peluang baru.`
@@ -176,7 +176,7 @@ Coba lagi nanti atau gunakan filter /analyze untuk menemukan peluang baru.`
 		}
 
 		msgHeader.Reset()
-		msgHeader.WriteString(fmt.Sprintf("📈 Berikut %d %s yang direkomendasikan untuk BUY:\n", len(buySymbols), exchange))
+		msgHeader.WriteString(fmt.Sprintf("📈 Berikut %d %s yang direkomendasikan untuk BUY:\n", len(buySymbolMap), exchange))
 		msgFooter := "\n\n<i>🔍 Pilih saham di bawah untuk melihat detail analisa:</i>"
 		buyListResultMsg.WriteString(msgFooter)
 
@@ -184,8 +184,8 @@ Coba lagi nanti atau gunakan filter /analyze untuk menemukan peluang baru.`
 		rows := []telebot.Row{}
 		var tempRow []telebot.Btn
 
-		for _, symbolBuy := range buySymbols {
-			tempRow = append(tempRow, menu.Data(symbolBuy, btnGeneralAnalisis.Unique, symbolBuy))
+		for k, v := range buySymbolMap {
+			tempRow = append(tempRow, menu.Data(k, btnGeneralAnalisis.Unique, v))
 			if len(tempRow) == 2 {
 				rows = append(rows, menu.Row(tempRow...))
 				tempRow = []telebot.Btn{}

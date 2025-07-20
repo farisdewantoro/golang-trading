@@ -256,6 +256,9 @@ func (s *telegramBotService) ExitStockPosition(ctx context.Context, telegramID i
 	positions, err := s.stockPositionRepository.Get(ctx, dto.GetStockPositionsParam{
 		TelegramID: &telegramID,
 		IDs:        []uint{data.StockPositionID},
+		Monitoring: &dto.StockPositionMonitoringQueryParam{
+			ShowNewest: utils.ToPointer(true),
+		},
 	})
 	if err != nil {
 		return fmt.Errorf("failed to get stock positions: %w", err)
@@ -271,6 +274,16 @@ func (s *telegramBotService) ExitStockPosition(ctx context.Context, telegramID i
 
 	if data.ExitPrice > 0 {
 		positions[0].ExitPrice = &data.ExitPrice
+	}
+
+	if len(positions[0].StockPositionMonitorings) > 0 {
+		monitoring := positions[0].StockPositionMonitorings[0]
+		var evalSummary model.PositionTechnicalAnalysisSummary
+		err := json.Unmarshal(monitoring.EvaluationSummary, &evalSummary)
+		if err != nil {
+			return fmt.Errorf("failed to unmarshal eval summary: %w", err)
+		}
+		positions[0].FinalScore = evalSummary.Score
 	}
 
 	positions[0].IsActive = utils.ToPointer(false)

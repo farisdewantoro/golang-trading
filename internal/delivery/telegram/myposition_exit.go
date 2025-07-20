@@ -231,12 +231,12 @@ func (t *TelegramBotHandler) msgCurrentPosition(stockPosition *model.StockPositi
 	sb.WriteString("\n<b>Informasi Posisi Saat Ini:</b>\n")
 	sb.WriteString(fmt.Sprintf("• Entry: %s\n", utils.FormatPrice(stockPosition.BuyPrice, stockPosition.Exchange)))
 	if stockPosition.TrailingProfitPrice > 0 {
-		sb.WriteString(fmt.Sprintf("• TP: %s ➡️ %s (%s)\n", utils.FormatPrice(stockPosition.TakeProfitPrice, stockPosition.Exchange), utils.FormatPrice(stockPosition.TrailingProfitPrice, stockPosition.Exchange), utils.FormatChange(stockPosition.BuyPrice, stockPosition.TrailingProfitPrice)))
+		sb.WriteString(fmt.Sprintf("• TP: %s ⮕ %s (%s)\n", utils.FormatPrice(stockPosition.TakeProfitPrice, stockPosition.Exchange), utils.FormatPrice(stockPosition.TrailingProfitPrice, stockPosition.Exchange), utils.FormatChange(stockPosition.BuyPrice, stockPosition.TrailingProfitPrice)))
 	} else {
 		sb.WriteString(fmt.Sprintf("• TP: %s (%s)\n", utils.FormatPrice(stockPosition.TakeProfitPrice, stockPosition.Exchange), utils.FormatChange(stockPosition.BuyPrice, stockPosition.TakeProfitPrice)))
 	}
 	if stockPosition.TrailingStopPrice > 0 {
-		sb.WriteString(fmt.Sprintf("• SL: %s ➡️ %s (%s)\n", utils.FormatPrice(stockPosition.StopLossPrice, stockPosition.Exchange), utils.FormatPrice(stockPosition.TrailingStopPrice, stockPosition.Exchange), utils.FormatChange(stockPosition.BuyPrice, stockPosition.TrailingStopPrice)))
+		sb.WriteString(fmt.Sprintf("• SL: %s ⮕ %s (%s)\n", utils.FormatPrice(stockPosition.StopLossPrice, stockPosition.Exchange), utils.FormatPrice(stockPosition.TrailingStopPrice, stockPosition.Exchange), utils.FormatChange(stockPosition.BuyPrice, stockPosition.TrailingStopPrice)))
 	} else {
 		sb.WriteString(fmt.Sprintf("• SL: %s (%s)\n", utils.FormatPrice(stockPosition.StopLossPrice, stockPosition.Exchange), utils.FormatChange(stockPosition.BuyPrice, stockPosition.StopLossPrice)))
 	}

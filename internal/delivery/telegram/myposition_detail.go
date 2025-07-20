@@ -64,12 +64,12 @@ func (t *TelegramBotHandler) showMyPositionDetail(ctx context.Context, c telebot
 	sb.WriteString(fmt.Sprintf("  • Last Price: %s\n", utils.FormatPrice(marketPrice, exchange)))
 	sb.WriteString(fmt.Sprintf("  • PnL: %s\n", utils.FormatChangeWithIcon(stockPosition.BuyPrice, marketPrice)))
 	if stockPosition.TrailingProfitPrice > 0 {
-		sb.WriteString(fmt.Sprintf("  • TP: %s ➡️ %s (%s)\n", utils.FormatPrice(stockPosition.TakeProfitPrice, exchange), utils.FormatPrice(stockPosition.TrailingProfitPrice, exchange), utils.FormatChange(stockPosition.BuyPrice, stockPosition.TrailingProfitPrice)))
+		sb.WriteString(fmt.Sprintf("  • TP: %s ⮕ %s (%s)\n", utils.FormatPrice(stockPosition.TakeProfitPrice, exchange), utils.FormatPrice(stockPosition.TrailingProfitPrice, exchange), utils.FormatChange(stockPosition.BuyPrice, stockPosition.TrailingProfitPrice)))
 	} else {
 		sb.WriteString(fmt.Sprintf("  • TP: %s (%s)\n", utils.FormatPrice(stockPosition.TakeProfitPrice, exchange), utils.FormatChange(stockPosition.BuyPrice, stockPosition.TakeProfitPrice)))
 	}
 	if stockPosition.TrailingStopPrice > 0 {
-		sb.WriteString(fmt.Sprintf("  • SL: %s ➡️ %s (%s)\n", utils.FormatPrice(stockPosition.StopLossPrice, exchange), utils.FormatPrice(stockPosition.TrailingStopPrice, exchange), utils.FormatChange(stockPosition.BuyPrice, stockPosition.TrailingStopPrice)))
+		sb.WriteString(fmt.Sprintf("  • SL: %s ⮕ %s (%s)\n", utils.FormatPrice(stockPosition.StopLossPrice, exchange), utils.FormatPrice(stockPosition.TrailingStopPrice, exchange), utils.FormatChange(stockPosition.BuyPrice, stockPosition.TrailingStopPrice)))
 	} else {
 		sb.WriteString(fmt.Sprintf("  • SL: %s (%s)\n", utils.FormatPrice(stockPosition.StopLossPrice, stockPosition.Exchange), utils.FormatChange(stockPosition.BuyPrice, stockPosition.StopLossPrice)))
 	}
@@ -103,7 +103,7 @@ func (t *TelegramBotHandler) showMyPositionDetail(ctx context.Context, c telebot
 	}
 	sb.WriteString("\n")
 	sb.WriteString("<b>📊 Evaluasi Terbaru</b>\n")
-	sb.WriteString(fmt.Sprintf("  • Score: %.2f\n", evalSummary.TechnicalAnalysis.Score))
+	sb.WriteString(fmt.Sprintf("  • Score: %.2f ⮕ %.2f (%s)\n", stockPosition.InitialScore, evalSummary.TechnicalAnalysis.Score, utils.FormatChange(stockPosition.InitialScore, evalSummary.TechnicalAnalysis.Score)))
 	sb.WriteString(fmt.Sprintf("  • Signal: %s\n", dto.Signal(evalSummary.PositionSignal).String()))
 	sb.WriteString(fmt.Sprintf("  • Status: %s\n", dto.PositionStatus(evalSummary.TechnicalAnalysis.Status).String()))
 	sb.WriteString(fmt.Sprintf("  • TA Signal: %s\n", evalSummary.TechnicalAnalysis.Signal))
@@ -204,15 +204,15 @@ func (t *TelegramBotHandler) showMyPositionDetail(ctx context.Context, c telebot
 		sb.WriteString(fmt.Sprintf("Signal: %s | %s\n", dto.Signal(evalSummary.PositionSignal), dto.PositionStatus(evalSummary.TechnicalAnalysis.Status)))
 
 		if evalSummary.PositionSignal == string(dto.TrailingStop) {
-			sb.WriteString(fmt.Sprintf("Chg: %.2f ➡️ %.2f\n", stockPosition.StopLossPrice, stockPosition.TrailingStopPrice))
+			sb.WriteString(fmt.Sprintf("Chg: %.2f ⮕ %.2f\n", stockPosition.StopLossPrice, stockPosition.TrailingStopPrice))
 
 		} else if evalSummary.PositionSignal == string(dto.TrailingProfit) {
-			sb.WriteString(fmt.Sprintf("Chg: %.2f ➡️ %.2f\n", stockPosition.TakeProfitPrice, stockPosition.TrailingProfitPrice))
+			sb.WriteString(fmt.Sprintf("Chg: %.2f ⮕ %.2f\n", stockPosition.TakeProfitPrice, stockPosition.TrailingProfitPrice))
 		}
 
 		sb.WriteString(fmt.Sprintf("Osc: %s | RSI: %s\n", evalSummary.TechnicalAnalysis.IndicatorSummary.Osc, evalSummary.TechnicalAnalysis.IndicatorSummary.RSI))
 		sb.WriteString(fmt.Sprintf("MA: %s | MACD: %s\n", evalSummary.TechnicalAnalysis.IndicatorSummary.MA, evalSummary.TechnicalAnalysis.IndicatorSummary.MACD))
-		sb.WriteString(fmt.Sprintf("Vol: %s | Skor: %.2f - %s\n", evalSummary.TechnicalAnalysis.IndicatorSummary.Volume, evalSummary.TechnicalAnalysis.Score, evalSummary.TechnicalAnalysis.Signal))
+		sb.WriteString(fmt.Sprintf("Vol: %s | Skor: %.2f (%s)\n", evalSummary.TechnicalAnalysis.IndicatorSummary.Volume, evalSummary.TechnicalAnalysis.Score, evalSummary.TechnicalAnalysis.Signal))
 
 	}
 	lastUpdate := lastMonitoring.Timestamp

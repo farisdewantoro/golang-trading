@@ -167,6 +167,10 @@ func (s *StockPositionMonitoringStrategy) EvaluateStockPosition(ctx context.Cont
 			}
 			stockPosition.TrailingProfitPrice = positionAnalysis.TrailingProfitPrice
 			stockPosition.TrailingStopPrice = positionAnalysis.TrailingStopPrice
+			if stockPosition.InitialScore == 0 {
+				stockPosition.InitialScore = positionAnalysis.Score
+			}
+			stockPosition.FinalScore = positionAnalysis.Score
 			errUpdate := s.stockPositionsRepo.Update(ctx, stockPosition)
 			if errUpdate != nil {
 				s.logger.ErrorContextWithAlert(ctx, "Failed to update stock position", logger.ErrorField(errUpdate), logger.StringField("stock_code", stockPosition.StockCode))
