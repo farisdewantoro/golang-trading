@@ -75,21 +75,26 @@ type PriceBucket struct {
 	Count  int     `json:"count"`
 }
 
+type Insight struct {
+	Text   string `json:"text"`
+	Weight int    `json:"weight"` // Higher weight means more important
+}
+
 type PositionAnalysis struct {
-	Ticker               string
-	EntryPrice           float64
-	LastPrice            float64
-	TakeProfitPrice      float64
-	StopLossPrice        float64
-	Status               PositionStatus
-	Signal               Signal
-	Insight              []string
-	Score                float64
-	TechnicalSignal      string
-	IndicatorSummary     model.IndicatorSummary
-	TrailingStopPrice    float64
-	TrailingProfitPrice  float64
-	HighestPriceSinceTTP float64
+	Ticker               string         `json:"ticker"`
+	EntryPrice           float64        `json:"entry_price"`
+	LastPrice            float64        `json:"last_price"`
+	TakeProfitPrice      float64        `json:"take_profit_price"`
+	StopLossPrice        float64        `json:"stop_loss_price"`
+	Score                float64        `json:"score"`
+	Status               PositionStatus `json:"status"`
+	Signal               Signal         `json:"signal"`
+	TechnicalSignal      string         `json:"technical_signal"`
+	Insight              []Insight      `json:"insight"`
+	IndicatorSummary     string         `json:"indicator_summary"`
+	TrailingStopPrice    float64        `json:"trailing_stop_price"`
+	TrailingProfitPrice  float64        `json:"trailing_profit_price"`
+	HighestPriceSinceTTP float64        `json:"highest_price_since_ttp"`
 }
 
 type MainAnalysisData struct {

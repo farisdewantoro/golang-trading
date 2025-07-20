@@ -44,7 +44,7 @@ func TradingViewIntervalToDataTimeframe(interval string) string {
 func MapTradingViewScreenerRecommend(val int) string {
 	switch val {
 	case TradingViewSignalStrongBuy:
-		return SignalBuy
+		return SignalStrongBuy
 	case TradingViewSignalBuy:
 		return SignalBuy
 	case TradingViewSignalNeutral:

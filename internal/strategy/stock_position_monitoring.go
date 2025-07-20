@@ -152,13 +152,28 @@ func (s *StockPositionMonitoringStrategy) EvaluateStockPosition(ctx context.Cont
 			isTrailing := positionAnalysis.TrailingProfitPrice > stockPosition.TrailingProfitPrice ||
 				positionAnalysis.TrailingStopPrice > stockPosition.TrailingStopPrice
 
+			// Convert []dto.Insight to []string
+			var insightTexts []string
+			for _, insight := range positionAnalysis.Insight {
+				insightTexts = append(insightTexts, insight.Text)
+			}
+
+			// Unmarshal IndicatorSummary from string to struct
+			var indicatorSummary model.IndicatorSummary
+			if positionAnalysis.IndicatorSummary != "" {
+				if err := json.Unmarshal([]byte(positionAnalysis.IndicatorSummary), &indicatorSummary); err != nil {
+					s.logger.ErrorContext(ctx, "Failed to unmarshal indicator summary", logger.ErrorField(err), logger.StringField("stock_code", stockPosition.StockCode))
+					// Handle error appropriately, maybe skip this part or set a default
+				}
+			}
+
 			summary := model.PositionAnalysisSummary{
 				TechnicalAnalysis: model.PositionTechnicalAnalysisSummary{
 					Signal:           string(positionAnalysis.TechnicalSignal),
 					Score:            positionAnalysis.Score,
-					Insight:          positionAnalysis.Insight,
+					Insight:          insightTexts,
 					Status:           string(positionAnalysis.Status),
-					IndicatorSummary: positionAnalysis.IndicatorSummary,
+					IndicatorSummary: indicatorSummary,
 				},
 				PositionSignal: string(positionAnalysis.Signal),
 			}
