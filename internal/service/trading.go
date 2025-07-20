@@ -125,8 +125,9 @@ func (s *tradingService) CreateTradePlan(ctx context.Context, latestAnalyses []m
 
 	// Calculate ATR using the main timeframe's candles
 	atr14 := s.calculateATR(mainTFCandles, 14)
+	slAtrMultiplier := s.getATRMultiplierForSL(&tfHighestTechnicalData)
 
-	plan := s.calculatePlan(float64(marketPrice), supports, resistances, emaData, priceBuckets, atr14)
+	plan := s.calculatePlan(float64(marketPrice), supports, resistances, emaData, priceBuckets, atr14, slAtrMultiplier)
 
 	positionAnalysis, err := s.EvaluatePositionMonitoring(ctx, &model.StockPosition{
 		StockCode:       lastAnalysis.StockCode,
@@ -146,7 +147,7 @@ func (s *tradingService) CreateTradePlan(ctx context.Context, latestAnalyses []m
 
 	result = &dto.TradePlanResult{
 		CurrentMarketPrice: float64(marketPrice),
-		Symbol:             stockCodeWithExchange,
+		Symbol:             lastAnalysis.StockCode,
 		Entry:              plan.Entry,
 		StopLoss:           plan.StopLoss,
 		TakeProfit:         plan.TakeProfit,
@@ -154,12 +155,13 @@ func (s *tradingService) CreateTradePlan(ctx context.Context, latestAnalyses []m
 		Status:             string(positionAnalysis.Status),
 		TechnicalSignal:    string(positionAnalysis.TechnicalSignal),
 		Score:              signalScore + planScore,
-		IsBuySignal:        positionAnalysis.Status == dto.Safe && (positionAnalysis.TechnicalSignal == dto.SignalBuy || positionAnalysis.TechnicalSignal == dto.SignalStrongBuy),
+		IsBuySignal:        positionAnalysis.TechnicalSignal == dto.SignalBuy || positionAnalysis.TechnicalSignal == dto.SignalStrongBuy,
 		SLReason:           plan.SLReason,
 		TPReason:           plan.TPReason,
 		IndicatorSummary:   s.CreateIndicatorSummary(&tfHighestTechnicalData, mainTFCandles),
 		Insights:           positionAnalysis.Insight,
 		Exchange:           lastAnalysis.Exchange,
+		PlanType:           plan.PlanType,
 	}
 	s.log.DebugContext(ctx, "Finished create trade plan", logger.StringField("stock_code", stockCodeWithExchange))
 
@@ -220,20 +222,29 @@ func (s *tradingService) BuildTimeframePivots(analysis *model.StockAnalysis) ([]
 	support := s.buildPivots(technicalData, candles, analysis.Timeframe, true)
 	resistance := s.buildPivots(technicalData, candles, analysis.Timeframe, false)
 
+	sort.Slice(support, func(i, j int) bool {
+		return support[i].Price < support[j].Price && support[i].Touches > support[j].Touches
+	})
+
+	sort.Slice(resistance, func(i, j int) bool {
+		return resistance[i].Price > resistance[j].Price && resistance[i].Touches > resistance[j].Touches
+	})
+
+	showMax := 2
 	for _, s := range support {
-		if s.Type == dto.LevelClassic {
+		if s.Type == dto.LevelClassic && len(classicSupport) < showMax {
 			classicSupport = append(classicSupport, s)
 		}
-		if s.Type == dto.LevelFibonacci {
+		if s.Type == dto.LevelFibonacci && len(fibonacciSupport) < showMax {
 			fibonacciSupport = append(fibonacciSupport, s)
 		}
 	}
 
 	for _, r := range resistance {
-		if r.Type == dto.LevelClassic {
+		if r.Type == dto.LevelClassic && len(classicResistance) < showMax {
 			classicResistance = append(classicResistance, r)
 		}
-		if r.Type == dto.LevelFibonacci {
+		if r.Type == dto.LevelFibonacci && len(fibonacciResistance) < showMax {
 			fibonacciResistance = append(fibonacciResistance, r)
 		}
 	}
@@ -410,6 +421,63 @@ func (s *tradingService) calculateATR(candles []dto.StockOHLCV, period int) floa
 	return atr
 }
 
+func (s *tradingService) getATRMultiplierForSL(ta *dto.TradingViewScanner) float64 {
+	// =========================================================================
+	// Bagian 1: Konfigurasi Bobot dan Rentang Multiplier
+	// =========================================================================
+
+	// Bobot menentukan seberapa penting setiap indikator dalam pengambilan keputusan.
+	const adxWeight float64 = 0.50 // ADX (kekuatan tren) dianggap paling penting.
+	const rsiWeight float64 = 0.30 // RSI (momentum/jenuh) memiliki bobot lebih rendah.
+	totalWeight := adxWeight + rsiWeight
+
+	// Rentang multiplier yang diinginkan.
+	const multiplierMax float64 = 2.25 // SL Terlebar: Digunakan saat pasar lemah/ranging (skor -1.0).
+	const multiplierMin float64 = 1.25 // SL Terketat: Digunakan saat tren kuat (skor +1.0).
+
+	// =========================================================================
+	// Bagian 2: Penilaian (Scoring) Indikator
+	// =========================================================================
+	// Skor dikonversi menjadi rentang [-1.0, 1.0] untuk normalisasi.
+	// -1.0 berarti "kondisi butuh SL lebar".
+	// +1.0 berarti "kondisi memungkinkan SL ketat".
+
+	var adxScore, rsiScore float64
+
+	// Skor ADX: Tren kuat (ADX > 25) mendukung SL yang lebih ketat.
+	if ta.Value.Oscillators.ADX.Value > 25 {
+		adxScore = 1.0
+	} else {
+		adxScore = -1.0
+	}
+
+	// Skor RSI: Pasar jenuh/ekstrem (RSI > 70 atau < 30) memerlukan SL yang lebih lebar
+	// untuk bertahan dari potensi koreksi tajam.
+	if ta.Value.Oscillators.RSI > 70 || ta.Value.Oscillators.RSI < 30 {
+		rsiScore = -1.0
+	} else {
+		rsiScore = 1.0
+	}
+
+	// =========================================================================
+	// Bagian 3: Perhitungan Skor Akhir dan Pemetaan
+	// =========================================================================
+
+	// Hitung skor akhir dengan menggabungkan skor individu sesuai bobotnya.
+	finalScore := (adxScore*adxWeight + rsiScore*rsiWeight) / totalWeight
+
+	// Normalisasi skor akhir dari rentang [-1, 1] menjadi persentase [0, 1].
+	// Skor -1.0 akan menjadi 0%, dan skor +1.0 akan menjadi 100%.
+	percentage := (finalScore + 1.0) / 2.0
+
+	// Lakukan interpolasi linear untuk memetakan persentase ke rentang multiplier.
+	// Rumus ini memastikan bahwa:
+	// - Persentase 0% (skor -1.0) menghasilkan multiplierMax.
+	// - Persentase 100% (skor +1.0) menghasilkan multiplierMin.
+	finalMultiplier := multiplierMax - percentage*(multiplierMax-multiplierMin)
+
+	return finalMultiplier
+}
 func (s *tradingService) countTouches(candles []dto.StockOHLCV, level float64, isSupport bool) int {
 	tolerancePercent := 0.5
 	tolerance := level * tolerancePercent / 100.0

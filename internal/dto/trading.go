@@ -15,6 +15,7 @@ type TradePlanResult struct {
 	Symbol             string
 	TechnicalSignal    string
 	Exchange           string
+	PlanType           PlanType
 
 	SLType   string // jenis SL: support / ema-adjust
 	SLReason string // alasan SL
@@ -34,6 +35,7 @@ type TradePlan struct {
 	Reward             float64
 	RiskReward         float64
 	Score              float64
+	PlanType           PlanType
 
 	SLType   string // jenis SL: support / ema-adjust
 	SLReason string // alasan SL
@@ -97,4 +99,35 @@ type MainAnalysisData struct {
 	SecondaryTA        *TradingViewScanner
 	SecondaryOHLCV     []StockOHLCV
 	SecondaryTimeframe string
+}
+
+type TradeConfig struct {
+	TargetRiskReward     float64
+	MaxStopLossPercent   float64
+	MinStopLossPercent   float64
+	MaxTakeProfitPercent float64
+	MinTakeProfitPercent float64
+	Type                 PlanType
+	Score                float64
+}
+
+type PlanType string
+
+const (
+	PlanTypePrimary   PlanType = "PRIMARY"
+	PlanTypeSecondary PlanType = "SECONDARY"
+	PlanTypeFallback  PlanType = "FALLBACK"
+)
+
+func (pt PlanType) String() string {
+	switch pt {
+	case PlanTypePrimary:
+		return "🥇 Primary"
+	case PlanTypeSecondary:
+		return "🥈 Secondary"
+	case PlanTypeFallback:
+		return "🚨 Fallback"
+	default:
+		return "❓ Unknown"
+	}
 }

@@ -131,9 +131,7 @@ func (t *TelegramBotHandler) showAnalysis(ctx context.Context, c telebot.Context
 		analysisIDs []string
 		sbHeader    strings.Builder
 		sb          strings.Builder
-		// sbPivots    strings.Builder
 		exchange    string
-		pivotsLevel []dto.TimeframePivot
 	)
 
 	if len(latestAnalyses) == 0 {
@@ -200,11 +198,28 @@ func (t *TelegramBotHandler) showAnalysis(ctx context.Context, c telebot.Context
 			t.log.ErrorContext(ctx, "Failed to build pivots", logger.ErrorField(err))
 			return err
 		}
-		pivotsLevel = append(pivotsLevel, resultPivots...)
-	}
 
-	if len(pivotsLevel) == 0 {
-		return fmt.Errorf("no pivots level")
+		for _, val := range resultPivots {
+			for _, pivot := range val.PivotData {
+				sb.WriteString(fmt.Sprintf("- <b>%s S/R:</b>\n", pivot.Type))
+				sb.WriteString("<b> - R: </b>")
+				for idx, level := range pivot.Resistance {
+					sb.WriteString(fmt.Sprintf("%s (%dx)", utils.FormatPrice(level.Price, exchange), level.Touches))
+					if idx < len(pivot.Resistance)-1 {
+						sb.WriteString(" | ")
+					}
+				}
+				sb.WriteString("\n")
+				sb.WriteString("<b> - S: </b>")
+				for idx, level := range pivot.Support {
+					sb.WriteString(fmt.Sprintf("%s (%dx)", utils.FormatPrice(level.Price, exchange), level.Touches))
+					if idx < len(pivot.Support)-1 {
+						sb.WriteString(" | ")
+					}
+				}
+				sb.WriteString("\n")
+			}
+		}
 	}
 
 	sb.WriteString("\n")
@@ -212,34 +227,6 @@ func (t *TelegramBotHandler) showAnalysis(ctx context.Context, c telebot.Context
 	for _, insight := range tradePlanResult.Insights {
 		sb.WriteString(fmt.Sprintf("- %s\n", utils.EscapeHTMLForTelegram(insight)))
 	}
-
-	// sbPivots.WriteString("\n <b>📐 Support & Resistance</b>\n\n")
-
-	// for _, val := range pivotsLevel {
-	// 	sbPivots.WriteString(fmt.Sprintf("<b>🕒 Timeframe - %s</b>", strings.ToUpper(val.Timeframe)))
-	// 	for _, pivot := range val.PivotData {
-	// 		sbPivots.WriteString(fmt.Sprintf("\n<b>%s:</b>\n", pivot.Type))
-	// 		sbPivots.WriteString("<b>- R: </b>")
-	// 		for idx, level := range pivot.Resistance {
-	// 			sbPivots.WriteString(fmt.Sprintf("%.2f (%dx)", level.Price, level.Touches))
-	// 			if idx < len(pivot.Resistance)-1 {
-	// 				sbPivots.WriteString(" | ")
-	// 			}
-	// 		}
-	// 		sbPivots.WriteString("\n")
-	// 		sbPivots.WriteString("<b>- S: </b>")
-	// 		for idx, level := range pivot.Support {
-	// 			sbPivots.WriteString(fmt.Sprintf("%.2f (%dx)", level.Price, level.Touches))
-	// 			if idx < len(pivot.Support)-1 {
-	// 				sbPivots.WriteString(" | ")
-	// 			}
-	// 		}
-	// 		sbPivots.WriteString("\n")
-	// 	}
-	// 	sbPivots.WriteString("\n")
-	// }
-
-	// sb.WriteString(sbPivots.String())
 
 	iconSignal := "??"
 	recommend := dto.SignalBuy
@@ -271,6 +258,7 @@ func (t *TelegramBotHandler) showAnalysis(ctx context.Context, c telebot.Context
 		sbHeader.WriteString(fmt.Sprintf("🎯 <b>Take Profit</b>: %s (%s)\n", utils.FormatPrice(tradePlanResult.TakeProfit, exchange), utils.FormatChange(marketPrice, tradePlanResult.TakeProfit)))
 		sbHeader.WriteString(fmt.Sprintf("🛡️ <b>Stop Loss</b>: %s (%s)\n", utils.FormatPrice(tradePlanResult.StopLoss, exchange), utils.FormatChange(marketPrice, tradePlanResult.StopLoss)))
 		sbHeader.WriteString(fmt.Sprintf("🔁 <b>Risk Reward</b>: %.2f\n", tradePlanResult.RiskReward))
+		sbHeader.WriteString(fmt.Sprintf("🪧 <b>Plan: </b>%s\n", tradePlanResult.PlanType.String()))
 		sbHeader.WriteString("\n<b>📝 Penjelasan SL & TP</b>\n")
 		sbHeader.WriteString(fmt.Sprintf("<i>🛡️ <b>Stop Loss</b> ditentukan berdasarkan %s</i>\n", tradePlanResult.SLReason))
 		sbHeader.WriteString(fmt.Sprintf("<i>🎯 <b>Take Profit</b> berasal dari %s</i>\n", tradePlanResult.TPReason))

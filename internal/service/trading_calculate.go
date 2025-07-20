@@ -11,14 +11,20 @@ import (
 )
 
 const (
-	minTouches           = 1
-	slFromEMAAdj         = 0.995
-	targetRiskReward     = 1.0
+	minTouches               = 1
+	slFromEMAAdj             = 0.995
+	targetRiskReward         = 1.5
+	targetRiskRewardFallback = 1.0
+
 	maxStopLossPercent   = 0.05
 	minStopLossPercent   = 0.02
 	maxTakeProfitPercent = 0.07
 	minTakeProfitPercent = 0.02
-	atrMultiplier        = 1.0 // ATR multiplier for SL/TP adjustment
+
+	fallbackMaxTakeProfitPercent = 0.14
+	fallbackMinTakeProfitPercent = 0.01
+	fallbackMaxStopLossPercent   = 0.10
+	fallbackMinStopLossPercent   = 0.01
 )
 
 type SLSource struct {
@@ -43,7 +49,7 @@ func getSLCandidates(marketPrice float64, supports []dto.Level, emas []dto.EMADa
 
 	// Helper to add a candidate if its price is unique and below market price
 	addCandidate := func(price float64, sourceType, reason string, score float64) {
-		adjustedPrice := price - (atr * atrMultiplier)
+		adjustedPrice := price - atr
 		if adjustedPrice >= marketPrice {
 			return // Skip if the adjusted SL is at or above the market price
 		}
@@ -87,7 +93,7 @@ func getTPCandidates(marketPrice float64, resistances []dto.Level, priceBuckets 
 	uniquePrices := make(map[float64]struct{})
 
 	addCandidate := func(price float64, sourceType, reason string, score float64) {
-		adjustedPrice := price + (atr * atrMultiplier)
+		adjustedPrice := price - atr
 		if adjustedPrice <= marketPrice {
 			return
 		}
@@ -115,6 +121,108 @@ func getTPCandidates(marketPrice float64, resistances []dto.Level, priceBuckets 
 	return candidates
 }
 
+// findBestPlanForRRR adalah fungsi pembantu yang mencari trade plan terbaik
+// untuk target Risk/Reward Ratio (RRR) TERTENTU.
+func (s *tradingService) findBestPlanForRRR(
+	marketPrice float64,
+	slCandidates []SLSource,
+	tpCandidates []TPSource,
+	config dto.TradeConfig,
+
+) (dto.TradePlan, bool) { // Mengembalikan plan dan boolean 'ditemukan'
+
+	var bestPlan dto.TradePlan
+	highestScore := -1.0
+	found := false
+
+	for _, sl := range slCandidates {
+		risk := marketPrice - sl.Price
+		if risk <= 0 {
+			continue
+		}
+		riskPct := risk / marketPrice
+		if riskPct > config.MaxStopLossPercent || riskPct < config.MinStopLossPercent {
+			continue
+		}
+
+		numTPToCheck := len(tpCandidates)
+		if numTPToCheck > 5 {
+			numTPToCheck = 5
+		}
+
+		for i := 0; i < len(tpCandidates); i++ {
+			tp := tpCandidates[i]
+			reward := tp.Price - marketPrice
+			if reward <= 0 {
+				continue
+			}
+			rewardPct := reward / marketPrice
+			if rewardPct > config.MaxTakeProfitPercent {
+				continue
+			}
+
+			riskRewardRatio := reward / risk
+			if riskRewardRatio < config.TargetRiskReward {
+				continue
+			}
+
+			currentScore := (riskRewardRatio * 0.5) + (sl.Score * 0.3) + (tp.Score * 0.2) + config.Score
+			if currentScore > highestScore {
+				highestScore = currentScore
+				found = true
+				bestPlan = dto.TradePlan{
+					Entry: marketPrice, StopLoss: sl.Price, TakeProfit: tp.Price,
+					Risk: risk, Reward: reward, RiskReward: riskRewardRatio,
+					SLType: sl.Type, SLReason: sl.Reason, TPType: tp.Type, TPReason: tp.Reason,
+					Score:    currentScore,
+					PlanType: config.Type,
+				}
+			}
+		}
+	}
+	return bestPlan, found
+}
+
+// findIdealPlan mencari trade plan terbaik berdasarkan level teknis (support/resistance)
+func (s *tradingService) findIdealPlan(
+	marketPrice float64,
+	slCandidates []SLSource,
+	tpCandidates []TPSource,
+) dto.TradePlan {
+
+	config := dto.TradeConfig{
+		TargetRiskReward:     targetRiskReward,
+		MaxStopLossPercent:   maxStopLossPercent,
+		MinStopLossPercent:   minStopLossPercent,
+		MaxTakeProfitPercent: maxTakeProfitPercent,
+		MinTakeProfitPercent: minTakeProfitPercent,
+		Type:                 dto.PlanTypePrimary,
+		Score:                3,
+	}
+	if bestPlan, found := s.findBestPlanForRRR(marketPrice, slCandidates, tpCandidates, config); found {
+		return bestPlan
+	}
+
+	config.TargetRiskReward = targetRiskRewardFallback
+	config.Type = dto.PlanTypeSecondary
+	config.Score = 2
+	if bestPlan, found := s.findBestPlanForRRR(marketPrice, slCandidates, tpCandidates, config); found {
+		return bestPlan
+	}
+
+	config.MaxTakeProfitPercent = fallbackMaxTakeProfitPercent
+	config.MinTakeProfitPercent = fallbackMinTakeProfitPercent
+	config.MaxStopLossPercent = fallbackMaxStopLossPercent
+	config.MinStopLossPercent = fallbackMinStopLossPercent
+	config.Type = dto.PlanTypeFallback
+	config.Score = 0
+	if bestPlan, found := s.findBestPlanForRRR(marketPrice, slCandidates, tpCandidates, config); found {
+		return bestPlan
+	}
+
+	return dto.TradePlan{}
+}
+
 // calculatePlan evaluates all possible SL/TP combinations and selects the best one based on a scoring system.
 func (s *tradingService) calculatePlan(
 	marketPrice float64,
@@ -123,64 +231,14 @@ func (s *tradingService) calculatePlan(
 	emas []dto.EMAData,
 	priceBuckets []dto.PriceBucket,
 	atr float64,
+	slATRMultiplier float64,
 ) dto.TradePlan {
-	slCandidates := getSLCandidates(marketPrice, supports, emas, priceBuckets, atr)
-	tpCandidates := getTPCandidates(marketPrice, resistances, priceBuckets, atr)
+	slDistance := atr * slATRMultiplier
+	tpDistance := atr * 0.1 // 10% of ATR
+	slCandidates := getSLCandidates(marketPrice, supports, emas, priceBuckets, slDistance)
+	tpCandidates := getTPCandidates(marketPrice, resistances, priceBuckets, tpDistance)
 
-	var bestPlan dto.TradePlan
-	highestScore := -1.0
-
-	for _, sl := range slCandidates {
-		risk := marketPrice - sl.Price
-		if risk <= 0 {
-			continue
-		}
-		riskPct := risk / marketPrice
-		if riskPct > maxStopLossPercent || riskPct < minStopLossPercent {
-			continue
-		}
-
-		// We only need to check the most realistic TP candidates (the first few)
-		for _, tp := range tpCandidates {
-
-			reward := tp.Price - marketPrice
-			if reward <= 0 {
-				continue
-			}
-			rewardPct := reward / marketPrice
-			if rewardPct > maxTakeProfitPercent {
-				continue
-			}
-
-			riskRewardRatio := reward / risk
-			if riskRewardRatio < targetRiskReward {
-				continue
-			}
-
-			// Scoring: Combines RRR with the strength of the SL and TP levels.
-			// This is a simple scoring model, can be enhanced further.
-			currentScore := (riskRewardRatio * 0.5) + (sl.Score * 0.3) + (tp.Score * 0.2)
-
-			if currentScore > highestScore {
-				highestScore = currentScore
-				bestPlan = dto.TradePlan{
-					Entry:      marketPrice,
-					StopLoss:   sl.Price,
-					TakeProfit: tp.Price,
-					Risk:       risk,
-					Reward:     reward,
-					RiskReward: riskRewardRatio,
-					SLType:     sl.Type,
-					SLReason:   sl.Reason,
-					TPType:     tp.Type,
-					TPReason:   tp.Reason,
-					Score:      currentScore,
-				}
-			}
-		}
-	}
-
-	return bestPlan
+	return s.findIdealPlan(marketPrice, slCandidates, tpCandidates)
 }
 
 func (s *tradingService) CalculateSummary(ctx context.Context, dtf []dto.DataTimeframe, latestAnalyses []model.StockAnalysis) (float64, int, error) {

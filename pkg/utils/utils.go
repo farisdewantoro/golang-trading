@@ -283,35 +283,38 @@ func EscapeHTMLForTelegram(s string) string {
 }
 
 func FormatPrice(price float64, exchange string) string {
+	var formatted string
+
 	switch exchange {
 	case common.EXCHANGE_IDX:
-		// Saham Indonesia tanpa koma
-		return fmt.Sprintf("%.0f", price)
+		formatted = fmt.Sprintf("%.0f", price)
 
 	case common.EXCHANGE_NASDAQ:
-		// Saham US: 2–6 desimal tergantung nilai
 		switch {
 		case price >= 1:
-			return fmt.Sprintf("%.2f", price)
+			formatted = fmt.Sprintf("%.2f", price)
 		case price >= 0.01:
-			return fmt.Sprintf("%.4f", price)
+			formatted = fmt.Sprintf("%.4f", price)
 		default:
-			return fmt.Sprintf("%.6f", price)
+			formatted = fmt.Sprintf("%.6f", price)
 		}
 
 	case common.EXCHANGE_BINANCE:
 		switch {
 		case price >= 1000:
-			return fmt.Sprintf("%.2f", price)
+			formatted = fmt.Sprintf("%.2f", price)
 		case price >= 1:
-			return fmt.Sprintf("%.4f", price)
+			formatted = fmt.Sprintf("%.4f", price)
 		case price >= 0.01:
-			return fmt.Sprintf("%.6f", price)
+			formatted = fmt.Sprintf("%.6f", price)
 		default:
-			return fmt.Sprintf("%.8f", price)
+			formatted = fmt.Sprintf("%.8f", price)
 		}
 
 	default:
-		return strconv.FormatFloat(price, 'f', -1, 64)
+		formatted = strconv.FormatFloat(price, 'f', -1, 64)
 	}
+
+	// Ganti titik desimal dengan karakter serupa (U+2024)
+	return strings.ReplaceAll(formatted, ".", "․")
 }

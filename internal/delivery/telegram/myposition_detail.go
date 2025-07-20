@@ -8,6 +8,7 @@ import (
 	"golang-trading/internal/model"
 	"golang-trading/pkg/cache"
 	"golang-trading/pkg/common"
+	"golang-trading/pkg/logger"
 	"golang-trading/pkg/utils"
 	"strconv"
 	"strings"
@@ -45,7 +46,8 @@ func (t *TelegramBotHandler) showMyPositionDetail(ctx context.Context, c telebot
 
 	isHasMonitoring := len(stockPosition.StockPositionMonitorings) > 0
 
-	stockCodeWithExchange := stockPosition.Exchange + ":" + stockPosition.StockCode
+	exchange := stockPosition.Exchange
+	stockCodeWithExchange := exchange + ":" + stockPosition.StockCode
 	marketPrice, _ := cache.GetFromCache[float64](fmt.Sprintf(common.KEY_LAST_PRICE, stockCodeWithExchange))
 
 	if marketPrice == 0 && isHasMonitoring {
@@ -58,16 +60,16 @@ func (t *TelegramBotHandler) showMyPositionDetail(ctx context.Context, c telebot
 	sb.WriteString("\n")
 	sb.WriteString("<b>🧾 Informasi Posisi:</b>\n")
 	sb.WriteString(fmt.Sprintf("  • Buy: %s (%d Hari)\n", stockPosition.BuyDate.Format("2006-01-02"), ageDays))
-	sb.WriteString(fmt.Sprintf("  • Entry: %s \n", utils.FormatPrice(stockPosition.BuyPrice, stockPosition.Exchange)))
-	sb.WriteString(fmt.Sprintf("  • Last Price: %s\n", utils.FormatPrice(marketPrice, stockPosition.Exchange)))
+	sb.WriteString(fmt.Sprintf("  • Entry: %s \n", utils.FormatPrice(stockPosition.BuyPrice, exchange)))
+	sb.WriteString(fmt.Sprintf("  • Last Price: %s\n", utils.FormatPrice(marketPrice, exchange)))
 	sb.WriteString(fmt.Sprintf("  • PnL: %s\n", utils.FormatChangeWithIcon(stockPosition.BuyPrice, marketPrice)))
 	if stockPosition.TrailingProfitPrice > 0 {
-		sb.WriteString(fmt.Sprintf("  • TP: %s ➡️ %s (%s)\n", utils.FormatPrice(stockPosition.TakeProfitPrice, stockPosition.Exchange), utils.FormatPrice(stockPosition.TrailingProfitPrice, stockPosition.Exchange), utils.FormatChange(stockPosition.BuyPrice, stockPosition.TrailingProfitPrice)))
+		sb.WriteString(fmt.Sprintf("  • TP: %s ➡️ %s (%s)\n", utils.FormatPrice(stockPosition.TakeProfitPrice, exchange), utils.FormatPrice(stockPosition.TrailingProfitPrice, exchange), utils.FormatChange(stockPosition.BuyPrice, stockPosition.TrailingProfitPrice)))
 	} else {
-		sb.WriteString(fmt.Sprintf("  • TP: %s (%s)\n", utils.FormatPrice(stockPosition.TakeProfitPrice, stockPosition.Exchange), utils.FormatChange(stockPosition.BuyPrice, stockPosition.TakeProfitPrice)))
+		sb.WriteString(fmt.Sprintf("  • TP: %s (%s)\n", utils.FormatPrice(stockPosition.TakeProfitPrice, exchange), utils.FormatChange(stockPosition.BuyPrice, stockPosition.TakeProfitPrice)))
 	}
 	if stockPosition.TrailingStopPrice > 0 {
-		sb.WriteString(fmt.Sprintf("  • SL: %s ➡️ %s (%s)\n", utils.FormatPrice(stockPosition.StopLossPrice, stockPosition.Exchange), utils.FormatPrice(stockPosition.TrailingStopPrice, stockPosition.Exchange), utils.FormatChange(stockPosition.BuyPrice, stockPosition.TrailingStopPrice)))
+		sb.WriteString(fmt.Sprintf("  • SL: %s ➡️ %s (%s)\n", utils.FormatPrice(stockPosition.StopLossPrice, exchange), utils.FormatPrice(stockPosition.TrailingStopPrice, exchange), utils.FormatChange(stockPosition.BuyPrice, stockPosition.TrailingStopPrice)))
 	} else {
 		sb.WriteString(fmt.Sprintf("  • SL: %s (%s)\n", utils.FormatPrice(stockPosition.StopLossPrice, stockPosition.Exchange), utils.FormatChange(stockPosition.BuyPrice, stockPosition.StopLossPrice)))
 	}
@@ -155,6 +157,33 @@ func (t *TelegramBotHandler) showMyPositionDetail(ctx context.Context, c telebot
 			sb.WriteString(fmt.Sprintf("- <b>MACD</b>: %s | <b>RSI</b>: %d - %s\n", technicalData.GetTrendMACD(), int(technicalData.Value.Oscillators.RSI), dto.GetRSIStatus(int(technicalData.Value.Oscillators.RSI))))
 			sb.WriteString(fmt.Sprintf("- <b>MA</b>: %s | <b>Osc</b>: %s \n", dto.GetSignalText(technicalData.Recommend.Global.MA), dto.GetSignalText(technicalData.Recommend.Global.Oscillators)))
 
+			resultPivots, err := t.service.TradingService.BuildTimeframePivots(&analysis)
+			if err != nil {
+				t.log.ErrorContext(ctx, "Failed to build pivots", logger.ErrorField(err))
+				return err
+			}
+
+			for _, val := range resultPivots {
+				for _, pivot := range val.PivotData {
+					sb.WriteString(fmt.Sprintf("- <b>%s S/R:</b>\n", pivot.Type))
+					sb.WriteString("<b> - R: </b>")
+					for idx, level := range pivot.Resistance {
+						sb.WriteString(fmt.Sprintf("%s (%dx)", utils.FormatPrice(level.Price, exchange), level.Touches))
+						if idx < len(pivot.Resistance)-1 {
+							sb.WriteString(" | ")
+						}
+					}
+					sb.WriteString("\n")
+					sb.WriteString("<b> - S: </b>")
+					for idx, level := range pivot.Support {
+						sb.WriteString(fmt.Sprintf("%s (%dx)", utils.FormatPrice(level.Price, exchange), level.Touches))
+						if idx < len(pivot.Support)-1 {
+							sb.WriteString(" | ")
+						}
+					}
+					sb.WriteString("\n")
+				}
+			}
 		}
 	}
 
