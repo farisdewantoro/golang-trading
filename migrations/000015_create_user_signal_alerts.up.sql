@@ -1,0 +1,10 @@
+CREATE TABLE user_signal_alerts (
+    id SERIAL PRIMARY KEY,
+    user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    exchange VARCHAR(60) NOT NULL, -- Contoh: IDX, NASDAQ, BINANCE
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMP DEFAULT NULL,
+    UNIQUE (user_id, exchange)
+);

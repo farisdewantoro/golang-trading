@@ -170,6 +170,7 @@ func (s *StockPositionMonitoringStrategy) EvaluateStockPosition(ctx context.Cont
 			if stockPosition.InitialScore == 0 {
 				stockPosition.InitialScore = positionAnalysis.Score
 			}
+			lastScore := stockPosition.FinalScore
 			stockPosition.FinalScore = positionAnalysis.Score
 			errUpdate := s.stockPositionsRepo.Update(ctx, stockPosition)
 			if errUpdate != nil {
@@ -203,7 +204,11 @@ func (s *StockPositionMonitoringStrategy) EvaluateStockPosition(ctx context.Cont
 					})
 				}
 				stockPositionMonitorings = append(stockPositionMonitorings, stockPositionMonitoring)
-				shouldSendTelegram := summary.TechnicalAnalysis.Status != string(dto.Safe) || isTrailing
+
+				shouldSendTelegram := (summary.TechnicalAnalysis.Status == string(dto.Warning) && lastScore < stockPosition.FinalScore) ||
+					summary.TechnicalAnalysis.Status == string(dto.Dangerous) ||
+					isTrailing
+
 				if shouldSendTelegram {
 					sendTelegramToUsers = append(sendTelegramToUsers, stockPosition)
 				}

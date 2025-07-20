@@ -18,10 +18,10 @@ import (
 )
 
 type TradingService interface {
-	CreateTradePlan(ctx context.Context, latestAnalyses []model.StockAnalysis) (*dto.TradePlanResult, error)
 	BuyListTradePlan(ctx context.Context, mapSymbolExchangeAnalysis map[string][]model.StockAnalysis) ([]dto.TradePlanResult, error)
 	BuildTimeframePivots(analysis *model.StockAnalysis) ([]dto.TimeframePivot, error)
 	contract.TradingPositionContract
+	contract.TradingPlanContract
 }
 
 type tradingService struct {

@@ -7,16 +7,19 @@ import (
 	"encoding/json"
 	"fmt"
 	"golang-trading/config"
+	"golang-trading/internal/contract"
 	"golang-trading/internal/dto"
 	"golang-trading/internal/model"
 	"golang-trading/internal/repository"
 	"golang-trading/pkg/cache"
 	"golang-trading/pkg/logger"
+	"golang-trading/pkg/telegram"
 	"golang-trading/pkg/utils"
 	"strings"
 	"sync"
 
 	"golang.org/x/sync/errgroup"
+	"gopkg.in/telebot.v3"
 	"gorm.io/datatypes"
 )
 
@@ -34,6 +37,9 @@ type StockAnalyzerStrategy struct {
 	candleRepository               repository.CandleRepository
 	stockAnalysisRepo              repository.StockAnalysisRepository
 	systemParamRepository          repository.SystemParamRepository
+	telegram                       *telegram.TelegramRateLimiter
+	userSignalAlertRepo            repository.UserSignalAlertRepository
+	TradingPlanContract            contract.TradingPlanContract
 }
 
 type StockAnalyzerPayload struct {
@@ -54,7 +60,10 @@ func NewStockAnalyzerStrategy(
 	tradingViewScreenersRepository repository.TradingViewScreenersRepository,
 	candleRepository repository.CandleRepository,
 	stockAnalysisRepository repository.StockAnalysisRepository,
-	systemParamRepository repository.SystemParamRepository) StockAnalyzer {
+	systemParamRepository repository.SystemParamRepository,
+	userSignalAlertRepo repository.UserSignalAlertRepository,
+	telegram *telegram.TelegramRateLimiter,
+	tradingPlanContract contract.TradingPlanContract) StockAnalyzer {
 	return &StockAnalyzerStrategy{
 		cfg:                            cfg,
 		logger:                         logger,
@@ -64,6 +73,9 @@ func NewStockAnalyzerStrategy(
 		candleRepository:               candleRepository,
 		stockAnalysisRepo:              stockAnalysisRepository,
 		systemParamRepository:          systemParamRepository,
+		userSignalAlertRepo:            userSignalAlertRepo,
+		telegram:                       telegram,
+		TradingPlanContract:            tradingPlanContract,
 	}
 }
 
@@ -144,13 +156,18 @@ func (s *StockAnalyzerStrategy) Execute(ctx context.Context, job *model.Job) (Jo
 			resultData := StockAnalyzerResult{
 				StockCode: stock.Exchange + ":" + stock.StockCode,
 			}
-			_, err := s.AnalyzeStock(ctx, stock)
+			analyses, err := s.AnalyzeStock(ctx, stock)
 			if err != nil {
-				s.logger.Error("Failed to analyze stock", logger.ErrorField(err), logger.StringField("stock_code", stock.StockCode))
+				s.logger.ErrorContextWithAlert(ctx, "Failed to analyze stock", logger.ErrorField(err), logger.StringField("stock_code", stock.StockCode))
 				resultData.Errors = err.Error()
 				isHasError = true
 			} else {
 				isHasSuccess = true
+				err := s.SendTelegramAlert(ctx, analyses)
+				if err != nil {
+					resultData.Errors = err.Error()
+					s.logger.ErrorContextWithAlert(ctx, "Failed to send telegram alert", logger.ErrorField(err))
+				}
 			}
 
 			mu.Lock()
@@ -303,4 +320,114 @@ func (s *StockAnalyzerStrategy) GenerateHashIdentifier(data *model.StockAnalysis
 	hashInput := strings.Join(parts, "|")
 	hash := sha256.Sum256([]byte(hashInput))
 	return hex.EncodeToString(hash[:])
+}
+
+func (s *StockAnalyzerStrategy) SendTelegramAlert(ctx context.Context, analyses []model.StockAnalysis) error {
+	withUser := utils.WithPreload("User")
+
+	if len(analyses) == 0 {
+		s.logger.Warn("No stock analysis found")
+		return nil
+	}
+
+	exchange := analyses[0].Exchange
+
+	userSignalAlerts, err := s.userSignalAlertRepo.Get(ctx, &model.GetUserSignalAlertParam{
+		IsActive: utils.ToPointer(true),
+		Exchange: utils.ToPointer(exchange),
+	}, withUser)
+	if err != nil {
+		s.logger.Error("Failed to get user signal alert", logger.ErrorField(err))
+		return err
+	}
+
+	if len(userSignalAlerts) == 0 {
+		s.logger.Debug("No user signal alert found")
+		return nil
+	}
+
+	tradePlan, err := s.TradingPlanContract.CreateTradePlan(ctx, analyses)
+	if err != nil {
+		s.logger.Error("Failed to create trade plan", logger.ErrorField(err))
+		return err
+	}
+
+	if tradePlan == nil || tradePlan.RiskReward == 0 {
+		s.logger.Warn("No trade plan found", logger.StringField("stock_code", analyses[0].StockCode))
+		return nil
+	}
+
+	isBuySignal := tradePlan.IsBuySignal &&
+		tradePlan.Status == string(dto.Safe) &&
+		tradePlan.RiskReward > s.cfg.Trading.RiskRewardRatio &&
+		tradePlan.Score > s.cfg.Trading.BuySignalScore
+
+	if !isBuySignal {
+		s.logger.DebugContext(ctx, "Not buy signal",
+			logger.StringField("stock_code", analyses[0].StockCode),
+			logger.StringField("exchange", exchange),
+			logger.StringField("risk_reward", fmt.Sprintf("%.2f", tradePlan.RiskReward)),
+			logger.StringField("score", fmt.Sprintf("%.2f", tradePlan.Score)),
+		)
+		return nil
+	}
+
+	positions, err := s.stockPositionRepo.Get(ctx, dto.GetStockPositionsParam{
+		StockCodes: []string{analyses[0].StockCode},
+		Exchange:   utils.ToPointer(exchange),
+		IsActive:   utils.ToPointer(true),
+	})
+	if err != nil {
+		s.logger.Error("Failed to get stock position", logger.ErrorField(err))
+		return err
+	}
+
+	userMap := map[uint]model.User{}
+	for _, user := range userSignalAlerts {
+		userMap[user.UserID] = user.User
+	}
+
+	for _, position := range positions {
+		if _, ok := userMap[position.UserID]; ok {
+			delete(userMap, position.UserID)
+		}
+	}
+
+	if len(userMap) == 0 {
+		s.logger.Debug("No user to send signal")
+		return nil
+	}
+
+	sb := strings.Builder{}
+
+	sb.WriteString(fmt.Sprintf("<b>🟢 Signal BUY - %s:%s</b>\n", exchange, analyses[0].StockCode))
+	sb.WriteString(fmt.Sprintf("<i>📅 Update: %s</i>\n", utils.PrettyDate(utils.TimeNowWIB())))
+	sb.WriteString("\n")
+	sb.WriteString(fmt.Sprintf("💰 <b>Entry</b>: %s\n", utils.FormatPrice(tradePlan.Entry, exchange)))
+	sb.WriteString(fmt.Sprintf("🎯 <b>Take Profit</b>: %s %s\n", utils.FormatPrice(tradePlan.TakeProfit, exchange), utils.FormatChangeWithIcon(tradePlan.Entry, tradePlan.TakeProfit)))
+	sb.WriteString(fmt.Sprintf("🛡️ <b>Stop Loss</b>: %s %s\n", utils.FormatPrice(tradePlan.StopLoss, exchange), utils.FormatChangeWithIcon(tradePlan.Entry, tradePlan.StopLoss)))
+	sb.WriteString(fmt.Sprintf("📊 <b>Risk Reward</b>: %s \n", fmt.Sprintf("%.2f", tradePlan.RiskReward)))
+	sb.WriteString(fmt.Sprintf("🔎 <b>Score</b>: %s (%s)\n", fmt.Sprintf("%.2f", tradePlan.Score), tradePlan.TechnicalSignal))
+	sb.WriteString(fmt.Sprintf("<b>%s Plan</b>\n", tradePlan.PlanType.String()))
+	sb.WriteString("\n")
+	sb.WriteString("📝 <b>Insights:</b>\n")
+	for _, insight := range tradePlan.Insights {
+		sb.WriteString(fmt.Sprintf("- %s\n", insight))
+	}
+
+	sb.WriteString("\n")
+
+	sb.WriteString("👉 <i>Klik tombol di bawah ini untuk melihat detail analisa</i>")
+	menu := &telebot.ReplyMarkup{}
+	btnAnalyze := menu.Data("📄 Detail Analisa", "btn_general_analisis", fmt.Sprintf("%s:%s", analyses[0].Exchange, analyses[0].StockCode))
+	btnDeleteMessage := menu.Data("🗑️ Hapus Pesan", "btn_delete_message")
+	menu.Inline(menu.Row(btnAnalyze, btnDeleteMessage))
+
+	for _, user := range userMap {
+		errSend := s.telegram.SendMessageUser(ctx, sb.String(), user.TelegramID, menu, telebot.ModeHTML)
+		if errSend != nil {
+			s.logger.ErrorContextWithAlert(ctx, "Failed to send buy signal", logger.ErrorField(errSend))
+		}
+	}
+	return nil
 }

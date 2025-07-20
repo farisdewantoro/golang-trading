@@ -27,6 +27,8 @@ type TelegramBotService interface {
 	GetDetailStockPosition(ctx context.Context, telegramID int64, stockPositionID uint) (*model.StockPosition, error)
 	ExitStockPosition(ctx context.Context, telegramID int64, data *dto.RequestExitPositionData) error
 	GetAllLatestAnalyses(ctx context.Context, exchange string) ([]model.StockAnalysis, error)
+	GetAlertSignal(ctx context.Context, telegramID int64) ([]model.UserSignalAlert, error)
+	SetAlertSignal(ctx context.Context, telegramID int64, exchange string, isActive bool) error
 }
 
 type telegramBotService struct {
@@ -42,6 +44,7 @@ type telegramBotService struct {
 	stockPositionRepository           repository.StockPositionsRepository
 	stockPositionMonitoringRepository repository.StockPositionMonitoringRepository
 	uow                               repository.UnitOfWork
+	userSignalAlertRepository         repository.UserSignalAlertRepository
 }
 
 func NewTelegramBotService(
@@ -57,6 +60,7 @@ func NewTelegramBotService(
 	stockPositionRepository repository.StockPositionsRepository,
 	stockPositionMonitoringRepository repository.StockPositionMonitoringRepository,
 	uow repository.UnitOfWork,
+	userSignalAlertRepository repository.UserSignalAlertRepository,
 ) TelegramBotService {
 	return &telegramBotService{
 		log:                               log,
@@ -71,6 +75,7 @@ func NewTelegramBotService(
 		stockPositionRepository:           stockPositionRepository,
 		stockPositionMonitoringRepository: stockPositionMonitoringRepository,
 		uow:                               uow,
+		userSignalAlertRepository:         userSignalAlertRepository,
 	}
 }
 
@@ -309,4 +314,26 @@ func (s *telegramBotService) GetAllLatestAnalyses(ctx context.Context, exchange 
 
 	s.log.DebugContext(ctx, "Found latest analyses", logger.IntField("count", len(latestAnalyses)))
 	return latestAnalyses, nil
+}
+
+func (s *telegramBotService) GetAlertSignal(ctx context.Context, telegramID int64) ([]model.UserSignalAlert, error) {
+	return s.userSignalAlertRepository.Get(ctx, &model.GetUserSignalAlertParam{
+		TelegramID: &telegramID,
+	})
+}
+
+func (s *telegramBotService) SetAlertSignal(ctx context.Context, telegramID int64, exchange string, isActive bool) error {
+	userSignalAlerts, err := s.userSignalAlertRepository.Get(ctx, &model.GetUserSignalAlertParam{
+		TelegramID: &telegramID,
+		Exchange:   &exchange,
+	})
+	if err != nil {
+		return err
+	}
+	if len(userSignalAlerts) == 0 {
+		return fmt.Errorf("user signal alert not found")
+	}
+
+	userSignalAlerts[0].IsActive = utils.ToPointer(isActive)
+	return s.userSignalAlertRepository.Update(ctx, &userSignalAlerts[0])
 }
