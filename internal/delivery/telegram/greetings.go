@@ -16,10 +16,9 @@ Saya di sini untuk membantu kamu memantau saham dan mencari peluang terbaik dari
 📋 /buylist - Lihat daftar saham potensial untuk dibeli  
 📝 /setposition - Catat posisi saham yang sedang kamu pegang  
 📊 /myposition - Lihat semua posisi yang sedang dipantau  
-📰 /news - Lihat berita terkini, alert berita penting saham, ringkasan berita
 💰 /report Melihat ringkasan hasil trading kamu berdasarkan posisi yang sudah kamu entry dan exit.
 🔄 /scheduler	- Lihat status scheduler & jalankan job secara manual  
-
+📡 /alertsignal - Notifikasi sinyal BUY terbaik yang dikirim otomatis sesuai jadwal oleh sistem
 
 💡 Info & Bantuan:
 🆘 /help - Lihat panduan penggunaan lengkap  
@@ -44,10 +43,10 @@ Berikut daftar perintah yang bisa kamu gunakan:
 /buylist - Lihat saham potensial yang sedang menarik untuk dibeli  
 /setposition - Catat saham yang kamu beli agar bisa dipantau otomatis  
 /myposition - Lihat semua posisi yang sedang kamu pantau  
-/news - Lihat berita terkini, alert berita penting saham, ringkasan berita
 /cancel - Batalkan perintah yang sedang berjalan
 /report - Melihat ringkasan hasil trading kamu berdasarkan posisi yang sudah kamu entry dan exit.
 /scheduler	- Lihat status scheduler & jalankan job secara manual  
+/alertsignal - Notifikasi sinyal BUY terbaik yang dikirim otomatis sesuai jadwal oleh sistem
 
 💡 *Tips Penggunaan:*
 1. Gunakan /analyze untuk analisa cepat atau mendalam (bisa juga langsung kirim kode saham, misalnya: 'BBCA')  
