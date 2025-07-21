@@ -223,6 +223,42 @@ func (s *tradingService) findIdealPlan(
 	return dto.TradePlan{}
 }
 
+// createATRBasedPlan is a fallback function to create a simple trade plan based on ATR.
+// This is used when no suitable plan can be found from support/resistance levels.
+func (s *tradingService) createATRBasedPlan(marketPrice, atr float64, slATRMultiplier float64) dto.TradePlan {
+	if atr <= 0 {
+		return dto.TradePlan{}
+	}
+
+	// Define SL and TP based on ATR multipliers. Example: SL=2*ATR, TP=3*ATR for a 1.5 RRR.
+	stopLoss := marketPrice - (slATRMultiplier * atr)
+	takeProfit := marketPrice + (3 * atr)
+
+	risk := marketPrice - stopLoss
+	reward := takeProfit - marketPrice
+
+	if risk <= 0 || reward <= 0 {
+		return dto.TradePlan{}
+	}
+
+	plan := dto.TradePlan{
+		Entry:      marketPrice,
+		StopLoss:   stopLoss,
+		TakeProfit: takeProfit,
+		Risk:       risk,
+		Reward:     reward,
+		RiskReward: reward / risk,
+		PlanType:   dto.PlanTypeFallback,
+		SLType:     "ATR_FALLBACK",
+		SLReason:   fmt.Sprintf("Fallback based on %fx ATR (%.2f)", slATRMultiplier, atr),
+		TPType:     "ATR_FALLBACK",
+		TPReason:   fmt.Sprintf("Fallback based on 3x ATR (%.2f)", atr),
+		Score:      0.5, // Low score to indicate it's a fallback plan
+	}
+
+	return plan
+}
+
 // calculatePlan evaluates all possible SL/TP combinations and selects the best one based on a scoring system.
 func (s *tradingService) calculatePlan(
 	marketPrice float64,
@@ -238,7 +274,16 @@ func (s *tradingService) calculatePlan(
 	slCandidates := getSLCandidates(marketPrice, supports, emas, priceBuckets, slDistance)
 	tpCandidates := getTPCandidates(marketPrice, resistances, priceBuckets, tpDistance)
 
-	return s.findIdealPlan(marketPrice, slCandidates, tpCandidates)
+	// First, try to find the ideal plan from technical levels
+	plan := s.findIdealPlan(marketPrice, slCandidates, tpCandidates)
+
+	// If no plan is found, use the ATR-based fallback
+	if plan.Entry == 0 {
+		s.log.Info("No ideal plan found, creating ATR-based fallback plan.")
+		plan = s.createATRBasedPlan(marketPrice, atr, slATRMultiplier)
+	}
+
+	return plan
 }
 
 func (s *tradingService) CalculateSummary(ctx context.Context, dtf []dto.DataTimeframe, latestAnalyses []model.StockAnalysis) (float64, int, error) {
