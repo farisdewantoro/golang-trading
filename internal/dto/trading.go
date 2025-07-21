@@ -122,6 +122,7 @@ const (
 	PlanTypePrimary   PlanType = "PRIMARY"
 	PlanTypeSecondary PlanType = "SECONDARY"
 	PlanTypeFallback  PlanType = "FALLBACK"
+	PlanTypeATR       PlanType = "ATR"
 )
 
 func (pt PlanType) String() string {
@@ -132,6 +133,8 @@ func (pt PlanType) String() string {
 		return "🥈 Secondary"
 	case PlanTypeFallback:
 		return "🚨 Fallback"
+	case PlanTypeATR:
+		return "🚨 ATR"
 	default:
 		return "❓ Unknown"
 	}

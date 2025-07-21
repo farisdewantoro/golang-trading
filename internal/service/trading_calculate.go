@@ -248,7 +248,7 @@ func (s *tradingService) createATRBasedPlan(marketPrice, atr float64, slATRMulti
 		Risk:       risk,
 		Reward:     reward,
 		RiskReward: reward / risk,
-		PlanType:   dto.PlanTypeFallback,
+		PlanType:   dto.PlanTypeATR,
 		SLType:     "ATR_FALLBACK",
 		SLReason:   fmt.Sprintf("Fallback based on %fx ATR (%.2f)", slATRMultiplier, atr),
 		TPType:     "ATR_FALLBACK",
