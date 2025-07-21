@@ -134,7 +134,7 @@ Coba lagi nanti atau gunakan filter /analyze untuk menemukan peluang baru atau /
 			buyCount++
 			symbolWithExchange := tradePlan.Exchange + ":" + tradePlan.Symbol
 
-			if _, ok := positionsMap[tradePlan.Symbol]; ok {
+			if _, ok := positionsMap[symbolWithExchange]; ok {
 				buyListResultMsg.WriteString("\n")
 				buyListResultMsg.WriteString(fmt.Sprintf("<b>%d. %s - [OWNED ✅]</b>\n", buyCount, tradePlan.Symbol))
 				buyListResultMsg.WriteString(fmt.Sprintf("- <b>Signal:</b> %s | Score: %.2f\n", tradePlan.TechnicalSignal, tradePlan.Score))
