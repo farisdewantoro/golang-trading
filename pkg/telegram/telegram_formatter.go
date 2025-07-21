@@ -12,8 +12,10 @@ import (
 type AlertType string
 
 const (
-	TakeProfit AlertType = "TAKE_PROFIT"
-	StopLoss   AlertType = "STOP_LOSS"
+	TakeProfit     AlertType = "TAKE_PROFIT"
+	StopLoss       AlertType = "STOP_LOSS"
+	TrailingProfit AlertType = "TRAILING_PROFIT"
+	TrailingStop   AlertType = "TRAILING_STOP"
 )
 
 // FormatStockAlertResultForTelegram formats the stock alert result into a Markdown string for Telegram.
@@ -28,6 +30,12 @@ func FormatStockAlertResultForTelegram(alertType AlertType, stockCode string, tr
 	case StopLoss:
 		title = "Stop Loss Triggered!"
 		emoji = "⚠️"
+	case TrailingProfit:
+		title = "Trailing Profit Triggered!"
+		emoji = "📈"
+	case TrailingStop:
+		title = "Trailing Stop Triggered!"
+		emoji = "📉"
 	default:
 		title = "Price Alert"
 		emoji = "🔔"
