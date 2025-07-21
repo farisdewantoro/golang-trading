@@ -527,7 +527,7 @@ func (s *tradingService) calculateSLPlacementScore(pos *model.StockPosition, sup
 	if nearestSupport.Price > 0 {
 		isSLSafe := pos.StopLossPrice < nearestSupport.Price
 		proximityFactor := 1.0 - (minDistance / pos.StopLossPrice) // 0-1, 1 sangat dekat
-		strengthFactor := float64(nearestSupport.Touches)       // Jumlah sentuhan
+		strengthFactor := float64(nearestSupport.Touches)          // Jumlah sentuhan
 
 		if isSLSafe {
 			// Bonus jika SL di bawah support kuat (penempatan aman)
@@ -718,9 +718,9 @@ func (s *tradingService) evaluateTrailingTakeProfit(
 	mainTA *dto.TradingViewScanner,
 	mainOHLCV []dto.StockOHLCV,
 ) {
+	canGoHigher, explanation, nextTarget := s.evaluatePotentialAtTakeProfit(mainTA, mainOHLCV)
 	// --- Logika #1: Aktivasi Mode Trailing Take Profit (TTP) ---
 	if result.LastPrice >= pos.TakeProfitPrice && pos.TrailingProfitPrice == 0 {
-		canGoHigher, explanation, nextTarget := s.evaluatePotentialAtTakeProfit(mainTA, mainOHLCV)
 		if canGoHigher && nextTarget > result.TakeProfitPrice {
 			// Aktifkan mode TTP
 			result.Signal = dto.TrailingProfit
@@ -754,7 +754,19 @@ func (s *tradingService) evaluateTrailingTakeProfit(
 			result.TrailingProfitPrice = newTriggerPrice
 		}
 
-		// Kondisi 1: Harga menyentuh trigger price
+		// Kondisi 1: Cek potensi kenaikan lebih lanjut
+		if !canGoHigher {
+			result.Signal = dto.TakeProfit
+			result.Status = dto.Safe
+			insightText := "SINYAL TAKE PROFIT (Trailing): Potensi kenaikan lanjutan dinilai rendah."
+			if explanation.Text != "" {
+				insightText = fmt.Sprintf("SINYAL TAKE PROFIT (Trailing): %s", explanation.Text)
+			}
+			result.Insight = append(result.Insight, dto.Insight{Text: insightText, Weight: 90})
+			return
+		}
+
+		// Kondisi 2: Harga menyentuh trigger price
 		if result.LastPrice <= result.TrailingProfitPrice {
 			result.Signal = dto.TakeProfit
 			result.Status = dto.Safe
@@ -762,7 +774,7 @@ func (s *tradingService) evaluateTrailingTakeProfit(
 			return
 		}
 
-		// Kondisi 2: Terbentuk pola reversal kuat (misal: Bearish Engulfing)
+		// Kondisi 3: Terbentuk pola reversal kuat (misal: Bearish Engulfing)
 		if len(mainOHLCV) >= 2 && s.isBearishEngulfing(mainOHLCV[len(mainOHLCV)-1], mainOHLCV[len(mainOHLCV)-2]) {
 			result.Signal = dto.TakeProfit
 			result.Status = dto.Safe
@@ -770,7 +782,7 @@ func (s *tradingService) evaluateTrailingTakeProfit(
 			return
 		}
 
-		// Kondisi 3: Sinyal teknikal umum melemah signifikan
+		// Kondisi 4: Sinyal teknikal umum melemah signifikan
 		techSignal := dto.MapTradingViewScreenerRecommend(mainTA.Recommend.Global.Summary)
 		if techSignal == dto.SignalSell || techSignal == dto.SignalStrongSell {
 			result.Signal = dto.TakeProfit
