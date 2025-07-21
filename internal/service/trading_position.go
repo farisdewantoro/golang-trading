@@ -16,6 +16,8 @@ func (s *tradingService) EvaluatePositionMonitoring(
 	ctx context.Context,
 	stockPosition *model.StockPosition,
 	analyses []model.StockAnalysis,
+	supports []dto.Level, // Tambahkan parameter supports
+	resistances []dto.Level,
 ) (*dto.PositionAnalysis, error) {
 
 	// --- Inisialisasi dan Pengambilan Data ---
@@ -76,7 +78,7 @@ func (s *tradingService) EvaluatePositionMonitoring(
 	}
 
 	// --- Dapatkan Evaluasi Baseline menggunakan Sistem Skor Baru ---
-	score, insights, techSignal := s.calculateAdvancedScore(stockPosition, mainData.MainTA, mainData.SecondaryTA, mainData.MainOHLCV, marketPrice)
+	score, insights, techSignal := s.calculateAdvancedScore(stockPosition, mainData.MainTA, mainData.SecondaryTA, mainData.MainOHLCV, marketPrice, supports, resistances)
 	result.Score = score
 	result.TechnicalSignal = techSignal
 	result.Insight = append(result.Insight, insights...)
@@ -276,7 +278,7 @@ func (s *tradingService) evaluatePotentialAtTakeProfit(mainTA *dto.TradingViewSc
 }
 
 // calculateAdvancedScore menghitung skor posisi berdasarkan analisis teknikal komprehensif.
-func (s *tradingService) calculateAdvancedScore(pos *model.StockPosition, mainTA, secondaryTA *dto.TradingViewScanner, mainOHLCV []dto.StockOHLCV, marketPrice float64) (float64, []dto.Insight, string) {
+func (s *tradingService) calculateAdvancedScore(pos *model.StockPosition, mainTA, secondaryTA *dto.TradingViewScanner, mainOHLCV []dto.StockOHLCV, marketPrice float64, supports, resistances []dto.Level) (float64, []dto.Insight, string) {
 	var totalScore float64
 	var insights []dto.Insight
 
@@ -291,7 +293,7 @@ func (s *tradingService) calculateAdvancedScore(pos *model.StockPosition, mainTA
 	insights = append(insights, momentumInsights...)
 
 	// 3. Analisis Kondisi Posisi (Bobot: 20%)
-	positionScore, positionInsights := s.scorePositionHealth(pos, marketPrice)
+	positionScore, positionInsights := s.scorePositionHealth(pos, marketPrice, supports, resistances)
 	totalScore += positionScore * 0.20
 	insights = append(insights, positionInsights...)
 
@@ -453,51 +455,160 @@ func (s *tradingService) scoreMomentum(ta *dto.TradingViewScanner) (float64, []d
 }
 
 // scorePositionHealth memberikan skor berdasarkan kesehatan posisi trading saat ini.
-func (s *tradingService) scorePositionHealth(pos *model.StockPosition, lastPrice float64) (float64, []dto.Insight) {
-	score := 0.0
+func (s *tradingService) scorePositionHealth(pos *model.StockPosition, lastPrice float64, supports, resistances []dto.Level) (float64, []dto.Insight) {
 	var insights []dto.Insight
 
+	// --- Skor Kesehatan Posisi (Original) ---
+	healthScore := 0.0
 	profitPercentage := ((lastPrice - pos.BuyPrice) / pos.BuyPrice) * 100
 
 	if profitPercentage > 0 {
-		score += 50 + (profitPercentage * 2) // Bonus berdasarkan % profit
+		healthScore += 50 + (profitPercentage * 2)
 		insights = append(insights, dto.Insight{Text: fmt.Sprintf("Posisi sedang profit %.2f%%.", profitPercentage), Weight: 20})
 	} else if profitPercentage < 0 {
-		score += 50 + (profitPercentage * 5) // Penalti lebih besar untuk kerugian
-
+		healthScore += 50 + (profitPercentage * 5)
 		insights = append(insights, dto.Insight{Text: fmt.Sprintf("Posisi sedang merugi %.2f%%.", profitPercentage), Weight: 40})
-	} else if profitPercentage == 0 {
-		score += 50 //default score
+	} else {
+		healthScore += 50
 	}
 
-	// Jarak ke Stop Loss
 	riskRange := lastPrice - pos.StopLossPrice
 	entryToSLRange := pos.BuyPrice - pos.StopLossPrice
 	if entryToSLRange > 0 {
 		riskRatio := riskRange / entryToSLRange
 		if riskRatio < 0.25 {
-			score -= 50 // Penalti besar jika sangat dekat dengan SL
-			insights = append(insights, dto.Insight{Text: "Sangat dekat dengan Stop Loss (<25% dari rentang risiko).", Weight: 80})
+			healthScore -= 50
+			insights = append(insights, dto.Insight{Text: "Sangat dekat dengan Stop Loss (<25%% dari rentang risiko).", Weight: 80})
 		} else if riskRatio < 0.5 {
-			score -= 25
-			insights = append(insights, dto.Insight{Text: "Dekat dengan Stop Loss (<50% dari rentang risiko).", Weight: 50})
+			healthScore -= 25
+			insights = append(insights, dto.Insight{Text: "Dekat dengan Stop Loss (<50%% dari rentang risiko).", Weight: 50})
 		} else {
-			score += 20
+			healthScore += 20
 		}
 	}
 
-	// Jarak ke Take Profit
-	profitRange := pos.TakeProfitPrice - lastPrice
-	entryToTPRange := pos.TakeProfitPrice - pos.BuyPrice
-	if entryToTPRange > 0 {
-		profitRatio := profitRange / entryToTPRange
-		if profitRatio < 0.1 {
-			score += 15 // Bonus jika sangat dekat dengan TP
-			insights = append(insights, dto.Insight{Text: "Sangat dekat dengan Take Profit.", Weight: 30})
+	// --- Skor Probabilitas Mencapai TP (Baru) ---
+	tpReachScore, tpInsights := s.calculateTPReachScore(pos, resistances)
+	insights = append(insights, tpInsights...)
+
+	// --- Skor Penempatan SL (Baru) ---
+	slPlacementScore, slInsights := s.calculateSLPlacementScore(pos, supports)
+	insights = append(insights, slInsights...)
+
+	// --- Gabungkan Skor ---
+	// Bobot: 50% kesehatan, 25% probabilitas TP, 25% penempatan SL
+	finalScore := (s.normalizeScore(healthScore) * 0.50) + (tpReachScore * 0.25) + (slPlacementScore * 0.25)
+
+	return s.normalizeScore(finalScore), insights
+}
+
+// calculateSLPlacementScore menganalisis kualitas penempatan Stop Loss.
+func (s *tradingService) calculateSLPlacementScore(pos *model.StockPosition, supports []dto.Level) (float64, []dto.Insight) {
+	score := 50.0 // Skor awal netral
+	var insights []dto.Insight
+
+	if len(supports) == 0 {
+		return score, insights
+	}
+
+	// Cari support terdekat
+	minDistance := math.MaxFloat64
+	var nearestSupport dto.Level
+	for _, sup := range supports {
+		if sup.Price < pos.BuyPrice { // Hanya pertimbangkan support di bawah harga beli
+			distance := math.Abs(pos.StopLossPrice - sup.Price)
+			if distance < minDistance {
+				minDistance = distance
+				nearestSupport = sup
+			}
+		}
+	}
+
+	if nearestSupport.Price > 0 {
+		isSLSafe := pos.StopLossPrice < nearestSupport.Price
+		proximityFactor := 1.0 - (minDistance / pos.StopLossPrice) // 0-1, 1 sangat dekat
+		strengthFactor := float64(nearestSupport.Touches)       // Jumlah sentuhan
+
+		if isSLSafe {
+			// Bonus jika SL di bawah support kuat (penempatan aman)
+			bonus := (strengthFactor * proximityFactor) * 20
+			score += bonus
+			insights = append(insights, dto.Insight{Text: fmt.Sprintf("Penempatan SL baik, berada di bawah support kuat (%.2f, disentuh %d kali).", nearestSupport.Price, nearestSupport.Touches), Weight: 15})
+		} else {
+			// Penalti jika SL di atas support (rawan tersentuh)
+			penalty := (strengthFactor * proximityFactor) * 25
+			score -= penalty
+			insights = append(insights, dto.Insight{Text: fmt.Sprintf("Peringatan: SL berada di atas support (%.2f, disentuh %d kali), rawan tersentuh.", nearestSupport.Price, nearestSupport.Touches), Weight: 40})
 		}
 	}
 
 	return s.normalizeScore(score), insights
+}
+
+// calculateTPReachScore menganalisis probabilitas harga mencapai target Take Profit.
+func (s *tradingService) calculateTPReachScore(pos *model.StockPosition, resistances []dto.Level) (float64, []dto.Insight) {
+	var insights []dto.Insight
+
+	// 1. Analisis Risk/Reward Ratio (RRR) - Bobot 40%
+	rrrScore := 0.0
+	entryToTPRange := pos.TakeProfitPrice - pos.BuyPrice
+	entryToSLRange := pos.BuyPrice - pos.StopLossPrice
+
+	if entryToSLRange > 0 && entryToTPRange > 0 {
+		rrr := entryToTPRange / entryToSLRange
+		if rrr >= 2.0 {
+			rrrScore = 100
+			insights = append(insights, dto.Insight{Text: fmt.Sprintf("Risk/Reward Ratio sangat baik (%.1f:1).", rrr), Weight: 15})
+		} else if rrr >= 1.5 {
+			rrrScore = 70
+			insights = append(insights, dto.Insight{Text: fmt.Sprintf("Risk/Reward Ratio baik (%.1f:1).", rrr), Weight: 10})
+		} else {
+			rrrScore = 40
+			insights = append(insights, dto.Insight{Text: fmt.Sprintf("Risk/Reward Ratio kurang ideal (%.1f:1).", rrr), Weight: 25})
+		}
+	} else {
+		rrrScore = 20 // Penalti jika RRR tidak valid
+	}
+
+	// 2. Analisis Posisi TP vs. Resistance - Bobot 60%
+	resistanceScore := 50.0 // Skor awal netral
+	if len(resistances) > 0 {
+		// Cari resistance terdekat
+		minDistance := math.MaxFloat64
+		var nearestResistance dto.Level
+		for _, r := range resistances {
+			if r.Price > pos.BuyPrice { // Hanya pertimbangkan resistance di atas harga beli
+				distance := math.Abs(r.Price - pos.TakeProfitPrice)
+				if distance < minDistance {
+					minDistance = distance
+					nearestResistance = r
+				}
+			}
+		}
+
+		if nearestResistance.Price > 0 {
+			isTPAmbitions := pos.TakeProfitPrice > nearestResistance.Price
+			proximityFactor := 1.0 - (minDistance / pos.TakeProfitPrice) // 0-1, 1 sangat dekat
+			strengthFactor := float64(nearestResistance.Touches)         // Jumlah sentuhan
+
+			if isTPAmbitions {
+				// Penalti jika TP di atas resistance kuat
+				penalty := (strengthFactor * proximityFactor) * 20 // Penalti bisa sampai 100+
+				resistanceScore -= penalty
+				insights = append(insights, dto.Insight{Text: fmt.Sprintf("Target TP ambisius, berada di atas resistance kuat (%.2f, disentuh %d kali).", nearestResistance.Price, nearestResistance.Touches), Weight: 40})
+			} else {
+				// Bonus jika TP di bawah resistance kuat
+				bonus := (strengthFactor * proximityFactor) * 15 // Bonus bisa sampai 75+
+				resistanceScore += bonus
+				insights = append(insights, dto.Insight{Text: fmt.Sprintf("Target TP realistis, di bawah resistance kuat (%.2f, disentuh %d kali).", nearestResistance.Price, nearestResistance.Touches), Weight: 15})
+			}
+		}
+	}
+
+	// Gabungkan skor RRR dan Resistance
+	finalScore := (s.normalizeScore(rrrScore) * 0.4) + (s.normalizeScore(resistanceScore) * 0.6)
+
+	return s.normalizeScore(finalScore), insights
 }
 
 // scorePriceActionAndVolume memberikan skor berdasarkan aksi harga dan volume.

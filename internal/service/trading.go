@@ -42,6 +42,26 @@ func NewTradingService(
 	}
 }
 
+// CalculateSupportResistance menghitung level support dan resistance dari data analisis teknikal.
+func (s *tradingService) CalculateSupportResistance(ctx context.Context, analyses []model.StockAnalysis) ([]dto.Level, []dto.Level, error) {
+	timeframes, err := s.systemParamRepository.GetDefaultAnalysisTimeframes(ctx)
+	if err != nil {
+		return nil, nil, err
+	}
+	mainData, err := s.findMainAnalysisData(analyses, timeframes)
+	if err != nil {
+		return nil, nil, err
+	}
+	if mainData.MainTA == nil || len(mainData.MainOHLCV) == 0 {
+		return nil, nil, fmt.Errorf("no main analysis data found to calculate S/R")
+	}
+
+	resistances := s.buildPivots(*mainData.MainTA, mainData.MainOHLCV, mainData.MainTimeframe, false)
+	supports := s.buildPivots(*mainData.MainTA, mainData.MainOHLCV, mainData.MainTimeframe, true)
+
+	return supports, resistances, nil
+}
+
 func (s *tradingService) CreateTradePlan(ctx context.Context, latestAnalyses []model.StockAnalysis) (*dto.TradePlanResult, error) {
 	var (
 		supports               []dto.Level
@@ -135,7 +155,7 @@ func (s *tradingService) CreateTradePlan(ctx context.Context, latestAnalyses []m
 		BuyPrice:        plan.Entry,
 		TakeProfitPrice: plan.TakeProfit,
 		StopLossPrice:   plan.StopLoss,
-	}, latestAnalyses)
+	}, latestAnalyses, supports, resistances)
 
 	if err != nil {
 		s.log.ErrorContext(ctx, "Failed to evaluate position monitoring when create trade plan", logger.ErrorField(err))

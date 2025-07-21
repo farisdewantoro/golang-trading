@@ -146,7 +146,14 @@ func (s *StockPositionMonitoringStrategy) EvaluateStockPosition(ctx context.Cont
 				resultData.Errors = err.Error()
 				return
 			}
-			positionAnalysis, err := s.tradingPositionService.EvaluatePositionMonitoring(ctx, &stockPosition, stockAnalyses)
+			supports, resistances, err := s.tradingPositionService.CalculateSupportResistance(ctx, stockAnalyses)
+			if err != nil {
+				s.logger.ErrorContext(ctx, "Failed to calculate S/R for position monitoring", logger.ErrorField(err), logger.StringField("stock_code", stockPosition.StockCode))
+				resultData.Errors = err.Error()
+				return
+			}
+
+			positionAnalysis, err := s.tradingPositionService.EvaluatePositionMonitoring(ctx, &stockPosition, stockAnalyses, supports, resistances)
 			if err != nil {
 				s.logger.ErrorContextWithAlert(ctx, "Failed to evaluate signal", logger.ErrorField(err), logger.StringField("stock_code", stockPosition.StockCode))
 				resultData.Errors = err.Error()

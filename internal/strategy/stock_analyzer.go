@@ -360,7 +360,8 @@ func (s *StockAnalyzerStrategy) SendTelegramAlert(ctx context.Context, analyses 
 	isBuySignal := tradePlan.IsBuySignal &&
 		tradePlan.Status == string(dto.Safe) &&
 		tradePlan.RiskReward > s.cfg.Trading.RiskRewardRatio &&
-		tradePlan.Score > s.cfg.Trading.BuySignalScore
+		tradePlan.Score > s.cfg.Trading.BuySignalScore &&
+		tradePlan.PlanType == dto.PlanTypePrimary
 
 	if !isBuySignal {
 		s.logger.DebugContext(ctx, "Not buy signal",

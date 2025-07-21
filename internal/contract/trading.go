@@ -7,7 +7,8 @@ import (
 )
 
 type TradingPositionContract interface {
-	EvaluatePositionMonitoring(ctx context.Context, stockPosition *model.StockPosition, analyses []model.StockAnalysis) (*dto.PositionAnalysis, error)
+	EvaluatePositionMonitoring(ctx context.Context, stockPosition *model.StockPosition, analyses []model.StockAnalysis, supports []dto.Level, resistances []dto.Level) (*dto.PositionAnalysis, error)
+	CalculateSupportResistance(ctx context.Context, analyses []model.StockAnalysis) ([]dto.Level, []dto.Level, error)
 }
 
 type TradingPlanContract interface {
