@@ -10,7 +10,6 @@ import (
 	"golang-trading/pkg/common"
 	"math"
 	"sort"
-	"strings"
 )
 
 func (s *tradingService) EvaluatePositionMonitoring(
@@ -672,42 +671,8 @@ func (s *tradingService) evaluateTrailingTakeProfit(
 		// Jika tidak ada sinyal exit, tetap dalam mode TTP
 		result.Signal = dto.TrailingProfit
 		insightTTPStatus := dto.Insight{Text: fmt.Sprintf("MODE TTP AKTIF: Profit mengambang. Puncak tertinggi: %.2f, Trigger SL: %.2f.", newHighestPrice, result.TrailingProfitPrice), Weight: 30}
-		result.Insight = removeRedundantTTPInsights(result.Insight, insightTTPStatus)
+		result.Insight = append(result.Insight, insightTTPStatus)
 	}
-}
-
-func removeRedundantTTPInsights(insights []dto.Insight, newInsight dto.Insight) []dto.Insight {
-	var newInsights []dto.Insight
-	found := false
-	for _, insight := range insights {
-		// Hapus insight status lama
-		if strings.HasPrefix(insight.Text, "MODE TTP AKTIF") {
-			continue
-		}
-		// Hapus insight aktivasi jika sudah ada status baru
-		if strings.HasPrefix(insight.Text, "SINYAL TAKE PROFIT") {
-			continue
-		}
-		newInsights = append(newInsights, insight)
-	}
-
-	// Tambahkan insight status yang baru
-	newInsights = append(newInsights, newInsight)
-
-	// Pastikan hanya ada satu insight status TTP
-	finalInsights := []dto.Insight{}
-	for i := len(newInsights) - 1; i >= 0; i-- {
-		if strings.HasPrefix(newInsights[i].Text, "MODE TTP AKTIF") {
-			if !found {
-				finalInsights = append([]dto.Insight{newInsights[i]}, finalInsights...)
-				found = true
-			}
-		} else {
-			finalInsights = append([]dto.Insight{newInsights[i]}, finalInsights...)
-		}
-	}
-
-	return finalInsights
 }
 
 func (s *tradingService) normalizeScore(score float64) float64 {

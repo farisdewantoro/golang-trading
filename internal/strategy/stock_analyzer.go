@@ -412,7 +412,7 @@ func (s *StockAnalyzerStrategy) SendTelegramAlert(ctx context.Context, analyses 
 	sb.WriteString("\n")
 	sb.WriteString("📝 <b>Insights:</b>\n")
 	for _, insight := range tradePlan.Insights {
-		sb.WriteString(fmt.Sprintf("- %s\n", insight))
+		sb.WriteString(fmt.Sprintf("- %s\n", insight.Text))
 	}
 
 	sb.WriteString("\n")

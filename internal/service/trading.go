@@ -142,12 +142,6 @@ func (s *tradingService) CreateTradePlan(ctx context.Context, latestAnalyses []m
 		return nil, err
 	}
 
-	// Convert []dto.Insight to []string for the result
-	var insightTexts []string
-	for _, insight := range positionAnalysis.Insight {
-		insightTexts = append(insightTexts, insight.Text)
-	}
-
 	result = &dto.TradePlanResult{
 		CurrentMarketPrice: float64(marketPrice),
 		Symbol:             lastAnalysis.StockCode,
@@ -162,7 +156,7 @@ func (s *tradingService) CreateTradePlan(ctx context.Context, latestAnalyses []m
 		SLReason:           plan.SLReason,
 		TPReason:           plan.TPReason,
 		IndicatorSummary:   s.CreateIndicatorSummary(&tfHighestTechnicalData, mainTFCandles),
-		Insights:           insightTexts,
+		Insights:           positionAnalysis.Insight,
 		Exchange:           lastAnalysis.Exchange,
 		PlanType:           plan.PlanType,
 	}

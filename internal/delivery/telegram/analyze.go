@@ -224,8 +224,13 @@ func (t *TelegramBotHandler) showAnalysis(ctx context.Context, c telebot.Context
 
 	sb.WriteString("\n")
 	sb.WriteString("<b>🧠 Insight</b>\n")
+	counter := 0
 	for _, insight := range tradePlanResult.Insights {
-		sb.WriteString(fmt.Sprintf("- %s\n", utils.EscapeHTMLForTelegram(insight)))
+		if counter >= t.cfg.Telegram.MaxShowAnalyzeInsight {
+			break
+		}
+		sb.WriteString(fmt.Sprintf("- %s\n", utils.EscapeHTMLForTelegram(insight.Text)))
+		counter++
 	}
 
 	iconSignal := "??"

@@ -110,8 +110,14 @@ func (t *TelegramBotHandler) showMyPositionDetail(ctx context.Context, c telebot
 
 	sb.WriteString("\n")
 	sb.WriteString("<b>🧠 Insight</b>\n")
+
+	counter := 0
 	for _, insight := range evalSummary.TechnicalAnalysis.Insight {
-		sb.WriteString(fmt.Sprintf("- %s\n", utils.EscapeHTMLForTelegram(insight)))
+		if counter >= t.cfg.Telegram.MaxShowAnalyzeInsight {
+			break
+		}
+		sb.WriteString(fmt.Sprintf("- %s\n", utils.EscapeHTMLForTelegram(insight.Text)))
+		counter++
 	}
 
 	if len(stockPosition.StockPositionMonitorings) > 0 && len(stockPosition.StockPositionMonitorings[0].StockPositionMonitoringAnalysisRefs) > 0 {

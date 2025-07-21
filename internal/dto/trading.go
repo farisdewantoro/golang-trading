@@ -23,7 +23,7 @@ type TradePlanResult struct {
 	TPType           string // jenis TP: resistance / price-bucket / avg-resistance
 	TPReason         string // alasan TP
 	IndicatorSummary model.IndicatorSummary
-	Insights         []string
+	Insights         []Insight
 }
 
 type TradePlan struct {

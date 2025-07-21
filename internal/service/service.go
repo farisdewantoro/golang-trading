@@ -26,7 +26,7 @@ func NewService(
 	tradingService := NewTradingService(cfg, log, repo.SystemParamRepo)
 	analyzerStrategy := strategy.NewStockAnalyzerStrategy(cfg, log, inmemoryCache, repo.StockPositionsRepo, repo.TradingViewScreenersRepo, repo.CandleRepo, repo.StockAnalysisRepo, repo.SystemParamRepo, repo.UserSignalAlertRepo, telegram, tradingService)
 
-	stockPositionMonitoringStrategy := strategy.NewStockPositionMonitoringStrategy(log, inmemoryCache, repo.TradingViewScreenersRepo, telegram, repo.StockPositionsRepo, analyzerStrategy, repo.StockPositionMonitoringRepo, repo.SystemParamRepo, tradingService)
+	stockPositionMonitoringStrategy := strategy.NewStockPositionMonitoringStrategy(log, cfg, inmemoryCache, repo.TradingViewScreenersRepo, telegram, repo.StockPositionsRepo, analyzerStrategy, repo.StockPositionMonitoringRepo, repo.SystemParamRepo, tradingService)
 	executorStrategies := make(map[strategy.JobType]strategy.JobExecutionStrategy)
 	executorStrategies[strategy.JobTypeStockPriceAlert] = strategy.NewStockPriceAlertStrategy(cfg, log, inmemoryCache, repo.TradingViewScreenersRepo, telegram, repo.StockPositionsRepo, repo.CandleRepo)
 	executorStrategies[strategy.JobTypeStockAnalyzer] = analyzerStrategy

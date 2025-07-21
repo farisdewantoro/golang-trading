@@ -51,8 +51,13 @@ type PositionTechnicalAnalysisSummary struct {
 	Signal           string           `json:"signal"`
 	Status           string           `json:"status"`
 	Score            float64          `json:"score"`
-	Insight          []string         `json:"insight"`
+	Insight          []Insight        `json:"insight"`
 	IndicatorSummary IndicatorSummary `json:"indicator_summary"`
+}
+
+type Insight struct {
+	Text   string `json:"text"`
+	Weight int    `json:"weight"`
 }
 
 type IndicatorSummary struct {

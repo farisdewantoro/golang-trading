@@ -78,6 +78,7 @@ type TelegramConfig struct {
 	MaxEditMessagePerSecond   int
 	RatelimitExpireDuration   time.Duration
 	RateLimitCleanupDuration  time.Duration
+	MaxShowAnalyzeInsight     int
 
 	FeatureStockAnalyze TelegramFeatureStockAnalyze
 	FeatureMyPosition   TelegramFeatureMyPosition
@@ -194,6 +195,7 @@ func Load() (*Config, error) {
 			FeatureMyPosition: TelegramFeatureMyPosition{
 				LimitRecentMonitoring: viper.GetInt("TELEGRAM_FEATURE_MY_POSITION_LIMIT_RECENT_MONITORING"),
 			},
+			MaxShowAnalyzeInsight: viper.GetInt("TELEGRAM_MAX_SHOW_ANALYZE_INSIGHT"),
 		},
 		Binance: Binance{
 			BaseURL:             viper.GetString("BINANCE_BASE_URL"),

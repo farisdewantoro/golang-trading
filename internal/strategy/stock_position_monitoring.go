@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"golang-trading/config"
 	"golang-trading/internal/contract"
 	"golang-trading/internal/dto"
 	"golang-trading/internal/model"
@@ -22,6 +23,7 @@ import (
 
 type StockPositionMonitoringStrategy struct {
 	logger                         *logger.Logger
+	cfg                            *config.Config
 	inmemoryCache                  cache.Cache
 	tradingViewScreenersRepository repository.TradingViewScreenersRepository
 	telegram                       *telegram.TelegramRateLimiter
@@ -39,6 +41,7 @@ type StockPositionMonitoringResult struct {
 
 func NewStockPositionMonitoringStrategy(
 	logger *logger.Logger,
+	cfg *config.Config,
 	inmemoryCache cache.Cache,
 	tradingViewScreenersRepository repository.TradingViewScreenersRepository,
 	telegram *telegram.TelegramRateLimiter,
@@ -50,6 +53,7 @@ func NewStockPositionMonitoringStrategy(
 ) JobExecutionStrategy {
 	return &StockPositionMonitoringStrategy{
 		logger:                         logger,
+		cfg:                            cfg,
 		inmemoryCache:                  inmemoryCache,
 		tradingViewScreenersRepository: tradingViewScreenersRepository,
 		telegram:                       telegram,
@@ -153,9 +157,12 @@ func (s *StockPositionMonitoringStrategy) EvaluateStockPosition(ctx context.Cont
 				positionAnalysis.TrailingStopPrice > stockPosition.TrailingStopPrice
 
 			// Convert []dto.Insight to []string
-			var insightTexts []string
+			var insights []model.Insight
 			for _, insight := range positionAnalysis.Insight {
-				insightTexts = append(insightTexts, insight.Text)
+				insights = append(insights, model.Insight{
+					Text:   insight.Text,
+					Weight: insight.Weight,
+				})
 			}
 
 			// Unmarshal IndicatorSummary from string to struct
@@ -171,7 +178,7 @@ func (s *StockPositionMonitoringStrategy) EvaluateStockPosition(ctx context.Cont
 				TechnicalAnalysis: model.PositionTechnicalAnalysisSummary{
 					Signal:           string(positionAnalysis.TechnicalSignal),
 					Score:            positionAnalysis.Score,
-					Insight:          insightTexts,
+					Insight:          insights,
 					Status:           string(positionAnalysis.Status),
 					IndicatorSummary: indicatorSummary,
 				},
@@ -311,8 +318,13 @@ func (s *StockPositionMonitoringStrategy) SendMessageUser(ctx context.Context, s
 		}
 
 		sb.WriteString("\n<b>🧠 Insight:</b>\n")
+		counter := 0
 		for _, insight := range summary.TechnicalAnalysis.Insight {
-			sb.WriteString(fmt.Sprintf("- %s\n", insight))
+			if counter >= s.cfg.Telegram.MaxShowAnalyzeInsight {
+				break
+			}
+			sb.WriteString(fmt.Sprintf("- %s\n", insight.Text))
+			counter++
 		}
 
 		menu := &telebot.ReplyMarkup{}
