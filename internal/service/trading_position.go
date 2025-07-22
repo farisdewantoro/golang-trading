@@ -327,7 +327,7 @@ func (s *tradingService) scoreTrend(ta *dto.TradingViewScanner) (float64, []dto.
 	var insights []dto.Insight
 
 	// Skor dari Rekomendasi Global TradingView (Max 50 poin)
-	switch dto.GetTrendText(ta.Recommend.Global.Summary) {
+	switch dto.MapTradingViewScreenerRecommend(ta.Recommend.Global.Summary) {
 	case dto.SignalStrongBuy:
 		score += 50
 		insights = append(insights, dto.Insight{Text: "TA Summary menunjukkan Sinyal Beli Kuat.", Weight: 20})
