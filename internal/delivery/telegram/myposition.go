@@ -9,6 +9,7 @@ import (
 	"golang-trading/pkg/cache"
 	"golang-trading/pkg/common"
 	"golang-trading/pkg/utils"
+	"sort"
 	"strings"
 
 	"gopkg.in/telebot.v3"
@@ -42,6 +43,10 @@ func (t *TelegramBotHandler) showMyPosition(ctx context.Context, c telebot.Conte
 	header := `📊 Posisi Saham yang Kamu Pantau Saat ini:`
 	sb.WriteString(header)
 	sb.WriteString("\n\n")
+
+	sort.Slice(positions, func(i, j int) bool {
+		return positions[i].FinalScore > positions[j].FinalScore
+	})
 
 	for idx, position := range positions {
 		stockWithExchange := position.Exchange + ":" + position.StockCode
