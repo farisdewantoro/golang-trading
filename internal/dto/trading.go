@@ -16,6 +16,8 @@ type TradePlanResult struct {
 	TechnicalSignal    string
 	Exchange           string
 	PlanType           PlanType
+	PlanScore          float64
+	PositionScore      float64
 
 	SLType   string // jenis SL: support / ema-adjust
 	SLReason string // alasan SL

@@ -135,6 +135,16 @@ func (s *tradingService) findBestPlanForRRR(
 	highestScore := -1.0
 	found := false
 
+	normalize := func(value, max float64) float64 {
+		if value <= 0 {
+			return 0.0
+		}
+		if value >= max {
+			return 1.0
+		}
+		return value / max
+	}
+
 	for _, sl := range slCandidates {
 		risk := marketPrice - sl.Price
 		if risk <= 0 {
@@ -143,11 +153,6 @@ func (s *tradingService) findBestPlanForRRR(
 		riskPct := risk / marketPrice
 		if riskPct > config.MaxStopLossPercent || riskPct < config.MinStopLossPercent {
 			continue
-		}
-
-		numTPToCheck := len(tpCandidates)
-		if numTPToCheck > 5 {
-			numTPToCheck = 5
 		}
 
 		for i := 0; i < len(tpCandidates); i++ {
@@ -166,7 +171,22 @@ func (s *tradingService) findBestPlanForRRR(
 				continue
 			}
 
-			currentScore := (riskRewardRatio * 0.5) + (sl.Score * 0.3) + (tp.Score * 0.2) + config.Score
+			// --- New Scoring Logic (0-100 scale) ---
+			// 1. RRR Score (Weight: 40%) - A great RRR is considered >= 4.0
+			rrrScore := normalize(riskRewardRatio, 4.0) * 30.0
+
+			// 2. SL Quality Score (Weight: 30%) - A great SL source score is considered >= 5.0
+			slScore := normalize(sl.Score, 5.0) * 30.0
+
+			// 3. TP Quality Score (Weight: 20%) - A great TP source score is considered >= 5.0
+			tpScore := normalize(tp.Score, 5.0) * 30.0
+
+			// 4. Plan Type Bonus (Weight: 10%) - Based on config (Primary/Secondary/Fallback)
+			// config.Score is 3 for Primary, 2 for Secondary, 0 for Fallback.
+			planTypeScore := normalize(config.Score, 3.0) * 10.0
+
+			currentScore := rrrScore + slScore + tpScore + planTypeScore
+
 			if currentScore > highestScore {
 				highestScore = currentScore
 				found = true

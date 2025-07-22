@@ -33,6 +33,7 @@ type StockPosition struct {
 	UpdatedAt             time.Time  `gorm:"autoUpdateTime" json:"updated_at"`
 	InitialScore          float64    `json:"initial_score"`
 	FinalScore            float64    `json:"final_score"`
+	PlanScore             float64    `json:"plan_score"`
 
 	StockPositionMonitorings []StockPositionMonitoring
 }

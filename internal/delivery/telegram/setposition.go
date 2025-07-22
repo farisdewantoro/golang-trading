@@ -341,6 +341,7 @@ func (t *TelegramBotHandler) handleBtnSetPositionByTechnical(ctx context.Context
 		AlertMonitor:  true,
 		SourceType:    model.StockPositionSourceTypeTechnical,
 		IsMessageEdit: true,
+		PlanScore:     tradePlanResult.Score,
 	}
 
 	if err := t.service.TelegramBotService.SetStockPosition(ctx, data); err != nil {
@@ -382,6 +383,7 @@ func (t *TelegramBotHandler) handleBtnSetPositionByAI(ctx context.Context, c tel
 		AlertMonitor:  true,
 		SourceType:    model.StockPositionSourceTypeAI,
 		IsMessageEdit: true,
+		PlanScore:     analysis.TechnicalScore,
 	}
 
 	if err := t.service.TelegramBotService.SetStockPosition(ctx, data); err != nil {

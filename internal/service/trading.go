@@ -162,6 +162,8 @@ func (s *tradingService) CreateTradePlan(ctx context.Context, latestAnalyses []m
 		return nil, err
 	}
 
+	finalScore := (plan.Score * 0.7) + (positionAnalysis.Score * 0.3)
+
 	result = &dto.TradePlanResult{
 		CurrentMarketPrice: float64(marketPrice),
 		Symbol:             lastAnalysis.StockCode,
@@ -171,7 +173,9 @@ func (s *tradingService) CreateTradePlan(ctx context.Context, latestAnalyses []m
 		RiskReward:         plan.RiskReward,
 		Status:             string(positionAnalysis.Status),
 		TechnicalSignal:    string(positionAnalysis.TechnicalSignal),
-		Score:              positionAnalysis.Score,
+		Score:              finalScore,
+		PositionScore:      positionAnalysis.Score,
+		PlanScore:          plan.Score,
 		IsBuySignal:        positionAnalysis.TechnicalSignal == dto.SignalBuy || positionAnalysis.TechnicalSignal == dto.SignalStrongBuy,
 		SLReason:           plan.SLReason,
 		TPReason:           plan.TPReason,

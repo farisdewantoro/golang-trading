@@ -21,6 +21,7 @@ type RequestSetPositionData struct {
 	UserTelegram  *RequestUserTelegram
 	SourceType    string
 	IsMessageEdit bool
+	PlanScore     float64
 }
 
 func (r *RequestSetPositionData) ToStockPositionEntity() *model.StockPosition {
@@ -34,6 +35,7 @@ func (r *RequestSetPositionData) ToStockPositionEntity() *model.StockPosition {
 		MonitorPosition: utils.ToPointer(r.AlertMonitor),
 		Exchange:        r.Exchange,
 		SourceType:      r.SourceType,
+		PlanScore:       r.PlanScore,
 	}
 }
 
