@@ -139,9 +139,7 @@ func (s *tradingService) determineFinalStatus(result *dto.PositionAnalysis) {
 	switch {
 	case result.Score >= 70:
 		result.Status = dto.Safe
-	case result.Score >= 50:
-		result.Status = dto.Safe
-	case result.Score >= 30:
+	case result.Score >= 50 && result.Score < 70:
 		result.Status = dto.Warning
 	default:
 		result.Status = dto.Dangerous
