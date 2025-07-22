@@ -84,6 +84,7 @@ Coba lagi nanti atau gunakan filter /analyze untuk menemukan peluang baru atau /
 			buySymbolMap              = make(map[string]string)
 			buyCount                  int
 			stopChan                  = make(chan struct{})
+			buyList                   = []string{}
 		)
 
 		msg := t.showLoadingGeneral(newCtx, c, stopChan)
@@ -150,6 +151,7 @@ Coba lagi nanti atau gunakan filter /analyze untuk menemukan peluang baru atau /
 			}
 
 			buySymbolMap[tradePlan.Symbol] = symbolWithExchange
+			buyList = append(buyList, tradePlan.Symbol)
 			buyListResultMsg.WriteString("\n")
 			buyListResultMsg.WriteString(fmt.Sprintf("<b>%d. %s <i>(Plan: %s)</i></b>\n", buyCount, tradePlan.Symbol, tradePlan.PlanType.String()))
 			buyListResultMsg.WriteString(fmt.Sprintf("- <b>Buy:</b> %s | RR: %.2f\n", utils.FormatPrice(tradePlan.Entry, tradePlan.Exchange), tradePlan.RiskReward))
@@ -184,8 +186,8 @@ Coba lagi nanti atau gunakan filter /analyze untuk menemukan peluang baru.`
 		rows := []telebot.Row{}
 		var tempRow []telebot.Btn
 
-		for k, v := range buySymbolMap {
-			tempRow = append(tempRow, menu.Data(k, btnGeneralAnalisis.Unique, v))
+		for _, v := range buyList {
+			tempRow = append(tempRow, menu.Data(v, btnGeneralAnalisis.Unique, buySymbolMap[v]))
 			if len(tempRow) == 2 {
 				rows = append(rows, menu.Row(tempRow...))
 				tempRow = []telebot.Btn{}

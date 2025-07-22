@@ -100,6 +100,12 @@ func (r *stockPositionsRepository) Get(ctx context.Context, param dto.GetStockPo
 		db = db.Preload("StockPositionMonitorings.StockAnalysisAI")
 	}
 
+	if param.SortBy != nil && param.SortOrder != nil {
+		if *param.SortBy == "exit_date" {
+			db = db.Order("stock_positions.exit_date " + *param.SortOrder)
+		}
+	}
+
 	if err := db.Preload("User").Debug().Where(strings.Join(qFilter, " AND "), qFilterParam...).Find(&stockPositions).Error; err != nil {
 		return nil, err
 	}

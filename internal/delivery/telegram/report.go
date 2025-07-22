@@ -18,6 +18,8 @@ func (t *TelegramBotHandler) handleReport(ctx context.Context, c telebot.Context
 	param := dto.GetStockPositionsParam{
 		TelegramID: &telegramID,
 		IsExit:     utils.ToPointer(true),
+		SortBy:     utils.ToPointer("exit_date"),
+		SortOrder:  utils.ToPointer("desc"),
 	}
 	stockPositions, err := t.service.TelegramBotService.GetStockPositions(ctx, param)
 	if err != nil {

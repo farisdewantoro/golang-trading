@@ -115,17 +115,9 @@ func (s *StockPositionMonitoringStrategy) EvaluateStockPosition(ctx context.Cont
 		results []StockPositionMonitoringResult
 	)
 
-	mapStockCode := map[string][]model.StockPosition{}
-	for _, stockPosition := range stockPositions {
+	for _, sp := range stockPositions {
 
-		symbol := stockPosition.Exchange + ":" + stockPosition.StockCode
-		if _, ok := mapStockCode[symbol]; ok {
-			mapStockCode[symbol] = append(mapStockCode[symbol], stockPosition)
-			continue
-		} else {
-			mapStockCode[symbol] = []model.StockPosition{stockPosition}
-		}
-
+		stockPosition := sp // Create a copy of the stockPosition to avoid data
 		wg.Add(1)
 		utils.GoSafe(func() {
 			defer wg.Done()
@@ -176,8 +168,9 @@ func (s *StockPositionMonitoringStrategy) EvaluateStockPosition(ctx context.Cont
 			var indicatorSummary model.IndicatorSummary
 			if positionAnalysis.IndicatorSummary != "" {
 				if err := json.Unmarshal([]byte(positionAnalysis.IndicatorSummary), &indicatorSummary); err != nil {
-					s.logger.ErrorContext(ctx, "Failed to unmarshal indicator summary", logger.ErrorField(err), logger.StringField("stock_code", stockPosition.StockCode))
+					s.logger.ErrorContextWithAlert(ctx, "Failed to unmarshal indicator summary", logger.ErrorField(err), logger.StringField("stock_code", stockPosition.StockCode))
 					// Handle error appropriately, maybe skip this part or set a default
+					return
 				}
 			}
 
@@ -194,6 +187,8 @@ func (s *StockPositionMonitoringStrategy) EvaluateStockPosition(ctx context.Cont
 			if positionAnalysis.HighestPriceSinceTTP > stockPosition.HighestPriceSinceTTP {
 				stockPosition.HighestPriceSinceTTP = positionAnalysis.HighestPriceSinceTTP
 			}
+
+			/// terdapat potensi bug FIX IT, jadi yang di send ke user trailing stop nya yg lama karena di set di loop
 			stockPosition.TrailingProfitPrice = positionAnalysis.TrailingProfitPrice
 			stockPosition.TrailingStopPrice = positionAnalysis.TrailingStopPrice
 			if stockPosition.InitialScore == 0 {
@@ -215,34 +210,30 @@ func (s *StockPositionMonitoringStrategy) EvaluateStockPosition(ctx context.Cont
 				return
 			}
 
-			stockPositionMonitorings := []model.StockPositionMonitoring{}
 			sendTelegramToUsers := []model.StockPosition{}
-			for _, stockPosition := range mapStockCode[symbol] {
-				stockPositionMonitoring := model.StockPositionMonitoring{
-					StockPositionID:   stockPosition.ID,
-					EvaluationSummary: jsonSummary,
-					MarketPrice:       stockAnalyses[0].MarketPrice,
-					Timestamp:         utils.TimeNowWIB(),
-				}
-				stockPositionMonitoring.HashIdentifier = s.GenerateHashIdentifier(&stockPositionMonitoring)
-
-				for _, stockAnalysis := range stockAnalyses {
-					stockPositionMonitoring.StockPositionMonitoringAnalysisRefs = append(stockPositionMonitoring.StockPositionMonitoringAnalysisRefs, model.StockPositionMonitoringAnalysisRef{
-						StockPositionMonitoringID: stockPositionMonitoring.ID,
-						StockAnalysisID:           stockAnalysis.ID,
-					})
-				}
-				stockPositionMonitorings = append(stockPositionMonitorings, stockPositionMonitoring)
-
-				shouldSendTelegram := (summary.TechnicalAnalysis.Status == string(dto.Warning) && lastScore < stockPosition.FinalScore) ||
-					summary.TechnicalAnalysis.Status == string(dto.Dangerous) ||
-					isTrailing
-
-				if shouldSendTelegram {
-					sendTelegramToUsers = append(sendTelegramToUsers, stockPosition)
-				}
+			stockPositionMonitoring := model.StockPositionMonitoring{
+				StockPositionID:   stockPosition.ID,
+				EvaluationSummary: jsonSummary,
+				MarketPrice:       stockAnalyses[0].MarketPrice,
+				Timestamp:         utils.TimeNowWIB(),
 			}
-			err = s.stockPositionMonitoringRepo.CreateBulk(ctx, stockPositionMonitorings)
+			stockPositionMonitoring.HashIdentifier = s.GenerateHashIdentifier(&stockPositionMonitoring)
+
+			for _, stockAnalysis := range stockAnalyses {
+				stockPositionMonitoring.StockPositionMonitoringAnalysisRefs = append(stockPositionMonitoring.StockPositionMonitoringAnalysisRefs, model.StockPositionMonitoringAnalysisRef{
+					StockPositionMonitoringID: stockPositionMonitoring.ID,
+					StockAnalysisID:           stockAnalysis.ID,
+				})
+			}
+
+			shouldSendTelegram := (summary.TechnicalAnalysis.Status == string(dto.Warning) && lastScore < stockPosition.FinalScore) ||
+				summary.TechnicalAnalysis.Status == string(dto.Dangerous) ||
+				isTrailing
+
+			if shouldSendTelegram {
+				sendTelegramToUsers = append(sendTelegramToUsers, stockPosition)
+			}
+			err = s.stockPositionMonitoringRepo.Create(ctx, &stockPositionMonitoring)
 			if err != nil {
 				s.logger.ErrorContextWithAlert(ctx, "Failed to create stock position monitoring", logger.ErrorField(err))
 				resultData.Errors = err.Error()
