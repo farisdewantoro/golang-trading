@@ -101,7 +101,8 @@ func (t *TelegramBotHandler) showMyPosition(ctx context.Context, c telebot.Conte
 			techStatus = dto.PositionStatus(evalSummary.TechnicalAnalysis.Status).String()
 			signal = fmt.Sprintf("%s", dto.Signal(evalSummary.PositionSignal).String())
 		}
-		sb.WriteString(fmt.Sprintf("  • Score: %s\n", techScore))
+		sb.WriteString(fmt.Sprintf("  • Score (Pos): %s\n", techScore))
+		sb.WriteString(fmt.Sprintf("  • Score (Plan): %.2f\n", position.PlanScore))
 		sb.WriteString(fmt.Sprintf("  • Signal: %s\n", signal))
 		sb.WriteString(fmt.Sprintf("  • Status: %s\n", techStatus))
 

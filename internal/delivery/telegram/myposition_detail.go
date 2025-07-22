@@ -63,6 +63,7 @@ func (t *TelegramBotHandler) showMyPositionDetail(ctx context.Context, c telebot
 	sb.WriteString(fmt.Sprintf("  • Entry: %s \n", utils.FormatPrice(stockPosition.BuyPrice, exchange)))
 	sb.WriteString(fmt.Sprintf("  • Last Price: %s\n", utils.FormatPrice(marketPrice, exchange)))
 	sb.WriteString(fmt.Sprintf("  • PnL: %s\n", utils.FormatChangeWithIcon(stockPosition.BuyPrice, marketPrice)))
+	sb.WriteString(fmt.Sprintf("  • Score (Plan): %.2f\n", stockPosition.PlanScore))
 	if stockPosition.TrailingProfitPrice > 0 {
 		sb.WriteString(fmt.Sprintf("  • TP: %s ⮕ %s (%s)\n", utils.FormatPrice(stockPosition.TakeProfitPrice, exchange), utils.FormatPrice(stockPosition.TrailingProfitPrice, exchange), utils.FormatChange(stockPosition.BuyPrice, stockPosition.TrailingProfitPrice)))
 	} else {
@@ -103,7 +104,7 @@ func (t *TelegramBotHandler) showMyPositionDetail(ctx context.Context, c telebot
 	}
 	sb.WriteString("\n")
 	sb.WriteString("<b>📊 Evaluasi Terbaru</b>\n")
-	sb.WriteString(fmt.Sprintf("  • Score: %.2f ⮕ %.2f (%s)\n", stockPosition.InitialScore, evalSummary.TechnicalAnalysis.Score, utils.FormatChange(stockPosition.InitialScore, evalSummary.TechnicalAnalysis.Score)))
+	sb.WriteString(fmt.Sprintf("  • Score (Pos): %.2f ⮕ %.2f (%s)\n", stockPosition.InitialScore, evalSummary.TechnicalAnalysis.Score, utils.FormatChange(stockPosition.InitialScore, evalSummary.TechnicalAnalysis.Score)))
 	sb.WriteString(fmt.Sprintf("  • Signal: %s\n", dto.Signal(evalSummary.PositionSignal).String()))
 	sb.WriteString(fmt.Sprintf("  • Status: %s\n", dto.PositionStatus(evalSummary.TechnicalAnalysis.Status).String()))
 	sb.WriteString(fmt.Sprintf("  • TA Signal: %s\n", evalSummary.TechnicalAnalysis.Signal))
