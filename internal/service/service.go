@@ -31,7 +31,7 @@ func NewService(
 	executorStrategies[strategy.JobTypeStockPriceAlert] = strategy.NewStockPriceAlertStrategy(cfg, log, inmemoryCache, repo.TradingViewScreenersRepo, telegram, repo.StockPositionsRepo, repo.CandleRepo)
 	executorStrategies[strategy.JobTypeStockAnalyzer] = analyzerStrategy
 	executorStrategies[strategy.JobTypeStockPositionMonitor] = stockPositionMonitoringStrategy
-	executorStrategies[strategy.JobTypeDataCleanUp] = strategy.NewDataCleanUpStrategy(cfg, log, repo.StockAnalysisRepo)
+	executorStrategies[strategy.JobTypeDataCleanUp] = strategy.NewDataCleanUpStrategy(cfg, log, repo.StockAnalysisRepo, repo.JobRepo)
 
 	taskExecutor := NewTaskExecutor(cfg, log, repo.JobRepo, executorStrategies)
 

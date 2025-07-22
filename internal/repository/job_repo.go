@@ -4,6 +4,7 @@ import (
 	"context"
 	"golang-trading/internal/model"
 	"golang-trading/pkg/utils"
+	"time"
 
 	"gorm.io/gorm"
 )
@@ -15,6 +16,7 @@ type JobRepository interface {
 	FindByID(ctx context.Context, id uint) (*model.Job, error)
 	UpdateTaskExecutionHistory(ctx context.Context, history *model.TaskExecutionHistory, opts ...utils.DBOption) error
 	Get(ctx context.Context, param *model.GetJobParam, opts ...utils.DBOption) ([]model.Job, error)
+	DeleteTaskHistoryOlderThan(ctx context.Context, date time.Time, opts ...utils.DBOption) (int64, error)
 }
 
 type jobRepository struct {
@@ -88,4 +90,8 @@ func (r *jobRepository) Get(ctx context.Context, param *model.GetJobParam, opts 
 		return nil, result.Error
 	}
 	return jobs, nil
+}
+
+func (r *jobRepository) DeleteTaskHistoryOlderThan(ctx context.Context, date time.Time, opts ...utils.DBOption) (int64, error) {
+	return utils.ApplyOptions(r.db.WithContext(ctx), opts...).Where("created_at < ?", date).Delete(&model.TaskExecutionHistory{}).RowsAffected, nil
 }
