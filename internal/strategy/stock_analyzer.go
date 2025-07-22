@@ -49,7 +49,7 @@ type StockAnalyzerPayload struct {
 
 type StockAnalyzerResult struct {
 	StockCode string `json:"stock_code"`
-	Errors    string `json:"errors"`
+	Errors    string `json:"errors,omitempty"`
 }
 
 func NewStockAnalyzerStrategy(

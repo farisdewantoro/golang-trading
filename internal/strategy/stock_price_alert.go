@@ -40,7 +40,7 @@ type StockPriceAlertPayload struct {
 // StockPriceAlertResult defines the result for stock price alert.
 type StockPriceAlertResult struct {
 	StockCode string `json:"stock_code"`
-	Errors    string `json:"errors"`
+	Errors    string `json:"errors,omitempty"`
 }
 
 // NewStockPriceAlertStrategy creates a new instance of StockPriceAlertStrategy.
