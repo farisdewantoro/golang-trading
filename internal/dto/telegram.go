@@ -22,6 +22,7 @@ type RequestSetPositionData struct {
 	SourceType    string
 	IsMessageEdit bool
 	PlanScore     float64
+	PositionScore float64
 }
 
 func (r *RequestSetPositionData) ToStockPositionEntity() *model.StockPosition {
@@ -36,6 +37,7 @@ func (r *RequestSetPositionData) ToStockPositionEntity() *model.StockPosition {
 		Exchange:        r.Exchange,
 		SourceType:      r.SourceType,
 		PlanScore:       r.PlanScore,
+		InitialScore:    r.PositionScore,
 	}
 }
 

@@ -282,9 +282,9 @@ func (s *StockPositionMonitoringStrategy) SendMessageUser(ctx context.Context, s
 		sb.WriteString(fmt.Sprintf(`
 <b>📊 Evaluasi Terbaru</b>
  - Position Signal: %s	
- - Score : %.2f (%s)
+ - Score : %.2f ⮕ %.2f (%s)
  - Status: %s
-`, dto.Signal(summary.PositionSignal), summary.TechnicalAnalysis.Score, summary.TechnicalAnalysis.Signal, dto.PositionStatus(summary.TechnicalAnalysis.Status)))
+`, dto.Signal(summary.PositionSignal), stockPosition.InitialScore, summary.TechnicalAnalysis.Score, summary.TechnicalAnalysis.Signal, dto.PositionStatus(summary.TechnicalAnalysis.Status)))
 
 		sb.WriteString(fmt.Sprintf(`
 🧾 <b>Informasi Posisi</b>
