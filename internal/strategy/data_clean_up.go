@@ -16,7 +16,7 @@ type DataCleaner interface {
 }
 
 type DataCleanUpPayload struct {
-	Days int `json:"days"`
+	RetentionDays int `json:"retention_days"`
 }
 
 type DataCleanUpStrategy struct {
@@ -44,7 +44,7 @@ func (s *DataCleanUpStrategy) Execute(ctx context.Context, job *model.Job) (JobR
 		return JobResult{ExitCode: JOB_EXIT_CODE_FAILED, Output: fmt.Sprintf("failed to unmarshal job payload: %v", err)}, fmt.Errorf("failed to unmarshal job payload: %w", err)
 	}
 
-	date := utils.TimeNowWIB().AddDate(0, 0, -payload.Days)
+	date := utils.TimeNowWIB().AddDate(0, 0, -payload.RetentionDays)
 	totalDeleted, err := s.StockAnalysisRepo.DeleteOlderThan(ctx, date)
 	if err != nil {
 		s.log.ErrorContext(ctx, "Failed to delete older than", logger.ErrorField(err), logger.IntField("job_id", int(job.ID)))
