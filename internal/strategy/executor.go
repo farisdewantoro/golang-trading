@@ -22,6 +22,7 @@ const (
 	JobTypeStockAnalyzer          JobType = "stock_analyzer"
 	JobTypeStockPositionMonitor   JobType = "stock_position_monitor"
 	JobTypeStockTechnicalAnalysis JobType = "stock_technical_analysis"
+	JobTypeDataCleanUp            JobType = "data_clean_up"
 )
 
 type JobResult struct {

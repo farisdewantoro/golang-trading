@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"golang-trading/internal/model"
+	"time"
 	"golang-trading/pkg/utils"
 	"strings"
 
@@ -13,6 +14,7 @@ type StockAnalysisRepository interface {
 	Create(ctx context.Context, stockAnalysis *model.StockAnalysis) error
 	CreateBulk(ctx context.Context, stockAnalyses []model.StockAnalysis) error
 	GetLatestAnalyses(ctx context.Context, param model.GetLatestAnalysisParam) ([]model.StockAnalysis, error)
+	DeleteOlderThan(ctx context.Context, date time.Time) (int64, error)
 }
 
 type stockAnalysisRepository struct {
@@ -91,6 +93,14 @@ func (s *stockAnalysisRepository) GetLatestAnalyses(ctx context.Context, param m
 	}
 
 	return analyses, nil
+}
+
+func (s *stockAnalysisRepository) DeleteOlderThan(ctx context.Context, date time.Time) (int64, error) {
+	db := s.db.WithContext(ctx).Where("created_at < ?", date).Delete(&model.StockAnalysis{})
+	if db.Error != nil {
+		return 0, db.Error
+	}
+	return db.RowsAffected, nil
 }
 
 func (s *stockAnalysisRepository) Update(ctx context.Context, param model.UpdateStockAnalysisParam, opts ...utils.DBOption) error {
