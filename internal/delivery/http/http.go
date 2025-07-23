@@ -25,4 +25,5 @@ func NewHttpAPIHandler(ctx context.Context, echo *echo.Echo, validator *goValida
 func (h *HttpAPIHandler) SetupRoutes() {
 	base := h.echo.Group("/api")
 	h.SetupJobs(base)
+	h.SetupBacktest(base)
 }

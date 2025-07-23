@@ -3,9 +3,9 @@ package repository
 import (
 	"context"
 	"golang-trading/internal/model"
-	"time"
 	"golang-trading/pkg/utils"
 	"strings"
+	"time"
 
 	"gorm.io/gorm"
 )
@@ -15,6 +15,7 @@ type StockAnalysisRepository interface {
 	CreateBulk(ctx context.Context, stockAnalyses []model.StockAnalysis) error
 	GetLatestAnalyses(ctx context.Context, param model.GetLatestAnalysisParam) ([]model.StockAnalysis, error)
 	DeleteOlderThan(ctx context.Context, date time.Time) (int64, error)
+	GetHistoricalAnalyses(ctx context.Context, stockCode, exchange string, startDate, endDate time.Time) ([]model.StockAnalysis, error)
 }
 
 type stockAnalysisRepository struct {
@@ -89,6 +90,27 @@ func (s *stockAnalysisRepository) GetLatestAnalyses(ctx context.Context, param m
 		Find(&analyses).Error
 
 	if err != nil {
+		return nil, err
+	}
+
+	return analyses, nil
+}
+
+func (s *stockAnalysisRepository) GetHistoricalAnalyses(ctx context.Context, stockCode, exchange string, startDate, endDate time.Time) ([]model.StockAnalysis, error) {
+	var analyses []model.StockAnalysis
+
+	query := s.db.WithContext(ctx).Debug().
+		Where("stock_code = ?", stockCode).
+		Where("exchange = ?", exchange).
+		Where("timestamp >= ?", startDate).
+		Where("timestamp <= ?", endDate).
+		Order("timestamp ASC, created_at ASC")
+
+	err := query.Find(&analyses).Error
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil, nil // Not an error, just no data
+		}
 		return nil, err
 	}
 

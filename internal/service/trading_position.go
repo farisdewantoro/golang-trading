@@ -280,9 +280,9 @@ func (s *tradingService) calculateAdvancedScore(pos *model.StockPosition, mainTA
 	var totalScore float64
 	var insights []dto.Insight
 
-	// 1. Analisis Tren (Bobot: 35%)
+	// 1. Analisis Tren (Bobot: 45%)
 	trendScore, trendInsights := s.scoreTrend(mainTA)
-	totalScore += trendScore * 0.35
+	totalScore += trendScore * 0.45
 	insights = append(insights, trendInsights...)
 
 	// 2. Analisis Momentum (Bobot: 25%)
@@ -290,9 +290,9 @@ func (s *tradingService) calculateAdvancedScore(pos *model.StockPosition, mainTA
 	totalScore += momentumScore * 0.25
 	insights = append(insights, momentumInsights...)
 
-	// 3. Analisis Kondisi Posisi (Bobot: 20%)
+	// 3. Analisis Kondisi Posisi (Bobot: 10%)
 	positionScore, positionInsights := s.scorePositionHealth(pos, marketPrice, supports, resistances)
-	totalScore += positionScore * 0.20
+	totalScore += positionScore * 0.10
 	insights = append(insights, positionInsights...)
 
 	// 4. Analisis Price Action & Volume (Bobot: 15%)
