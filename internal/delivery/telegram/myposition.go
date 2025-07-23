@@ -48,6 +48,10 @@ func (t *TelegramBotHandler) showMyPosition(ctx context.Context, c telebot.Conte
 		return positions[i].FinalScore > positions[j].FinalScore
 	})
 
+	countWin := 0
+	countLose := 0
+	countPnL := 0.0
+
 	for idx, position := range positions {
 		stockWithExchange := position.Exchange + ":" + position.StockCode
 		pnl := "N/A"
@@ -63,6 +67,15 @@ func (t *TelegramBotHandler) showMyPosition(ctx context.Context, c telebot.Conte
 
 		if marketPrice > 0 {
 			pnl = utils.FormatChange(position.BuyPrice, marketPrice)
+
+			if marketPrice >= position.BuyPrice {
+				countWin++
+			} else {
+				countLose++
+			}
+
+			countPnL += utils.CalculateChangePercent(position.BuyPrice, marketPrice)
+
 		}
 
 		iconTitle := "⚪️"
@@ -113,6 +126,11 @@ func (t *TelegramBotHandler) showMyPosition(ctx context.Context, c telebot.Conte
 
 		sb.WriteString("\n")
 	}
+
+	sb.WriteString("<b>📊 Ringkasan Posisi</b>")
+	sb.WriteString(fmt.Sprintf("\n🟢 <b>Win</b>: %d | 🔴 Lose: %d", countWin, countLose))
+	sb.WriteString(fmt.Sprintf("\n📈 <b>Total PnL</b>: %s", utils.FormatChgIcon(countPnL)))
+	sb.WriteString(fmt.Sprintf("\n🏆 <b>Win Rate</b>: %.2f%%\n", float64(countWin)/float64(len(positions))*100))
 
 	sb.WriteString("\n👉 Tekan tombol di bawah untuk melihat detail lengkap atau mengelola posisi.")
 	menu := &telebot.ReplyMarkup{}

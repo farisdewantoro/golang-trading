@@ -91,7 +91,7 @@ func (t *TelegramBotHandler) showReport(ctx context.Context, c telebot.Context, 
 
 	sbSummary := &strings.Builder{}
 	sbSummary.WriteString(fmt.Sprintf("\n🟢 <b>Win</b>: %d | 🔴 Lose: %d", countWin, countLose))
-	sbSummary.WriteString(fmt.Sprintf("\n📈 <b>Total PnL</b>: %+.2f%%", countPnL))
+	sbSummary.WriteString(fmt.Sprintf("\n📈 <b>Total PnL</b>: %s", utils.FormatChgIcon(countPnL)))
 	sbSummary.WriteString(fmt.Sprintf("\n🏆 <b>Win Rate</b>: %.2f%%", float64(countWin)/float64(len(positions))*100))
 
 	result := fmt.Sprintf("%s%s%s", sb.String(), sbSummary.String(), sbBody.String())
