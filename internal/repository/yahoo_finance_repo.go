@@ -45,6 +45,7 @@ func NewYahooFinanceRepository(cfg *config.Config, log *logger.Logger) YahooFina
 }
 
 func (r *yahooFinanceRepository) Get(ctx context.Context, param dto.GetStockDataParam) (*dto.StockData, error) {
+	time.Sleep(100 * time.Millisecond)
 
 	if !r.requestLimiter.Allow() {
 		r.logger.WarnContext(ctx, "Yahoo Finance API request limit exceeded",

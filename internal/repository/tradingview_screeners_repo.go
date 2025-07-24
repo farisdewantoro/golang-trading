@@ -57,6 +57,7 @@ func NewTradingViewScreenersRepository(cfg *config.Config, log *logger.Logger) *
 //
 //	error - returns an error if the request fails or the symbol/interval is invalid.
 func (t *tradingViewScreenersRepository) Get(ctx context.Context, symbol string, exchange string, interval string) (*dto.TradingViewScanner, error) {
+	time.Sleep(100 * time.Millisecond)
 	if !t.requestLimiter.Allow() {
 		t.log.WarnContext(ctx, "TradingView Screeners API request limit exceeded",
 			logger.IntField("max_request_per_minute", t.cfg.TradingView.MaxRequestPerMin),
@@ -191,7 +192,27 @@ func (t *tradingViewScreenersRepository) Get(ctx context.Context, symbol string,
 		"fields": strings.Join(fields, ","),
 	}
 	responseMap := make(map[string]float64)
-	baseResponse, err := t.httpClient.Get(ctx, "/symbol", params, nil, &responseMap)
+
+	headers := map[string]string{
+		"User-Agent":                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36",
+		"Accept":                    "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
+		"Accept-Language":           "en-US,en;q=0.9",
+		"Accept-Encoding":           "gzip, deflate, br, zstd",
+		"Cache-Control":             "max-age=0",
+		"Priority":                  "u=0, i",
+		"Referer":                   "https://www.tradingview.com/",
+		"Origin":                    "https://www.tradingview.com",
+		"Sec-Fetch-Dest":            "document",
+		"Sec-Fetch-Mode":            "navigate",
+		"Sec-Fetch-Site":            "none",
+		"Sec-Fetch-User":            "?1",
+		"Upgrade-Insecure-Requests": "1",
+		"Sec-Ch-UA":                 `"Not)A;Brand";v="8", "Chromium";v="138", "Google Chrome";v="138"`,
+		"Sec-Ch-UA-Mobile":          "?0",
+		"Sec-Ch-UA-Platform":        "macOS",
+	}
+
+	baseResponse, err := t.httpClient.Get(ctx, "/symbol", params, headers, &responseMap)
 	if err != nil {
 		return nil, err
 	}
@@ -200,7 +221,7 @@ func (t *tradingViewScreenersRepository) Get(ctx context.Context, symbol string,
 		t.log.WarnContext(ctx, "Return NON-200 response",
 			logger.IntField("status_code", baseResponse.StatusCode),
 		)
-		return nil, fmt.Errorf("failed to get data: %v", baseResponse.Body)
+		return nil, fmt.Errorf("failed to get data: %v", string(baseResponse.Body))
 	}
 
 	ta := &dto.TradingViewScanner{}

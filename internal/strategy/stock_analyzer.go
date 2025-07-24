@@ -236,7 +236,7 @@ func (s *StockAnalyzerStrategy) AnalyzeStock(ctx context.Context, stock dto.Stoc
 
 			var stockAnalysis model.StockAnalysis
 
-			stockData, err := s.tradingViewScreenersRepository.Get(ctx,
+			stockData, err := s.tradingViewScreenersRepository.Get(newCtxG,
 				stock.StockCode,
 				stock.Exchange,
 				tf.ToTradingViewScreenersInterval(),
@@ -262,7 +262,7 @@ func (s *StockAnalyzerStrategy) AnalyzeStock(ctx context.Context, stock dto.Stoc
 					stockData.Recommend.Global.Summary),
 			}
 
-			stockDataOHCLV, err := s.candleRepository.Get(ctx, dto.GetStockDataParam{
+			stockDataOHCLV, err := s.candleRepository.Get(newCtxG, dto.GetStockDataParam{
 				StockCode: stock.StockCode,
 				Exchange:  stock.Exchange,
 				Range:     tf.Range,

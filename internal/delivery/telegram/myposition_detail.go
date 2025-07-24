@@ -263,7 +263,12 @@ func (t *TelegramBotHandler) handleBtnRefreshAnalysisPosition(ctx context.Contex
 
 		for _, stockPosition := range stockPositions {
 			if stockPosition.ID == uint(positionID) {
-				t.service.TelegramBotService.AnalyzePosition(newCtx, stockPosition)
+				err := t.service.TelegramBotService.AnalyzePosition(newCtx, stockPosition)
+				if err != nil {
+					close(stopChan)
+					_, err := t.telegram.Send(newCtx, c, commonErrorInternalMyPosition)
+					t.log.ErrorContext(newCtx, "Failed to analyze stock position", logger.ErrorField(err))
+				}
 			}
 		}
 
@@ -281,7 +286,7 @@ func (t *TelegramBotHandler) handleBtnRefreshAnalysisPosition(ctx context.Contex
 		}
 		close(stopChan)
 		t.showMyPositionDetail(newCtx, c, stockPosition)
-	})
+	}).Run()
 
 	return nil
 }
