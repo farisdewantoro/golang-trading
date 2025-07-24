@@ -37,7 +37,7 @@ func NewService(
 	taskExecutor := NewTaskExecutor(cfg, log, repo.JobRepo, executorStrategies)
 
 	schedulerService := NewSchedulerService(cfg, log, repo.JobRepo, taskExecutor)
-	telegramBotService := NewTelegramBotService(log, cfg, telegram, inmemoryCache, repo.StockAnalysisRepo, repo.SystemParamRepo, analyzerStrategy, repo.GeminiAIRepo, repo.UserRepo, repo.StockPositionsRepo, repo.StockPositionMonitoringRepo, repo.UnitOfWork, repo.UserSignalAlertRepo)
+	telegramBotService := NewTelegramBotService(log, cfg, telegram, inmemoryCache, repo.StockAnalysisRepo, repo.SystemParamRepo, analyzerStrategy, stockPositionMonitoringStrategy, repo.GeminiAIRepo, repo.UserRepo, repo.StockPositionsRepo, repo.StockPositionMonitoringRepo, repo.UnitOfWork, repo.UserSignalAlertRepo)
 	backtestService := NewBacktestService(log, tradingService, repo.StockAnalysisRepo)
 
 	return &Service{
