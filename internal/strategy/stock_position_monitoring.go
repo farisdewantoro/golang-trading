@@ -23,7 +23,7 @@ import (
 
 type PositionMonitoringEvaluator interface {
 	JobExecutionStrategy
-	EvaluateStockPosition(ctx context.Context, stockPositions []model.StockPosition) ([]StockPositionMonitoringResult, error)
+	EvaluateStockPosition(ctx context.Context, stockPositions []model.StockPosition, maxConcurrency int) ([]StockPositionMonitoringResult, error)
 }
 type StockPositionMonitoringStrategy struct {
 	logger                         *logger.Logger
@@ -41,6 +41,10 @@ type StockPositionMonitoringStrategy struct {
 type StockPositionMonitoringResult struct {
 	StockCode string `json:"stock_code"`
 	Errors    string `json:"errors"`
+}
+
+type StockPositionMonitoringPayload struct {
+	MaxConcurrency int `json:"max_concurrency"`
 }
 
 func NewStockPositionMonitoringStrategy(
@@ -77,7 +81,13 @@ func (s *StockPositionMonitoringStrategy) Execute(ctx context.Context, job *mode
 	var (
 		stocks  []dto.StockInfo
 		results []StockPositionMonitoringResult
+		payload StockPositionMonitoringPayload
 	)
+
+	if err := json.Unmarshal(job.Payload, &payload); err != nil {
+		s.logger.Error("Failed to unmarshal job payload", logger.ErrorField(err), logger.IntField("job_id", int(job.ID)))
+		return JobResult{ExitCode: JOB_EXIT_CODE_FAILED, Output: fmt.Sprintf("failed to unmarshal job payload: %v", err)}, fmt.Errorf("failed to unmarshal job payload: %w", err)
+	}
 
 	stockPositions, err := s.stockPositionsRepo.Get(ctx, dto.GetStockPositionsParam{
 		MonitorPosition: utils.ToPointer(true),
@@ -94,7 +104,7 @@ func (s *StockPositionMonitoringStrategy) Execute(ctx context.Context, job *mode
 		return JobResult{ExitCode: JOB_EXIT_CODE_SKIPPED, Output: "no stocks positions found"}, nil
 	}
 
-	results, err = s.EvaluateStockPosition(ctx, stockPositions)
+	results, err = s.EvaluateStockPosition(ctx, stockPositions, payload.MaxConcurrency)
 	if err != nil {
 		s.logger.Error("Failed to evaluate stock position", logger.ErrorField(err))
 		return JobResult{ExitCode: JOB_EXIT_CODE_FAILED, Output: fmt.Sprintf("failed to evaluate stock position: %v", err)}, fmt.Errorf("failed to evaluate stock position: %w", err)
@@ -112,19 +122,30 @@ func (s *StockPositionMonitoringStrategy) Execute(ctx context.Context, job *mode
 	return JobResult{ExitCode: JOB_EXIT_CODE_SUCCESS, Output: string(resultJSON)}, nil
 }
 
-func (s *StockPositionMonitoringStrategy) EvaluateStockPosition(ctx context.Context, stockPositions []model.StockPosition) ([]StockPositionMonitoringResult, error) {
+func (s *StockPositionMonitoringStrategy) EvaluateStockPosition(ctx context.Context, stockPositions []model.StockPosition, maxConcurrency int) ([]StockPositionMonitoringResult, error) {
 	var (
 		wg      sync.WaitGroup
 		mu      sync.Mutex
 		results []StockPositionMonitoringResult
 	)
 
+	if maxConcurrency <= 0 {
+		maxConcurrency = 1
+	}
+
+	semaphore := make(chan struct{}, maxConcurrency)
+
 	for _, sp := range stockPositions {
 
 		stockPosition := sp // Create a copy of the stockPosition to avoid data
 		wg.Add(1)
+		semaphore <- struct{}{}
 		utils.GoSafe(func() {
-			defer wg.Done()
+			defer func() {
+				<-semaphore
+				wg.Done()
+			}()
+
 			resultData := StockPositionMonitoringResult{
 				StockCode: stockPosition.Exchange + ":" + stockPosition.StockCode,
 			}
@@ -133,6 +154,7 @@ func (s *StockPositionMonitoringStrategy) EvaluateStockPosition(ctx context.Cont
 				results = append(results, resultData)
 				mu.Unlock()
 			}()
+
 			stockAnalyses, err := s.stockAnalyzer.AnalyzeStock(ctx, dto.StockInfo{
 				StockCode: stockPosition.StockCode,
 				Exchange:  stockPosition.Exchange,

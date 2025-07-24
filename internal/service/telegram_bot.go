@@ -365,6 +365,6 @@ func (s *telegramBotService) SetAlertSignal(ctx context.Context, telegramID int6
 }
 
 func (s *telegramBotService) AnalyzePosition(ctx context.Context, stockPosition model.StockPosition) error {
-	_, err := s.positionMonitoringStrategy.EvaluateStockPosition(ctx, []model.StockPosition{stockPosition})
+	_, err := s.positionMonitoringStrategy.EvaluateStockPosition(ctx, []model.StockPosition{stockPosition}, 1)
 	return err
 }
