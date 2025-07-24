@@ -62,6 +62,7 @@ func (t *TelegramBotHandler) RegisterHandlers() {
 	t.bot.Handle(&btnDeleteStockPosition, t.WithContext(t.handleBtnDeleteStockPosition))
 	t.bot.Handle(&btnConfirmDeleteStockPosition, t.WithContext(t.handleBtnConfirmDeleteStockPosition))
 	t.bot.Handle(&btnBackStockPosition, t.WithContext(t.handleBtnBackStockPosition))
+	t.bot.Handle(&btnRefreshAnalysisPosition, t.WithContext(t.handleBtnRefreshAnalysisPosition))
 
 	// exit position
 	t.bot.Handle(&btnExitStockPosition, t.WithContext(t.handleBtnExitStockPosition))
