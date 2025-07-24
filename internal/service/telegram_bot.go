@@ -19,6 +19,7 @@ import (
 )
 
 type TelegramBotService interface {
+	ExecuteStockAnalyzer(ctx context.Context, symbol string) ([]model.StockAnalysis, error)
 	AnalyzeStock(ctx context.Context, c telebot.Context, symbol string) ([]model.StockAnalysis, error)
 	AnalyzeStockAI(ctx context.Context, c telebot.Context, symbol string) (*dto.AIAnalyzeStockResponse, error)
 	SetStockPosition(ctx context.Context, data *dto.RequestSetPositionData) error
@@ -90,6 +91,27 @@ func (s *telegramBotService) AnalyzeStock(ctx context.Context, c telebot.Context
 	}
 
 	return s.GetLatestAnalyses(ctx, stockCode, exchange)
+}
+
+func (s *telegramBotService) ExecuteStockAnalyzer(ctx context.Context, symbol string) ([]model.StockAnalysis, error) {
+	symbol = strings.ToUpper(symbol)
+	stockCode, exchange, err := utils.ParseStockSymbol(symbol)
+
+	if err != nil {
+		s.log.ErrorContext(ctx, "Failed to parse stock symbol", logger.ErrorField(err))
+		return nil, err
+	}
+
+	latestAnalyses, err := s.stockAnalyzer.AnalyzeStock(ctx, dto.StockInfo{
+		StockCode: stockCode,
+		Exchange:  exchange,
+	})
+	if err != nil {
+		s.log.ErrorContext(ctx, "Failed to analyze stock", logger.ErrorField(err))
+		return nil, err
+	}
+
+	return latestAnalyses, nil
 }
 
 func (s *telegramBotService) GetLatestAnalyses(ctx context.Context, stockCode string, exchange string) ([]model.StockAnalysis, error) {

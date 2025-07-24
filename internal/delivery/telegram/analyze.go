@@ -273,6 +273,9 @@ func (t *TelegramBotHandler) showAnalysis(ctx context.Context, c telebot.Context
 		row = append(row, menu.Row(btnSetPosition))
 	}
 
+	btnRefreshAnalysis := menu.Data(btnRefreshAnalysis.Text, btnRefreshAnalysis.Unique, symbolWithExchange)
+	row = append(row, menu.Row(btnRefreshAnalysis))
+
 	row = append(row, menu.Row(btnDeleteMessage))
 	menu.Inline(row...)
 
@@ -281,6 +284,49 @@ func (t *TelegramBotHandler) showAnalysis(ctx context.Context, c telebot.Context
 		t.log.ErrorContext(ctx, "Failed to edit message", logger.ErrorField(err))
 		return err
 	}
+
+	return nil
+}
+
+func (t *TelegramBotHandler) handleBtnRefreshAnalysis(ctx context.Context, c telebot.Context) error {
+
+	stopChan := make(chan struct{})
+
+	msg := t.showLoadingFlowAnalysis(c, stopChan, false)
+
+	symbol := c.Data()
+
+	if symbol == "" {
+		symbol = c.Text()
+	}
+
+	utils.GoSafe(func() {
+		newCtx, cancel := context.WithTimeout(t.ctx, t.cfg.Telegram.TimeoutDuration)
+		defer cancel()
+
+		latestAnalyses, err := t.service.TelegramBotService.ExecuteStockAnalyzer(newCtx, symbol)
+		if err != nil {
+			close(stopChan)
+			t.log.ErrorContext(ctx, "Failed to analyze stock", logger.ErrorField(err))
+
+			// Send error message
+			_, err = t.telegram.Send(newCtx, c, fmt.Sprintf("❌ Failed to get stock analysis: %s", err.Error()))
+			if err != nil {
+				t.log.ErrorContext(newCtx, "Failed to send error message", logger.ErrorField(err))
+			}
+			return
+		}
+
+		close(stopChan)
+
+		err = t.showAnalysis(newCtx, c, msg, latestAnalyses)
+
+		if err != nil {
+			t.log.ErrorContext(newCtx, "Failed to show analysis", logger.ErrorField(err))
+			return
+		}
+
+	}).Run()
 
 	return nil
 }

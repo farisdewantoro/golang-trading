@@ -11,7 +11,8 @@ var (
 	btnSetPositionTechnical    telebot.Btn = telebot.Btn{Text: "📥 Simpan posisi ini", Unique: "btn_set_position_by_technical"}
 	btnSetPositionAI           telebot.Btn = telebot.Btn{Text: "🤖 Simpan posisi ini", Unique: "btn_set_position_by_ai"}
 
-	btnDeleteMessage telebot.Btn = telebot.Btn{Text: "🗑️ Hapus Pesan", Unique: "btn_delete_message"}
+	btnDeleteMessage   telebot.Btn = telebot.Btn{Text: "🗑️ Hapus Pesan", Unique: "btn_delete_message"}
+	btnRefreshAnalysis telebot.Btn = telebot.Btn{Text: "🔄 Refresh Analisis", Unique: "btn_refresh_analysis"}
 
 	btnDeleteStockPosition        telebot.Btn = telebot.Btn{Text: "🗑️ Hapus Posisi", Unique: "btn_delete_stock_position"}
 	btnConfirmDeleteStockPosition telebot.Btn = telebot.Btn{Unique: "btn_confirm_delete_stock_position"}
