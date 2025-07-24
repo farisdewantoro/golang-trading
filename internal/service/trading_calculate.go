@@ -128,7 +128,7 @@ func (s *tradingService) findBestPlanForRRR(
 	slCandidates []SLSource,
 	tpCandidates []TPSource,
 	config dto.TradeConfig,
-
+	entryQualityScore int,
 ) (dto.TradePlan, bool) { // Mengembalikan plan dan boolean 'ditemukan'
 
 	var bestPlan dto.TradePlan
@@ -172,20 +172,22 @@ func (s *tradingService) findBestPlanForRRR(
 			}
 
 			// --- New Scoring Logic (0-100 scale) ---
-			// 1. RRR Score (Weight: 40%) - A great RRR is considered >= 4.0
+			// 1. RRR Score (Weight: 30%) - A great RRR is considered >= 4.0
 			rrrScore := normalize(riskRewardRatio, 4.0) * 30.0
 
-			// 2. SL Quality Score (Weight: 30%) - A great SL source score is considered >= 5.0
-			slScore := normalize(sl.Score, 5.0) * 30.0
+			// 2. SL Quality Score (Weight: 20%) - A great SL source score is considered >= 5.0
+			slScore := normalize(sl.Score, 5.0) * 20.0
 
 			// 3. TP Quality Score (Weight: 20%) - A great TP source score is considered >= 5.0
-			tpScore := normalize(tp.Score, 5.0) * 30.0
+			tpScore := normalize(tp.Score, 5.0) * 20.0
 
-			// 4. Plan Type Bonus (Weight: 10%) - Based on config (Primary/Secondary/Fallback)
-			// config.Score is 3 for Primary, 2 for Secondary, 0 for Fallback.
+			// 4. Entry Quality Score (Weight: 20%) - Max score from calculateEntryQualityScore is 50
+			entryScore := normalize(float64(entryQualityScore), 50.0) * 20.0
+
+			// 5. Plan Type Bonus (Weight: 10%) - Based on config (Primary/Secondary/Fallback)
 			planTypeScore := normalize(config.Score, 3.0) * 10.0
 
-			currentScore := rrrScore + slScore + tpScore + planTypeScore
+			currentScore := rrrScore + slScore + tpScore + entryScore + planTypeScore
 
 			if currentScore > highestScore {
 				highestScore = currentScore
@@ -208,6 +210,7 @@ func (s *tradingService) findIdealPlan(
 	marketPrice float64,
 	slCandidates []SLSource,
 	tpCandidates []TPSource,
+	entryQualityScore int,
 ) dto.TradePlan {
 
 	config := dto.TradeConfig{
@@ -219,14 +222,14 @@ func (s *tradingService) findIdealPlan(
 		Type:                 dto.PlanTypePrimary,
 		Score:                3,
 	}
-	if bestPlan, found := s.findBestPlanForRRR(marketPrice, slCandidates, tpCandidates, config); found {
+	if bestPlan, found := s.findBestPlanForRRR(marketPrice, slCandidates, tpCandidates, config, entryQualityScore); found {
 		return bestPlan
 	}
 
 	config.TargetRiskReward = targetRiskRewardFallback
 	config.Type = dto.PlanTypeSecondary
 	config.Score = 2
-	if bestPlan, found := s.findBestPlanForRRR(marketPrice, slCandidates, tpCandidates, config); found {
+	if bestPlan, found := s.findBestPlanForRRR(marketPrice, slCandidates, tpCandidates, config, entryQualityScore); found {
 		return bestPlan
 	}
 
@@ -236,11 +239,49 @@ func (s *tradingService) findIdealPlan(
 	config.MinStopLossPercent = fallbackMinStopLossPercent
 	config.Type = dto.PlanTypeFallback
 	config.Score = 0
-	if bestPlan, found := s.findBestPlanForRRR(marketPrice, slCandidates, tpCandidates, config); found {
+	if bestPlan, found := s.findBestPlanForRRR(marketPrice, slCandidates, tpCandidates, config, entryQualityScore); found {
 		return bestPlan
 	}
 
 	return dto.TradePlan{}
+}
+
+// calculateEntryQualityScore calculates a score based on the quality of the entry price.
+func (s *tradingService) calculateEntryQualityScore(marketPrice float64, technicalData *dto.TradingViewScanner) int {
+	if technicalData == nil {
+		return 0
+	}
+
+	score := 0
+	ema20 := technicalData.Value.MovingAverages.EMA20
+	ema50 := technicalData.Value.MovingAverages.EMA50
+	rsi := technicalData.Value.Oscillators.RSI
+
+	// 1. Proximity to Support (the closer to EMA20, the better for a pullback)
+	if ema20 > 0 {
+		distanceToEMA20 := (marketPrice - ema20) / ema20
+		if distanceToEMA20 <= 0.01 { // Within 1% of EMA20
+			score += 20
+		} else if distanceToEMA20 <= 0.03 { // Within 3% of EMA20
+			score += 10
+		} else if distanceToEMA20 > 0.05 { // More than 5% away, potentially chasing price
+			score -= 10
+		}
+	}
+
+	// 2. RSI Condition
+	if rsi >= 50 && rsi <= 65 {
+		score += 15 // Healthy momentum
+	} else if rsi > 70 {
+		score -= 10 // Overbought, higher risk
+	}
+
+	// 3. Trend Confirmation
+	if ema20 > ema50 {
+		score += 15 // Solid uptrend confirmation
+	}
+
+	return score
 }
 
 // createATRBasedPlan is a fallback function to create a simple trade plan based on ATR.
@@ -288,14 +329,18 @@ func (s *tradingService) calculatePlan(
 	priceBuckets []dto.PriceBucket,
 	atr float64,
 	slATRMultiplier float64,
+	technicalData *dto.TradingViewScanner,
 ) dto.TradePlan {
 	slDistance := atr * slATRMultiplier
 	tpDistance := atr * 0.1 // 10% of ATR
 	slCandidates := getSLCandidates(marketPrice, supports, emas, priceBuckets, slDistance)
 	tpCandidates := getTPCandidates(marketPrice, resistances, priceBuckets, tpDistance)
 
+	// Calculate the entry quality score
+	entryQualityScore := s.calculateEntryQualityScore(marketPrice, technicalData)
+
 	// First, try to find the ideal plan from technical levels
-	plan := s.findIdealPlan(marketPrice, slCandidates, tpCandidates)
+	plan := s.findIdealPlan(marketPrice, slCandidates, tpCandidates, entryQualityScore)
 
 	// If no plan is found, use the ATR-based fallback
 	if plan.Entry == 0 {

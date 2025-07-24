@@ -147,7 +147,7 @@ func (s *tradingService) CreateTradePlan(ctx context.Context, latestAnalyses []m
 	atr14 := s.calculateATR(mainTFCandles, 14)
 	slAtrMultiplier := s.getATRMultiplierForSL(&tfHighestTechnicalData)
 
-	plan := s.calculatePlan(float64(marketPrice), supports, resistances, emaData, priceBuckets, atr14, slAtrMultiplier)
+	plan := s.calculatePlan(float64(marketPrice), supports, resistances, emaData, priceBuckets, atr14, slAtrMultiplier, &tfHighestTechnicalData)
 
 	positionAnalysis, err := s.EvaluatePositionMonitoring(ctx, &model.StockPosition{
 		StockCode:       lastAnalysis.StockCode,
