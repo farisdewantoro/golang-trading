@@ -219,7 +219,7 @@ func (s *tradingService) BuyListTradePlan(ctx context.Context, mapSymbolExchange
 
 	// add sort by score to return buylistresult
 	sort.Slice(listTradePlan, func(i, j int) bool {
-		return listTradePlan[i].Score > listTradePlan[j].Score
+		return listTradePlan[i].PlanScore > listTradePlan[j].PlanScore
 	})
 
 	return listTradePlan, nil
