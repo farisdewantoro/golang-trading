@@ -306,49 +306,42 @@ func (s *tradingService) calculatePlan(
 	return plan
 }
 
-func (s *tradingService) CalculateSummary(ctx context.Context, dtf []dto.DataTimeframe, latestAnalyses []model.StockAnalysis) (float64, int, error) {
-	var totalScore float64
-
-	mapWeight := make(map[string]int)
-	mainTrend := ""
-	maxWeight := 0
-
-	for _, tf := range dtf {
-		mapWeight[tf.Interval] = tf.Weight
-		if tf.Weight > maxWeight {
-			maxWeight = tf.Weight
-			mainTrend = tf.Interval
-		}
+func (s *tradingService) CalculateSummary(ctx context.Context, dtf []dto.DataTimeframe, latestAnalyses []model.StockAnalysis) (int, error) {
+	if len(latestAnalyses) == 0 {
+		return 0, fmt.Errorf("cannot calculate summary without analysis data")
 	}
 
-	mainTrendScore := -999 // Flag awal jika belum ditemukan
+	mapWeight := make(map[string]int)
+	totalWeight := 0
+	for _, tf := range dtf {
+		mapWeight[tf.Interval] = tf.Weight
+		totalWeight += tf.Weight
+	}
 
+	if totalWeight == 0 {
+		return 0, fmt.Errorf("total weight for timeframes is zero")
+	}
+
+	var weightedScoreSum float64
 	for _, analysis := range latestAnalyses {
 		weight, ok := mapWeight[analysis.Timeframe]
 		if !ok {
-			s.log.WarnContext(ctx, "Unknown timeframe in analysis", logger.StringField("timeframe", analysis.Timeframe))
+			s.log.WarnContext(ctx, "Unknown timeframe in analysis, skipping", logger.StringField("timeframe", analysis.Timeframe))
 			continue
 		}
 
 		var technicalData dto.TradingViewScanner
 		if err := json.Unmarshal([]byte(analysis.TechnicalData), &technicalData); err != nil {
-			s.log.ErrorContext(ctx, "Failed to unmarshal technical data", logger.ErrorField(err))
-			continue
+			s.log.ErrorContext(ctx, "Failed to unmarshal technical data", logger.ErrorField(err), logger.StringField("timeframe", analysis.Timeframe))
+			continue // Skip this analysis if data is corrupted
 		}
 
 		score := technicalData.Recommend.Global.Summary
-		totalScore += float64(weight) * (float64(score) + 0.05)
-
-		if analysis.Timeframe == mainTrend {
-			mainTrendScore = score
-		}
+		weightedScoreSum += float64(weight) * float64(score)
 	}
 
-	// Pastikan main trend score ditemukan
-	if mainTrendScore == -999 {
-		err := fmt.Errorf("mainTrendScore for timeframe %s not found", mainTrend)
-		s.log.ErrorContext(ctx, "Main trend score not found", logger.ErrorField(err))
-		return 0, mainTrendScore, err
-	}
-	return totalScore, mainTrendScore, nil
+	const scale = 25.0
+	weightedAverage := weightedScoreSum / float64(totalWeight)
+	finalScore := int((weightedAverage + 2) * scale)
+	return finalScore, nil
 }

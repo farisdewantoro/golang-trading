@@ -162,7 +162,13 @@ func (s *tradingService) CreateTradePlan(ctx context.Context, latestAnalyses []m
 		return nil, err
 	}
 
-	finalScore := (plan.Score * 0.7) + (positionAnalysis.Score * 0.3)
+	scoreTA, err := s.CalculateSummary(ctx, timeframes, latestAnalyses)
+	if err != nil {
+		s.log.ErrorContext(ctx, "Failed to calculate summary score", logger.ErrorField(err))
+		return nil, err
+	}
+
+	finalScore := (float64(scoreTA)*0.6 + float64(plan.Score)*0.4)
 
 	result = &dto.TradePlanResult{
 		CurrentMarketPrice: float64(marketPrice),

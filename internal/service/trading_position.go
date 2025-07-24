@@ -77,9 +77,14 @@ func (s *tradingService) EvaluatePositionMonitoring(
 		result.Insight = append(result.Insight, dto.Insight{Text: fmt.Sprintf("SINYAL CUT LOSS: Harga (%.2f) telah menyentuh Stop Loss (%.2f).", result.LastPrice, result.StopLossPrice), Weight: 100})
 	}
 
+	scoreTA, err := s.CalculateSummary(ctx, timeframes, analyses)
+	if err != nil {
+		return result, err
+	}
 	// --- Dapatkan Evaluasi Baseline menggunakan Sistem Skor Baru ---
 	score, insights, techSignal := s.calculateAdvancedScore(stockPosition, mainData.MainTA, mainData.SecondaryTA, mainData.MainOHLCV, marketPrice, supports, resistances)
-	result.Score = score
+	finalScore := (float64(scoreTA)*0.6 + float64(score)*0.4)
+	result.Score = finalScore
 	result.TechnicalSignal = techSignal
 	result.Insight = append(result.Insight, insights...)
 
