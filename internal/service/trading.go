@@ -168,7 +168,7 @@ func (s *tradingService) CreateTradePlan(ctx context.Context, latestAnalyses []m
 		return nil, err
 	}
 
-	finalScore := (float64(scoreTA)*0.6 + float64(plan.Score)*0.4)
+	finalScore := (float64(scoreTA)*0.7 + float64(plan.Score)*0.3)
 
 	result = &dto.TradePlanResult{
 		CurrentMarketPrice: float64(marketPrice),
