@@ -30,6 +30,7 @@ type TelegramBotService interface {
 	GetAllLatestAnalyses(ctx context.Context, exchange string) ([]model.StockAnalysis, error)
 	GetAlertSignal(ctx context.Context, telegramID int64) ([]model.UserSignalAlert, error)
 	SetAlertSignal(ctx context.Context, telegramID int64, exchange string, isActive bool) error
+	AnalyzePosition(ctx context.Context, stockPosition model.StockPosition) error
 }
 
 type telegramBotService struct {
@@ -40,6 +41,7 @@ type telegramBotService struct {
 	stockAnalysisRepository           repository.StockAnalysisRepository
 	systemParamRepository             repository.SystemParamRepository
 	stockAnalyzer                     strategy.StockAnalyzer
+	positionMonitoringStrategy        strategy.PositionMonitoringEvaluator
 	aiRepository                      repository.AIRepository
 	userRepo                          repository.UserRepository
 	stockPositionRepository           repository.StockPositionsRepository
@@ -56,6 +58,7 @@ func NewTelegramBotService(
 	stockAnalysisRepository repository.StockAnalysisRepository,
 	systemParamRepository repository.SystemParamRepository,
 	stockAnalyzer strategy.StockAnalyzer,
+	positionMonitoringStrategy strategy.PositionMonitoringEvaluator,
 	aiRepository repository.AIRepository,
 	userRepo repository.UserRepository,
 	stockPositionRepository repository.StockPositionsRepository,
@@ -71,6 +74,7 @@ func NewTelegramBotService(
 		stockAnalysisRepository:           stockAnalysisRepository,
 		systemParamRepository:             systemParamRepository,
 		stockAnalyzer:                     stockAnalyzer,
+		positionMonitoringStrategy:        positionMonitoringStrategy,
 		aiRepository:                      aiRepository,
 		userRepo:                          userRepo,
 		stockPositionRepository:           stockPositionRepository,
@@ -358,4 +362,9 @@ func (s *telegramBotService) SetAlertSignal(ctx context.Context, telegramID int6
 
 	userSignalAlerts[0].IsActive = utils.ToPointer(isActive)
 	return s.userSignalAlertRepository.Update(ctx, &userSignalAlerts[0])
+}
+
+func (s *telegramBotService) AnalyzePosition(ctx context.Context, stockPosition model.StockPosition) error {
+	_, err := s.positionMonitoringStrategy.EvaluateStockPosition(ctx, []model.StockPosition{stockPosition})
+	return err
 }

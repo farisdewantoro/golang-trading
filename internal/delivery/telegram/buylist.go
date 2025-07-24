@@ -94,6 +94,7 @@ Coba lagi nanti atau gunakan filter /analyze untuk menemukan peluang baru atau /
 			IsActive:   utils.ToPointer(true),
 		})
 		if err != nil {
+			close(stopChan)
 			_, errSend := t.telegram.Send(newCtx, c, commonErrorInternal)
 			if errSend != nil {
 				t.log.ErrorContext(newCtx, "Failed to send internal error message", logger.ErrorField(errSend))

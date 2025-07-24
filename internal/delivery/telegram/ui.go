@@ -18,10 +18,11 @@ var (
 	btnConfirmDeleteStockPosition telebot.Btn = telebot.Btn{Unique: "btn_confirm_delete_stock_position"}
 	btnToDetailStockPosition      telebot.Btn = telebot.Btn{Unique: "btn_detail_stock_position"}
 
-	btnSaveExitPosition  telebot.Btn = telebot.Btn{Text: "💾 Simpan", Unique: "btn_save_exit_position"}
-	btnCancelGeneral     telebot.Btn = telebot.Btn{Text: "❌ Batal", Unique: "btn_cancel_general"}
-	btnExitStockPosition telebot.Btn = telebot.Btn{Unique: "btn_exit_stock_position"}
-	btnBackStockPosition telebot.Btn = telebot.Btn{Text: "🔙 Kembali", Unique: "btn_back_stock_position"}
+	btnSaveExitPosition        telebot.Btn = telebot.Btn{Text: "💾 Simpan", Unique: "btn_save_exit_position"}
+	btnCancelGeneral           telebot.Btn = telebot.Btn{Text: "❌ Batal", Unique: "btn_cancel_general"}
+	btnExitStockPosition       telebot.Btn = telebot.Btn{Unique: "btn_exit_stock_position"}
+	btnBackStockPosition       telebot.Btn = telebot.Btn{Text: "🔙 Kembali", Unique: "btn_back_stock_position"}
+	btnRefreshAnalysisPosition telebot.Btn = telebot.Btn{Text: "🔄 Refresh Analisis", Unique: "btn_refresh_analysis_position"}
 
 	//buylist
 	btnCancelBuyListAnalysis telebot.Btn = telebot.Btn{Text: "⛔ Hentikan Analisis", Unique: "btn_cancel_buy_list_analysis"}

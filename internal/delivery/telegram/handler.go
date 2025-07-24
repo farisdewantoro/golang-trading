@@ -46,6 +46,7 @@ func (t *TelegramBotHandler) RegisterHandlers() {
 
 	t.bot.Handle(&btnAskAIAnalyzer, t.WithContext(t.handleAskAIAnalyzer))
 	t.bot.Handle(&btnGeneralAnalisis, t.WithContext(t.handleBtnGeneralAnalysis))
+	t.bot.Handle(&btnRefreshAnalysis, t.WithContext(t.handleBtnRefreshAnalysis))
 
 	// set position
 	t.bot.Handle(&btnSetPositionAlertPrice, t.WithContext(t.handleBtnSetPositionAlertPrice))

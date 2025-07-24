@@ -80,8 +80,9 @@ func (t *TelegramBotHandler) showMyPositionDetail(ctx context.Context, c telebot
 	btnBack := menu.Data(btnBackStockPosition.Text, btnBackStockPosition.Unique)
 	btnExit := menu.Data("📤 Keluar dari Posisi", btnExitStockPosition.Unique, fmt.Sprintf("%s|%d", stockCodeWithExchange, stockPosition.ID))
 	btnDelete := menu.Data("🗑 Hapus Posisi", btnConfirmDeleteStockPosition.Unique, fmt.Sprintf("%d", stockPosition.ID))
+	btnRefreshAnalysis := menu.Data("🔄 Refresh Analisis", btnRefreshAnalysisPosition.Unique, fmt.Sprintf("%d", stockPosition.ID))
 
-	menu.Inline(menu.Row(btnExit, btnDelete), menu.Row(btnBack))
+	menu.Inline(menu.Row(btnExit, btnDelete), menu.Row(btnRefreshAnalysis, btnBack))
 
 	if !isHasMonitoring {
 		sb.WriteString("\n\n<i>⚠️ Belum ada monitoring</i>")
@@ -232,4 +233,55 @@ func (t *TelegramBotHandler) showMyPositionDetail(ctx context.Context, c telebot
 		_, err = t.telegram.Edit(ctx, c, msgRoot, sb.String(), menu, telebot.ModeHTML)
 		return err
 	}
+}
+
+func (t *TelegramBotHandler) handleBtnRefreshAnalysisPosition(ctx context.Context, c telebot.Context) error {
+	positionID, err := strconv.Atoi(c.Data())
+	if err != nil {
+		_, err := t.telegram.Send(ctx, c, commonErrorInternalMyPosition)
+		return err
+	}
+
+	utils.GoSafe(func() {
+		newCtx, cancel := context.WithTimeout(t.ctx, t.cfg.Telegram.TimeoutAsyncDuration)
+		defer cancel()
+
+		var (
+			stopChan = make(chan struct{})
+		)
+
+		t.showLoadingGeneral(newCtx, c, stopChan)
+		stockPositions, err := t.service.TelegramBotService.GetStockPositions(newCtx, dto.GetStockPositionsParam{
+			TelegramID: &c.Sender().ID,
+			IDs:        []uint{uint(positionID)},
+		})
+		if err != nil {
+			close(stopChan)
+			_, err := t.telegram.Send(newCtx, c, commonErrorInternalMyPosition)
+			t.log.ErrorContext(newCtx, "Failed to get stock positions", logger.ErrorField(err))
+		}
+
+		for _, stockPosition := range stockPositions {
+			if stockPosition.ID == uint(positionID) {
+				t.service.TelegramBotService.AnalyzePosition(newCtx, stockPosition)
+			}
+		}
+
+		stockPosition, err := t.service.TelegramBotService.GetDetailStockPosition(newCtx, c.Sender().ID, uint(positionID))
+		if err != nil {
+			close(stopChan)
+			t.telegram.Send(newCtx, c, commonErrorInternalMyPosition)
+			return
+		}
+
+		if stockPosition == nil {
+			close(stopChan)
+			t.telegram.Send(newCtx, c, commonErrorInternalMyPosition)
+			return
+		}
+		close(stopChan)
+		t.showMyPositionDetail(newCtx, c, stockPosition)
+	})
+
+	return nil
 }

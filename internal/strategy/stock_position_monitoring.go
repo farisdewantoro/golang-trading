@@ -21,6 +21,10 @@ import (
 	"gopkg.in/telebot.v3"
 )
 
+type PositionMonitoringEvaluator interface {
+	JobExecutionStrategy
+	EvaluateStockPosition(ctx context.Context, stockPositions []model.StockPosition) ([]StockPositionMonitoringResult, error)
+}
 type StockPositionMonitoringStrategy struct {
 	logger                         *logger.Logger
 	cfg                            *config.Config
@@ -50,7 +54,7 @@ func NewStockPositionMonitoringStrategy(
 	stockPositionMonitoringRepo repository.StockPositionMonitoringRepository,
 	systemParamRepository repository.SystemParamRepository,
 	tradingPositionService contract.TradingPositionContract,
-) JobExecutionStrategy {
+) PositionMonitoringEvaluator {
 	return &StockPositionMonitoringStrategy{
 		logger:                         logger,
 		cfg:                            cfg,

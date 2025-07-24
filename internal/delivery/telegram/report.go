@@ -82,7 +82,7 @@ func (t *TelegramBotHandler) showReport(ctx context.Context, c telebot.Context, 
 		countPnL += utils.CalculateChangePercent(position.BuyPrice, *position.ExitPrice)
 
 		symbolWithExchange := fmt.Sprintf("%s:%s", position.Exchange, position.StockCode)
-		sbBody.WriteString(fmt.Sprintf("\n<b>───── %s ─────</b>\n", symbolWithExchange))
+		sbBody.WriteString(fmt.Sprintf("\n<b>─ %s</b>\n", symbolWithExchange))
 		sbBody.WriteString(fmt.Sprintf("- Date: %s - %s\n", position.BuyDate.Format("01/02"), position.ExitDate.Format("01/02")))
 		sbBody.WriteString(fmt.Sprintf("- E/X: %d ⮕ %d %s\n", int(position.BuyPrice), int(*position.ExitPrice), utils.FormatChangeWithIcon(position.BuyPrice, *position.ExitPrice)))
 		sbBody.WriteString(fmt.Sprintf("- Score (Pos): %.2f ⮕ %.2f\n", position.InitialScore, position.FinalScore))
