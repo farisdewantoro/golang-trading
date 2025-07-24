@@ -115,9 +115,10 @@ type Gemini struct {
 }
 
 type Trading struct {
-	RiskRewardRatio float64
-	MaxBuyList      int
-	BuySignalScore  float64
+	RiskRewardRatio        float64
+	MaxBuyList             int
+	BuySignalScore         float64
+	BuySignalCacheDuration time.Duration
 }
 
 type StockAnalyzer struct {
@@ -216,9 +217,10 @@ func Load() (*Config, error) {
 			Timeout:             viper.GetDuration("GEMINI_TIMEOUT"),
 		},
 		Trading: Trading{
-			RiskRewardRatio: viper.GetFloat64("TRADING_RISK_REWARD_RATIO"),
-			MaxBuyList:      viper.GetInt("TRADING_MAX_BUY_LIST"),
-			BuySignalScore:  viper.GetFloat64("TRADING_BUY_SIGNAL_SCORE"),
+			RiskRewardRatio:        viper.GetFloat64("TRADING_RISK_REWARD_RATIO"),
+			MaxBuyList:             viper.GetInt("TRADING_MAX_BUY_LIST"),
+			BuySignalScore:         viper.GetFloat64("TRADING_BUY_SIGNAL_SCORE"),
+			BuySignalCacheDuration: viper.GetDuration("TRADING_BUY_SIGNAL_CACHE_DURATION"),
 		},
 		StockAnalyzer: StockAnalyzer{
 			MaxConcurrency: viper.GetInt("STOCK_ANALYZER_MAX_CONCURRENCY"),

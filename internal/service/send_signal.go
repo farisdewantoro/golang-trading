@@ -2,12 +2,16 @@ package service
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"golang-trading/config"
 	"golang-trading/internal/contract"
 	"golang-trading/internal/dto"
 	"golang-trading/internal/model"
 	"golang-trading/internal/repository"
+	"golang-trading/pkg/cache"
+	"golang-trading/pkg/common"
 	"golang-trading/pkg/logger"
 	"golang-trading/pkg/telegram"
 	"golang-trading/pkg/utils"
@@ -27,6 +31,7 @@ type sendSignalService struct {
 	userSignalAlertRepo      repository.UserSignalAlertRepository
 	telegram                 *telegram.TelegramRateLimiter
 	TradingPlanContract      contract.TradingPlanContract
+	inmemoryCache            cache.Cache
 }
 
 func NewSendSignalService(
@@ -36,6 +41,7 @@ func NewSendSignalService(
 	stockPositionsRepository repository.StockPositionsRepository,
 	userSignalAlertRepo repository.UserSignalAlertRepository,
 	tradingPlanContract contract.TradingPlanContract,
+	inmemoryCache cache.Cache,
 ) SendSignalService {
 	return &sendSignalService{
 		cfg:                      cfg,
@@ -44,6 +50,7 @@ func NewSendSignalService(
 		stockPositionsRepository: stockPositionsRepository,
 		userSignalAlertRepo:      userSignalAlertRepo,
 		TradingPlanContract:      tradingPlanContract,
+		inmemoryCache:            inmemoryCache,
 	}
 }
 
@@ -101,6 +108,15 @@ func (s *sendSignalService) SendBuySignal(ctx context.Context, analyses []model.
 			logger.StringField("score", fmt.Sprintf("%.2f", tradePlan.Score)),
 		)
 		return false, nil
+	}
+
+	hashIdentifier := s.GenerateHashIdentifier(ctx, analyses, tradePlan.Score, tradePlan.Entry)
+	_, alreadySent := s.inmemoryCache.Get(fmt.Sprintf(common.KEY_LAST_SEND_SIGNAL_BUY, hashIdentifier))
+	if alreadySent {
+		s.log.DebugContext(ctx, "Buy signal already sent", logger.StringField("stock_code", analyses[0].StockCode))
+		return false, nil
+	} else {
+		s.inmemoryCache.Set(fmt.Sprintf(common.KEY_LAST_SEND_SIGNAL_BUY, hashIdentifier), true, s.cfg.Trading.BuySignalCacheDuration)
 	}
 
 	positions, err := s.stockPositionsRepository.Get(ctx, dto.GetStockPositionsParam{
@@ -161,4 +177,17 @@ func (s *sendSignalService) SendBuySignal(ctx context.Context, analyses []model.
 		}
 	}
 	return true, nil
+}
+
+func (s *sendSignalService) GenerateHashIdentifier(ctx context.Context, analyses []model.StockAnalysis, score, marketPrice float64) string {
+
+	parts := []string{
+		fmt.Sprintf("%s:%s", analyses[0].Exchange, analyses[0].StockCode),
+		fmt.Sprintf("%f", marketPrice),
+		fmt.Sprintf("%f", score),
+	}
+
+	hashInput := strings.Join(parts, "|")
+	hash := sha256.Sum256([]byte(hashInput))
+	return hex.EncodeToString(hash[:])
 }

@@ -26,7 +26,7 @@ func NewService(
 	telegram *telegram.TelegramRateLimiter,
 ) *Service {
 	tradingService := NewTradingService(cfg, log, repo.SystemParamRepo)
-	signalService := NewSendSignalService(cfg, log, telegram, repo.StockPositionsRepo, repo.UserSignalAlertRepo, tradingService)
+	signalService := NewSendSignalService(cfg, log, telegram, repo.StockPositionsRepo, repo.UserSignalAlertRepo, tradingService, inmemoryCache)
 
 	analyzerStrategy := strategy.NewStockAnalyzerStrategy(cfg, log, inmemoryCache, repo.StockPositionsRepo, repo.TradingViewScreenersRepo, repo.CandleRepo, repo.StockAnalysisRepo, repo.SystemParamRepo, repo.UserSignalAlertRepo, telegram, tradingService, signalService)
 	buySignalGeneratorStrategy := strategy.NewBuySignalGeneratorStrategy(cfg, log, repo.CandleRepo, inmemoryCache, signalService, repo.StockAnalysisRepo)

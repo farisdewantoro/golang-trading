@@ -2,8 +2,6 @@ package strategy
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"golang-trading/config"
@@ -15,7 +13,6 @@ import (
 	"golang-trading/pkg/common"
 	"golang-trading/pkg/logger"
 	"golang-trading/pkg/utils"
-	"strings"
 	"sync"
 	"time"
 )
@@ -58,7 +55,6 @@ type BuySignalGeneratorPayload struct {
 	Interval               string             `json:"interval"`
 	LastPriceCacheDuration string             `json:"last_price_cache_duration"`
 	MinScoreMap            map[string]float64 `json:"min_score_map"`
-	SignalCacheDuration    string             `json:"signal_cache_duration"`
 }
 
 type BuySignalGeneratorResult struct {
@@ -88,12 +84,6 @@ func (s *BuySignalGeneratorStrategy) Execute(ctx context.Context, job *model.Job
 	if err != nil {
 		s.log.ErrorContext(ctx, "Failed to parse last price cache duration", logger.ErrorField(err), logger.IntField("job_id", int(job.ID)))
 		return JobResult{ExitCode: JOB_EXIT_CODE_FAILED, Output: fmt.Sprintf("failed to parse last price cache duration: %v", err)}, fmt.Errorf("failed to parse last price cache duration: %w", err)
-	}
-
-	signalCacheDuration, err := time.ParseDuration(payload.SignalCacheDuration)
-	if err != nil {
-		s.log.ErrorContext(ctx, "Failed to parse signal cache duration", logger.ErrorField(err), logger.IntField("job_id", int(job.ID)))
-		return JobResult{ExitCode: JOB_EXIT_CODE_FAILED, Output: fmt.Sprintf("failed to parse signal cache duration: %v", err)}, fmt.Errorf("failed to parse signal cache duration: %w", err)
 	}
 
 	analyses, err := s.stockAnalysisRepo.GetLatestAnalyses(ctx, model.GetLatestAnalysisParam{
@@ -173,23 +163,11 @@ func (s *BuySignalGeneratorStrategy) Execute(ctx context.Context, job *model.Job
 				minScore = s.cfg.Trading.BuySignalScore
 			}
 
-			hashIdentifier := s.GenerateHashIdentifier(ctx, analyses, candles.MarketPrice)
-			_, alreadySent := s.inmemoryCache.Get(fmt.Sprintf(common.KEY_LAST_SEND_SIGNAL_BUY, hashIdentifier))
-			if alreadySent {
-				tempResult.Error = "signal already sent"
-				s.log.DebugContext(ctx, "Signal already sent", logger.StringField("stock_code", analysis.StockCode), logger.StringField("exchange", analysis.Exchange))
-				return
-			}
-
 			isSend, err := s.signalContract.SendBuySignal(ctx, analyses, minScore)
 			if err != nil {
 				tempResult.Error = err.Error()
 				s.log.ErrorContextWithAlert(ctx, "Failed to send buy signal", logger.ErrorField(err), logger.IntField("job_id", int(job.ID)))
 				return
-			}
-
-			if isSend {
-				s.inmemoryCache.Set(fmt.Sprintf(common.KEY_LAST_SEND_SIGNAL_BUY, hashIdentifier), true, signalCacheDuration)
 			}
 
 			tempResult.IsSent = isSend
@@ -199,19 +177,4 @@ func (s *BuySignalGeneratorStrategy) Execute(ctx context.Context, job *model.Job
 	wg.Wait()
 
 	return JobResult{ExitCode: JOB_EXIT_CODE_SUCCESS, Output: "success"}, nil
-}
-
-func (s *BuySignalGeneratorStrategy) GenerateHashIdentifier(ctx context.Context, analyses []model.StockAnalysis, marketPrice float64) string {
-
-	parts := []string{
-		fmt.Sprintf("%s:%s", analyses[0].Exchange, analyses[0].StockCode),
-		fmt.Sprintf("%f", marketPrice),
-	}
-	for _, analysis := range analyses {
-		parts = append(parts, fmt.Sprintf("%d:%s", analysis.Timestamp.Unix(), analysis.Timeframe))
-	}
-
-	hashInput := strings.Join(parts, "|")
-	hash := sha256.Sum256([]byte(hashInput))
-	return hex.EncodeToString(hash[:])
 }
