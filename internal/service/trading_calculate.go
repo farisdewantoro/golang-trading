@@ -11,10 +11,9 @@ import (
 )
 
 const (
-	minTouches               = 1
-	slFromEMAAdj             = 0.995
-	targetRiskReward         = 1.5
-	targetRiskRewardFallback = 1.0
+	minTouches       = 1
+	slFromEMAAdj     = 0.995
+	targetRiskReward = 1.0
 
 	maxStopLossPercent   = 0.05
 	minStopLossPercent   = 0.02
@@ -81,7 +80,7 @@ func getSLCandidates(marketPrice float64, supports []dto.Level, emas []dto.EMADa
 
 	// Sort candidates by price, descending. The best SL is the highest one below the market price.
 	sort.Slice(candidates, func(i, j int) bool {
-		return candidates[i].Price > candidates[j].Price
+		return candidates[i].Score > candidates[j].Score
 	})
 
 	return candidates
@@ -222,13 +221,6 @@ func (s *tradingService) findIdealPlan(
 		Type:                 dto.PlanTypePrimary,
 		Score:                3,
 	}
-	if bestPlan, found := s.findBestPlanForRRR(marketPrice, slCandidates, tpCandidates, config, entryQualityScore); found {
-		return bestPlan
-	}
-
-	config.TargetRiskReward = targetRiskRewardFallback
-	config.Type = dto.PlanTypeSecondary
-	config.Score = 2
 	if bestPlan, found := s.findBestPlanForRRR(marketPrice, slCandidates, tpCandidates, config, entryQualityScore); found {
 		return bestPlan
 	}
