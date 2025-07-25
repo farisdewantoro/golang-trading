@@ -74,10 +74,10 @@ func getSLCandidates(marketPrice float64, supports []dto.Level, emas []dto.EMADa
 		}
 	}
 
-	// 3. Add from Price Buckets
-	for _, pb := range priceBuckets {
-		addCandidate(pb.Bucket, "SL_BUCKET", "Price Consolidation", float64(pb.Count)/10.0) // Normalize score
-	}
+	// // 3. Add from Price Buckets
+	// for _, pb := range priceBuckets {
+	// 	addCandidate(pb.Bucket, "SL_BUCKET", "Price Consolidation", float64(pb.Count)/10.0) // Normalize score
+	// }
 
 	// Sort candidates by price, descending. The best SL is the highest one below the market price.
 	sort.Slice(candidates, func(i, j int) bool {
