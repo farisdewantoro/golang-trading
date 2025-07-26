@@ -44,7 +44,8 @@ type StockPositionMonitoringResult struct {
 }
 
 type StockPositionMonitoringPayload struct {
-	MaxConcurrency int `json:"max_concurrency"`
+	MaxConcurrency int    `json:"max_concurrency"`
+	Exchange       string `json:"exchange"`
 }
 
 func NewStockPositionMonitoringStrategy(
@@ -92,6 +93,7 @@ func (s *StockPositionMonitoringStrategy) Execute(ctx context.Context, job *mode
 	stockPositions, err := s.stockPositionsRepo.Get(ctx, dto.GetStockPositionsParam{
 		MonitorPosition: utils.ToPointer(true),
 		IsActive:        utils.ToPointer(true),
+		Exchange:        utils.ToPointer(payload.Exchange),
 	})
 	if err != nil {
 		s.logger.Error("Failed to get stocks positions", logger.ErrorField(err))
