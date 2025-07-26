@@ -232,7 +232,7 @@ func (s *tradingService) findIdealPlan(
 	config.MinTakeProfitPercent = fallbackMinTakeProfitPercent
 	config.MaxStopLossPercent = fallbackMaxStopLossPercent
 	config.MinStopLossPercent = fallbackMinStopLossPercent
-	config.Type = dto.PlanTypeFallback
+	config.Type = dto.PlanTypeSecondary
 	config.Score = 0
 	if bestPlan, found := s.findBestPlanForRRR(marketPrice, slCandidates, tpCandidates, config, entryQualityScore); found {
 		return bestPlan

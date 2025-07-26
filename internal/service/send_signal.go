@@ -98,7 +98,7 @@ func (s *sendSignalService) SendBuySignal(ctx context.Context, analyses []model.
 		tradePlan.Status == string(dto.Safe) &&
 		tradePlan.RiskReward > s.cfg.Trading.RiskRewardRatio &&
 		tradePlan.Score > defaultMinScore &&
-		tradePlan.PlanType == dto.PlanTypePrimary
+		tradePlan.PlanType != dto.PlanTypeATR && tradePlan.Entry >= tradePlan.CurrentMarketPrice*0.98
 
 	if !isBuySignal {
 		s.log.DebugContext(ctx, "Not buy signal",
