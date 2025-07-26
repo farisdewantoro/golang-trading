@@ -157,6 +157,11 @@ func (s *sendSignalService) SendBuySignal(ctx context.Context, analyses []model.
 	sb.WriteString(fmt.Sprintf("🔎 <b>Score</b>: %s (%s)\n", fmt.Sprintf("%.2f", tradePlan.Score), tradePlan.TechnicalSignal))
 	sb.WriteString(fmt.Sprintf("<b>%s Plan</b>\n", tradePlan.PlanType.String()))
 	sb.WriteString("\n")
+	sb.WriteString("<b>📝 Penjelasan Entry,SL & TP</b>\n")
+	sb.WriteString(fmt.Sprintf("<b>🚀 Entry</b> %s\n", tradePlan.EntryReason))
+	sb.WriteString(fmt.Sprintf("<b>🛡️ Stop Loss</b> ditentukan berdasarkan %s\n", tradePlan.SLReason))
+	sb.WriteString(fmt.Sprintf("<b>🎯 Take Profit</b> berasal dari %s\n", tradePlan.TPReason))
+	sb.WriteString("\n")
 	sb.WriteString("📝 <b>Insights:</b>\n")
 	for _, insight := range tradePlan.Insights {
 		sb.WriteString(fmt.Sprintf("- %s\n", insight.Text))

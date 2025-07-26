@@ -100,3 +100,20 @@ func (s Signal) String() string {
 		return "Unknown"
 	}
 }
+
+func TASignalText(signal string) string {
+	switch signal {
+	case SignalStrongBuy:
+		return "🟢 Strong Buy"
+	case SignalBuy:
+		return "🟢 Buy"
+	case SignalNeutral:
+		return "🟡 Neutral"
+	case SignalSell:
+		return "🔴 Sell"
+	case SignalStrongSell:
+		return "🔴 Strong Sell"
+	default:
+		return "⚪ Unknown"
+	}
+}

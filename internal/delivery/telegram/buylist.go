@@ -155,11 +155,12 @@ Coba lagi nanti atau gunakan filter /analyze untuk menemukan peluang baru atau /
 			buyList = append(buyList, tradePlan.Symbol)
 			buyListResultMsg.WriteString("\n")
 			buyListResultMsg.WriteString(fmt.Sprintf("<b>%d. %s <i>(Plan: %s)</i></b>\n", buyCount, tradePlan.Symbol, tradePlan.PlanType.String()))
-			buyListResultMsg.WriteString(fmt.Sprintf("- <b>Buy:</b> %s | RR: %.2f\n", utils.FormatPrice(tradePlan.Entry, tradePlan.Exchange), tradePlan.RiskReward))
+			buyListResultMsg.WriteString(fmt.Sprintf("- <b>Market Price:</b> %s\n", utils.FormatPrice(tradePlan.CurrentMarketPrice, tradePlan.Exchange)))
+			buyListResultMsg.WriteString(fmt.Sprintf("- <b>Entry:</b> %s \n", utils.FormatPrice(tradePlan.Entry, tradePlan.Exchange)))
 			buyListResultMsg.WriteString(fmt.Sprintf("- <b>TP:</b> %s (%s)\n", utils.FormatPrice(tradePlan.TakeProfit, tradePlan.Exchange), utils.FormatChange(tradePlan.Entry, tradePlan.TakeProfit)))
 			buyListResultMsg.WriteString(fmt.Sprintf("- <b>SL:</b> %s (%s)\n", utils.FormatPrice(tradePlan.StopLoss, tradePlan.Exchange), utils.FormatChange(tradePlan.Entry, tradePlan.StopLoss)))
-			buyListResultMsg.WriteString(fmt.Sprintf("- <b>Signal:</b> %s | Score: %.2f\n", tradePlan.TechnicalSignal, tradePlan.Score))
-			buyListResultMsg.WriteString(fmt.Sprintf("- <b>Status:</b> %s\n", dto.PositionStatus(tradePlan.Status)))
+			buyListResultMsg.WriteString(fmt.Sprintf("- <b>Signal:</b> %s | %s\n", dto.TASignalText(tradePlan.TechnicalSignal), dto.PositionStatus(tradePlan.Status)))
+			buyListResultMsg.WriteString(fmt.Sprintf("- <b>Score:</b> %.2f | RR: %.2f\n", tradePlan.Score, tradePlan.RiskReward))
 
 			if len(buySymbolMap) >= t.cfg.Trading.MaxBuyList {
 				break
