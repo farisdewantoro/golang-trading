@@ -49,12 +49,13 @@ func NewBuySignalGeneratorStrategy(
 }
 
 type BuySignalGeneratorPayload struct {
-	LatestAnalysisDuration string             `json:"latest_analysis_duration"`
-	MaxConcurrency         int                `json:"max_concurrency"`
-	Range                  string             `json:"range"`
-	Interval               string             `json:"interval"`
-	LastPriceCacheDuration string             `json:"last_price_cache_duration"`
-	MinScoreMap            map[string]float64 `json:"min_score_map"`
+	LatestAnalysisDuration string  `json:"latest_analysis_duration"`
+	MaxConcurrency         int     `json:"max_concurrency"`
+	Range                  string  `json:"range"`
+	Interval               string  `json:"interval"`
+	LastPriceCacheDuration string  `json:"last_price_cache_duration"`
+	Score                  float64 `json:"score"`
+	Exchange               string  `json:"exchange"`
 }
 
 type BuySignalGeneratorResult struct {
@@ -88,6 +89,7 @@ func (s *BuySignalGeneratorStrategy) Execute(ctx context.Context, job *model.Job
 
 	analyses, err := s.stockAnalysisRepo.GetLatestAnalyses(ctx, model.GetLatestAnalysisParam{
 		TimestampAfter: utils.TimeNowWIB().Add(-latestAnalysisDuration),
+		Exchange:       payload.Exchange,
 	})
 	if err != nil {
 		s.log.ErrorContext(ctx, "Failed to get latest analyses", logger.ErrorField(err), logger.IntField("job_id", int(job.ID)))
@@ -158,8 +160,8 @@ func (s *BuySignalGeneratorStrategy) Execute(ctx context.Context, job *model.Job
 			key := fmt.Sprintf(common.KEY_LAST_PRICE, stockCodeWithExchange)
 			s.inmemoryCache.Set(key, candles.MarketPrice, lastPriceCacheDuration)
 
-			minScore, ok := payload.MinScoreMap[stockCodeWithExchange]
-			if !ok {
+			minScore := payload.Score
+			if minScore == 0 {
 				minScore = s.cfg.Trading.BuySignalScore
 			}
 
