@@ -82,7 +82,7 @@ func (r *jobRepository) Get(ctx context.Context, param *model.GetJobParam, opts 
 			return db
 		})
 	}
-	result := db.Preload("Schedules.Job").Find(&jobs)
+	result := db.Preload("Schedules.Job").Order("jobs.type DESC").Find(&jobs)
 	if result.Error != nil {
 		if result.Error == gorm.ErrRecordNotFound {
 			return nil, nil

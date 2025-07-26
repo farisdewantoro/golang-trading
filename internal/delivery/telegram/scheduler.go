@@ -30,13 +30,7 @@ func (t *TelegramBotHandler) handleScheduler(ctx context.Context, c telebot.Cont
 
 	msg := strings.Builder{}
 	msg.WriteString("📋 Daftar Scheduler Aktif:\n\n")
-	msg.WriteString("Pilih job yang ingin kamu lihat:\n\n")
-	for idx, job := range jobs {
-		msg.WriteString(fmt.Sprintf("<b>%d. %s</b>\n", idx+1, job.Name))
-		msg.WriteString(fmt.Sprintf("  - %s\n", job.Description))
-		msg.WriteString("\n")
-	}
-	msg.WriteString("\n")
+
 	msg.WriteString("<i>👉 Tekan tombol di bawah untuk lihat detail dan jalankan manual</i>\n")
 
 	menu := &telebot.ReplyMarkup{}

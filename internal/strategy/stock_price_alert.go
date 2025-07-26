@@ -35,6 +35,7 @@ type StockPriceAlertPayload struct {
 	DataRange                   string  `json:"data_range"`
 	AlertCacheDuration          string  `json:"alert_cache_duration"`
 	AlertResendThresholdPercent float64 `json:"alert_resend_threshold_percent"`
+	Exchange                    string  `json:"exchange"`
 }
 
 // StockPriceAlertResult defines the result for stock price alert.
@@ -89,6 +90,7 @@ func (s *StockPriceAlertStrategy) Execute(ctx context.Context, job *model.Job) (
 	stockPositions, err := s.stockPositionsRepository.Get(ctx, dto.GetStockPositionsParam{
 		PriceAlert: utils.ToPointer(true),
 		IsActive:   utils.ToPointer(true),
+		Exchange:   utils.ToPointer(payload.Exchange),
 	})
 	if err != nil {
 		return JobResult{ExitCode: JOB_EXIT_CODE_FAILED, Output: fmt.Sprintf("failed to get stocks positions: %v", err)}, err
