@@ -178,5 +178,10 @@ func (s *BuySignalGeneratorStrategy) Execute(ctx context.Context, job *model.Job
 
 	wg.Wait()
 
-	return JobResult{ExitCode: JOB_EXIT_CODE_SUCCESS, Output: "success"}, nil
+	resultJSON, err := json.Marshal(result)
+	if err != nil {
+		return JobResult{ExitCode: JOB_EXIT_CODE_FAILED, Output: fmt.Sprintf("failed to marshal results: %v", err)}, fmt.Errorf("failed to marshal results: %w", err)
+	}
+
+	return JobResult{ExitCode: JOB_EXIT_CODE_SUCCESS, Output: string(resultJSON)}, nil
 }
