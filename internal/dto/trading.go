@@ -24,6 +24,7 @@ type TradePlanResult struct {
 
 	TPType           string // jenis TP: resistance / price-bucket / avg-resistance
 	TPReason         string // alasan TP
+	EntryReason      string // alasan entry price
 	IndicatorSummary model.IndicatorSummary
 	Insights         []Insight
 }

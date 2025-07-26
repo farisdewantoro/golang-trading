@@ -260,14 +260,16 @@ func (t *TelegramBotHandler) showAnalysis(ctx context.Context, c telebot.Context
 	row = append(row, menu.Row(btnAskAI))
 
 	if tradePlanResult.TechnicalSignal == dto.SignalStrongBuy || tradePlanResult.TechnicalSignal == dto.SignalBuy {
+		sbHeader.WriteString(fmt.Sprintf("🚀 <b>Entry</b>: %s\n", utils.FormatPrice(tradePlanResult.Entry, exchange)))
 		sbHeader.WriteString(fmt.Sprintf("🎯 <b>Take Profit</b>: %s (%s)\n", utils.FormatPrice(tradePlanResult.TakeProfit, exchange), utils.FormatChange(marketPrice, tradePlanResult.TakeProfit)))
 		sbHeader.WriteString(fmt.Sprintf("🛡️ <b>Stop Loss</b>: %s (%s)\n", utils.FormatPrice(tradePlanResult.StopLoss, exchange), utils.FormatChange(marketPrice, tradePlanResult.StopLoss)))
 		sbHeader.WriteString(fmt.Sprintf("🔁 <b>Risk Reward</b>: %.2f\n", tradePlanResult.RiskReward))
 		sbHeader.WriteString(fmt.Sprintf("🪧 <b>Plan: </b>%s\n", tradePlanResult.PlanType.String()))
 		sbHeader.WriteString(fmt.Sprintf("🧠 <b>Score: </b>%.2f\n", tradePlanResult.Score))
-		sbHeader.WriteString("\n<b>📝 Penjelasan SL & TP</b>\n")
-		sbHeader.WriteString(fmt.Sprintf("<i>🛡️ <b>Stop Loss</b> ditentukan berdasarkan %s</i>\n", tradePlanResult.SLReason))
-		sbHeader.WriteString(fmt.Sprintf("<i>🎯 <b>Take Profit</b> berasal dari %s</i>\n", tradePlanResult.TPReason))
+		sbHeader.WriteString("\n<b>📝 Penjelasan Entry,SL & TP</b>\n")
+		sbHeader.WriteString(fmt.Sprintf("<b>🚀 Entry</b> %s\n", tradePlanResult.EntryReason))
+		sbHeader.WriteString(fmt.Sprintf("<b>🛡️ Stop Loss</b> ditentukan berdasarkan %s\n", tradePlanResult.SLReason))
+		sbHeader.WriteString(fmt.Sprintf("<b>🎯 Take Profit</b> berasal dari %s\n", tradePlanResult.TPReason))
 
 		btnSetPosition := menu.Data(btnSetPositionTechnical.Text, btnSetPositionTechnical.Unique, symbolWithExchange)
 		row = append(row, menu.Row(btnSetPosition))

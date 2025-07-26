@@ -63,6 +63,7 @@ func (s *tradingService) CalculateSupportResistance(ctx context.Context, analyse
 }
 
 func (s *tradingService) CreateTradePlan(ctx context.Context, latestAnalyses []model.StockAnalysis) (*dto.TradePlanResult, error) {
+
 	var (
 		supports               []dto.Level
 		resistances            []dto.Level
@@ -147,7 +148,8 @@ func (s *tradingService) CreateTradePlan(ctx context.Context, latestAnalyses []m
 	atr14 := s.calculateATR(mainTFCandles, 14)
 	slAtrMultiplier := s.getATRMultiplierForSL(&tfHighestTechnicalData)
 
-	plan := s.calculatePlan(float64(marketPrice), supports, resistances, emaData, priceBuckets, atr14, slAtrMultiplier, &tfHighestTechnicalData)
+	entryResult := s.calculateSmartEntry(float64(marketPrice), &tfHighestTechnicalData, mainTFCandles, supports, resistances, emaData)
+	plan := s.calculatePlan(entryResult.Price, supports, resistances, emaData, priceBuckets, atr14, slAtrMultiplier, &tfHighestTechnicalData)
 
 	positionAnalysis, err := s.EvaluatePositionMonitoring(ctx, &model.StockPosition{
 		StockCode:       lastAnalysis.StockCode,
@@ -185,6 +187,7 @@ func (s *tradingService) CreateTradePlan(ctx context.Context, latestAnalyses []m
 		IsBuySignal:        positionAnalysis.TechnicalSignal == dto.SignalBuy || positionAnalysis.TechnicalSignal == dto.SignalStrongBuy,
 		SLReason:           plan.SLReason,
 		TPReason:           plan.TPReason,
+		EntryReason:        entryResult.Reason,
 		IndicatorSummary:   s.CreateIndicatorSummary(&tfHighestTechnicalData, mainTFCandles),
 		Insights:           positionAnalysis.Insight,
 		Exchange:           lastAnalysis.Exchange,
