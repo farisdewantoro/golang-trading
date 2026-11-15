@@ -41,6 +41,9 @@ func (t *TelegramBotHandler) RegisterHandlers() {
 	t.bot.Handle("/buylist", t.WithContext(t.handleBuyList))
 	t.bot.Handle("/scheduler", t.WithContext(t.handleScheduler))
 	t.bot.Handle("/alertsignal", t.WithContext(t.handleAlertSignal))
+	t.bot.Handle("/news", t.WithContext(t.handleNews))
+	t.bot.Handle("/watchnews", t.WithContext(t.handleWatchNews))
+	t.bot.Handle("/unwatchnews", t.WithContext(t.handleUnwatchNews))
 
 	t.bot.Handle(telebot.OnText, t.WithContext(t.handleConversation))
 
@@ -78,5 +81,10 @@ func (t *TelegramBotHandler) RegisterHandlers() {
 
 	// alert signal
 	t.bot.Handle(&btnAlertSignal, t.WithContext(t.handleBtnAlertSignal))
+
+	// news
+	t.bot.Handle(&btnWatchNews, t.WithContext(t.handleBtnWatchNews))
+	t.bot.Handle(&btnUnwatchNews, t.WithContext(t.handleBtnUnwatchNews))
+	t.bot.Handle(&btnShowNews, t.WithContext(t.handleBtnShowNews))
 
 }

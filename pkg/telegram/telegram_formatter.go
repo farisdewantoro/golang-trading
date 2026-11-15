@@ -56,3 +56,38 @@ func FormatErrorAlertMessage(time time.Time, errType string, errMsg string, data
 📄 Data: %s
 `, utils.PrettyDate(time), errType, errMsg, data)
 }
+
+// NewsLine is a single headline shown in a news message.
+type NewsLine struct {
+	Title       string
+	Link        string
+	Source      string
+	PublishedAt time.Time
+}
+
+// FormatStockNewsForTelegram formats news headlines for a stock as Telegram HTML.
+func FormatStockNewsForTelegram(header string, stockCode string, news []NewsLine) string {
+	var sb strings.Builder
+	sb.WriteString(fmt.Sprintf("<b>%s %s</b>\n\n", header, utils.EscapeHTMLForTelegram(stockCode)))
+
+	for i, n := range news {
+		sb.WriteString(fmt.Sprintf("%d. <a href=\"%s\">%s</a>\n",
+			i+1,
+			strings.ReplaceAll(utils.EscapeHTMLForTelegram(n.Link), "\"", "&quot;"),
+			utils.EscapeHTMLForTelegram(n.Title)))
+
+		meta := []string{}
+		if n.Source != "" {
+			meta = append(meta, utils.EscapeHTMLForTelegram(n.Source))
+		}
+		if !n.PublishedAt.IsZero() {
+			meta = append(meta, utils.PrettyDate(utils.TimeToWIB(n.PublishedAt)))
+		}
+		if len(meta) > 0 {
+			sb.WriteString(fmt.Sprintf("   <i>%s</i>\n", strings.Join(meta, " • ")))
+		}
+	}
+
+	sb.WriteString("\n<i>📌 Berita hanya referensi, tetap Do Your Own Research.</i>")
+	return sb.String()
+}

@@ -23,6 +23,7 @@ type Config struct {
 	Trading       Trading
 	StockAnalyzer StockAnalyzer
 	Binance       Binance
+	News          News
 }
 
 type Logger struct {
@@ -119,6 +120,12 @@ type Trading struct {
 	MaxBuyList             int
 	BuySignalScore         float64
 	BuySignalCacheDuration time.Duration
+}
+
+type News struct {
+	BaseURL             string
+	Timeout             time.Duration
+	MaxRequestPerMinute int
 }
 
 type StockAnalyzer struct {
@@ -226,6 +233,21 @@ func Load() (*Config, error) {
 			MaxConcurrency: viper.GetInt("STOCK_ANALYZER_MAX_CONCURRENCY"),
 			Timeout:        viper.GetDuration("STOCK_ANALYZER_TIMEOUT"),
 		},
+		News: News{
+			BaseURL:             viper.GetString("NEWS_BASE_URL"),
+			Timeout:             viper.GetDuration("NEWS_TIMEOUT"),
+			MaxRequestPerMinute: viper.GetInt("NEWS_MAX_REQUEST_PER_MINUTE"),
+		},
+	}
+
+	if cfg.News.BaseURL == "" {
+		cfg.News.BaseURL = "https://news.google.com/rss/search"
+	}
+	if cfg.News.Timeout == 0 {
+		cfg.News.Timeout = 30 * time.Second
+	}
+	if cfg.News.MaxRequestPerMinute <= 0 {
+		cfg.News.MaxRequestPerMinute = 30
 	}
 
 	return &cfg, nil

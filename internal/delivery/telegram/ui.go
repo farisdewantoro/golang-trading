@@ -37,6 +37,11 @@ var (
 
 	//alert signal
 	btnAlertSignal telebot.Btn = telebot.Btn{Unique: "btn_alert_signal"}
+
+	// news
+	btnWatchNews   telebot.Btn = telebot.Btn{Unique: "btn_watch_news"}
+	btnUnwatchNews telebot.Btn = telebot.Btn{Unique: "btn_unwatch_news"}
+	btnShowNews    telebot.Btn = telebot.Btn{Unique: "btn_show_news"}
 )
 
 const (
