@@ -22,6 +22,9 @@ type Repository struct {
 	BinanceRepo                 BinanceRepository
 	CandleRepo                  CandleRepository
 	UserSignalAlertRepo         UserSignalAlertRepository
+	NewsRepo                    NewsRepository
+	StockNewsRepo               StockNewsRepository
+	NewsWatchlistRepo           NewsWatchlistRepository
 }
 
 func NewRepository(cfg *config.Config, inmemoryCache cache.Cache, db *gorm.DB, log *logger.Logger) (*Repository, error) {
@@ -50,5 +53,8 @@ func NewRepository(cfg *config.Config, inmemoryCache cache.Cache, db *gorm.DB, l
 		BinanceRepo:                 binanceRepo,
 		CandleRepo:                  candleRepo,
 		UserSignalAlertRepo:         userSignalAlertRepo,
+		NewsRepo:                    NewGoogleNewsRepository(cfg, log),
+		StockNewsRepo:               NewStockNewsRepository(db),
+		NewsWatchlistRepo:           NewNewsWatchlistRepository(db),
 	}, nil
 }

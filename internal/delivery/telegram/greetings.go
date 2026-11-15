@@ -19,6 +19,7 @@ Saya di sini untuk membantu kamu memantau saham dan mencari peluang terbaik dari
 💰 /report Melihat ringkasan hasil trading kamu berdasarkan posisi yang sudah kamu entry dan exit.
 🔄 /scheduler	- Lihat status scheduler & jalankan job secara manual  
 📡 /alertsignal - Notifikasi sinyal BUY terbaik yang dikirim otomatis sesuai jadwal oleh sistem
+📰 /news - Lihat & pantau berita saham (notifikasi otomatis saat ada berita baru)
 
 💡 Info & Bantuan:
 🆘 /help - Lihat panduan penggunaan lengkap  
@@ -47,6 +48,9 @@ Berikut daftar perintah yang bisa kamu gunakan:
 /report - Melihat ringkasan hasil trading kamu berdasarkan posisi yang sudah kamu entry dan exit.
 /scheduler	- Lihat status scheduler & jalankan job secara manual  
 /alertsignal - Notifikasi sinyal BUY terbaik yang dikirim otomatis sesuai jadwal oleh sistem
+/news - Lihat berita terbaru (contoh: /news BBCA) & daftar watchlist berita
+/watchnews - Pantau berita saham (contoh: /watchnews BBCA TLKM)
+/unwatchnews - Berhenti pantau berita saham
 
 💡 *Tips Penggunaan:*
 1. Gunakan /analyze untuk analisa cepat atau mendalam (bisa juga langsung kirim kode saham, misalnya: 'BBCA')  

@@ -16,6 +16,7 @@ type Service struct {
 	TradingService     TradingService
 	BacktestService    BacktestService
 	SendSignalService  SendSignalService
+	NewsService        NewsService
 }
 
 func NewService(
@@ -37,6 +38,7 @@ func NewService(
 	executorStrategies[strategy.JobTypeBuySignalGenerator] = buySignalGeneratorStrategy
 	executorStrategies[strategy.JobTypeStockPositionMonitor] = stockPositionMonitoringStrategy
 	executorStrategies[strategy.JobTypeDataCleanUp] = strategy.NewDataCleanUpStrategy(cfg, log, repo.StockAnalysisRepo, repo.JobRepo)
+	executorStrategies[strategy.JobTypeStockNewsWatcher] = strategy.NewStockNewsWatcherStrategy(cfg, log, telegram, repo.NewsRepo, repo.StockNewsRepo, repo.NewsWatchlistRepo, repo.StockPositionsRepo)
 
 	taskExecutor := NewTaskExecutor(cfg, log, repo.JobRepo, executorStrategies)
 
@@ -51,5 +53,6 @@ func NewService(
 		TradingService:     tradingService,
 		BacktestService:    backtestService,
 		SendSignalService:  signalService,
+		NewsService:        NewNewsService(cfg, log, repo),
 	}
 }
